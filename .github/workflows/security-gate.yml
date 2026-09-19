@@ -49,5 +49,5 @@ jobs:
       - name: Block high or critical production advisories
         run: pnpm audit --prod --audit-level high
 
-      - name: Block critical advisories anywhere in the graph
-        run: pnpm audit --audit-level critical
+      - name: Block high or critical advisories anywhere in the graph
+        run: pnpm audit --audit-level high

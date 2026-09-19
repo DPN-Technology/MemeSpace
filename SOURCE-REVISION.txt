@@ -1,5 +1,7 @@
-MemeSpace v2.1 local Node.js repair
-Based on published source: 6e7f8e8044772178828d040607a8b84d6a81d88d
+MemeSpace v2.2 — Emerald Mind local edition
+Based on the working v2.1 Node.js repair.
+Original published source: 6e7f8e8044772178828d040607a8b84d6a81d88d
 Local runtime: Next.js + Node.js 24 + native SQLite
-Changes: local launcher, SQLite adapter/import, local signed sessions, health check, local origin handling, local privacy wording, tests and setup documentation.
+Release changes: animated emerald irises and light spill, receptor-focused brain pulses, viewport-safe previews, deeper module workflows and revised documentation.
+The v2.1 launchers, session implementation, dependency pins, SQLite adapter and migrations are preserved.
 The hosted Sites project is unchanged.

@@ -24,7 +24,7 @@ This audit reviewed repository structure, dependency policy, runtime/session bou
 - The local server binds to loopback and validates host/origin context for state-changing requests.
 - Existing startup tests already cover spoofed identity headers, untrusted origins, tampered cookies, persistence, and primary API behavior.
 - Next.js `16.3.4` is above the patched `16.3.3` floor for the August 25, 2026 critical Next.js security release.
-- React / `react-server-dom-webpack` `19.2.6` is at the patched release for the May 2026 React Server Components denial-of-service advisory.
+- React, React DOM, and `react-server-dom-webpack` are now aligned on `19.2.8`, which remediates the later Server Functions denial-of-service advisory affecting the `19.2.0` through `19.2.7` line.
 
 ### Gaps found
 
@@ -37,6 +37,8 @@ This audit reviewed repository structure, dependency policy, runtime/session bou
 7. **Security headers were minimal.** The application now adds clickjacking, MIME-sniffing, referrer, and browser-capability restrictions without adding HSTS, which would be inappropriate for the current localhost HTTP model.
 8. **Cross-site auth-route behavior was not explicitly regression-tested.** Coverage is added.
 9. **The dependency audit exposed two HIGH-severity Browserslist advisories in the locked graph (`browserslist 4.28.2`).** The graph is now overridden and locked to `browserslist 4.28.7`, the patched release, and the vulnerable `4.28.2` resolution is no longer present.
+10. **A second full dependency audit found 18 HIGH-severity advisories in development/tooling paths.** Affected packages included Undici, ws, Vite, brace-expansion, js-yaml, `react-server-dom-webpack`, and image-size through Cloudflare/Vite, ESLint, vinext, and related tooling. Patched same-major or maintenance releases are now locked.
+11. **The package-age quarantine blocked the newly released image-size security fix by design.** A single exact exception for `image-size@2.0.3` is now declared and enforced by the repository security policy; arbitrary release-age exceptions remain disallowed.
 
 ## Controls added by this hardening pass
 
@@ -75,7 +77,7 @@ It blocks:
 - persisted checkout credentials
 - weakening of pnpm release-age / build-script / lockfile-verification policy
 - high/critical production dependency advisories
-- critical advisories anywhere in the dependency graph
+- high/critical advisories anywhere in the dependency graph
 
 ### Dependency maintenance
 
@@ -102,7 +104,19 @@ Added:
 
 HSTS is intentionally not added because the current supported execution model is localhost over HTTP.
 
+## Post-remediation advisory state
+
+The final second-pass audit on the hardening branch reports:
+
+- production graph: **2 advisories — 1 low, 1 moderate**
+- complete dependency graph: **5 advisories — 2 low, 3 moderate**
+- **0 high**
+- **0 critical**
+
+The security workflow now fails on HIGH-or-higher advisories across the complete graph, not only production dependencies. Remaining low/moderate advisories stay visible for Dependabot and future maintenance rather than being represented as zero risk.
+
 ## Residual risks / next controls
+
 
 - Create a GitHub ruleset for `main` and require both CI jobs before merge.
 - Require pull requests instead of direct pushes when the project moves beyond solo development.
@@ -112,8 +126,26 @@ HSTS is intentionally not added because the current supported execution model is
 - Revisit authentication, secure-cookie behavior, global rate limiting, moderation controls, and production observability before any internet-facing deployment.
 - Continue reviewing prerelease infrastructure dependencies such as `vinext` before public production use.
 - Keep the `browserslist: 4.28.7` override until upstream dependency ranges naturally resolve to an equal or newer patched release; Dependabot and the security workflow will flag future changes.
+- Remove the exact `image-size@2.0.3` minimum-release-age exception after the package has aged beyond the normal seven-day quarantine and the lockfile remains reproducible without it.
+- Continue reducing the remaining low/moderate advisory count when compatible upstream releases become available.
 
 ## Gate names to require in a future GitHub ruleset
 
 - `CI / Lint · Typecheck · Test · Build`
 - `Security Gate / Static policy · Dependency audit`
+## MemeSpace v2.2 source integration — 2026-09-19
+
+The uploaded MemeSpace v2.2 Full Source package is now the authoritative application source for this branch. The Emerald Mind renderer/UI, module upgrades, v2.2 API/test updates, and release metadata were overlaid onto the newer repository security baseline rather than replacing it.
+
+Integration controls retained:
+
+- package version `2.2.0`
+- pinned-action CI and Security Gate workflows
+- React / React DOM / RSC `19.2.8`
+- Vite `8.0.16` and patched transitive dependency overrides
+- HIGH-or-higher full dependency advisory gate
+- localhost security headers and cross-site auth regression coverage
+- exact seven-day package-age policy with the constrained image-size hotfix exception
+
+The temporary GitHub transfer chunks and one-time reconstruction workflow were removed from the resulting source tree before validation.
+
