@@ -1,0 +1,20 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1789764268813,
+      "tag": "0000_sparkling_marten_broadcloak",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1789776268030,
+      "tag": "0001_overjoyed_komodo",
+      "breakpoints": true
+    }
+  ]
+}

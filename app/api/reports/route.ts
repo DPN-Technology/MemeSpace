@@ -1,0 +1,3 @@
+import {database} from '@/db/raw';
+import {identity,body,failure} from '../common';
+export async function POST(request:Request){try{const id=await identity(request),input=await body(request);if(typeof input.messageId!=='string')throw Error('INPUT');const db=database();if(!await db.prepare('SELECT id FROM messages WHERE id=?').bind(input.messageId).first())return Response.json({error:'This message is no longer available.'},{status:404});await db.prepare('INSERT OR IGNORE INTO reports(id,user_id,message_id,created_at) VALUES(?,?,?,?)').bind(crypto.randomUUID(),id,input.messageId,Date.now()).run();return Response.json({ok:true});}catch(e){return failure(e)}}

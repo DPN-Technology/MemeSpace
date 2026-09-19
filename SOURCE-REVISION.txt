@@ -1,0 +1,5 @@
+MemeSpace v2.1 local Node.js repair
+Based on published source: 6e7f8e8044772178828d040607a8b84d6a81d88d
+Local runtime: Next.js + Node.js 24 + native SQLite
+Changes: local launcher, SQLite adapter/import, local signed sessions, health check, local origin handling, local privacy wording, tests and setup documentation.
+The hosted Sites project is unchanged.
