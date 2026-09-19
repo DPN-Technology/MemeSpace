@@ -36,6 +36,7 @@ This audit reviewed repository structure, dependency policy, runtime/session bou
 6. **No GitHub repository ruleset exists.** Workflows can run, but GitHub will not block a direct push or merge solely because checks failed until required-status rules are enabled in repository settings.
 7. **Security headers were minimal.** The application now adds clickjacking, MIME-sniffing, referrer, and browser-capability restrictions without adding HSTS, which would be inappropriate for the current localhost HTTP model.
 8. **Cross-site auth-route behavior was not explicitly regression-tested.** Coverage is added.
+9. **The dependency audit exposed two HIGH-severity Browserslist advisories in the locked graph (`browserslist 4.28.2`).** The graph is now overridden and locked to `browserslist 4.28.7`, the patched release, and the vulnerable `4.28.2` resolution is no longer present.
 
 ## Controls added by this hardening pass
 
@@ -110,6 +111,7 @@ HSTS is intentionally not added because the current supported execution model is
 - Enable GitHub CodeQL / code scanning if Advanced Security is available for this private repository.
 - Revisit authentication, secure-cookie behavior, global rate limiting, moderation controls, and production observability before any internet-facing deployment.
 - Continue reviewing prerelease infrastructure dependencies such as `vinext` before public production use.
+- Keep the `browserslist: 4.28.7` override until upstream dependency ranges naturally resolve to an equal or newer patched release; Dependabot and the security workflow will flag future changes.
 
 ## Gate names to require in a future GitHub ruleset
 
