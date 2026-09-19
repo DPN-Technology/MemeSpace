@@ -84,6 +84,30 @@ if (existsSync(path.join(root, "pnpm-workspace.yaml"))) {
   if (!/trustLockfile:\s*false\b/.test(policy)) {
     record("pnpm-workspace.yaml", "trustLockfile must stay false so package integrity is re-verified");
   }
+
+  const policyLines = policy.split("\n");
+  const ageExcludes = [];
+  let readingAgeExcludes = false;
+  for (const line of policyLines) {
+    if (/^minimumReleaseAgeExclude:\s*$/.test(line)) {
+      readingAgeExcludes = true;
+      continue;
+    }
+    if (readingAgeExcludes && /^\S/.test(line)) break;
+    if (readingAgeExcludes) {
+      const match = line.match(/^\s*-\s*(\S+)\s*$/);
+      if (match) ageExcludes.push(match[1]);
+    }
+  }
+  const allowedAgeExcludes = new Set(["image-size@2.0.3"]);
+  for (const excluded of ageExcludes) {
+    if (!allowedAgeExcludes.has(excluded)) {
+      record("pnpm-workspace.yaml", `unapproved minimum-release-age exception: ${excluded}`);
+    }
+  }
+  if (/image-size:\s*2\.0\.3\b/.test(policy) && !ageExcludes.includes("image-size@2.0.3")) {
+    record("pnpm-workspace.yaml", "image-size 2.0.3 security hotfix must use the exact approved release-age exception");
+  }
 }
 
 if (existsSync(path.join(root, ".gitignore"))) {
