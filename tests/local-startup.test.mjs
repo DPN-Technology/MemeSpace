@@ -26,10 +26,11 @@ test('starts without a worker runtime and persists signed-in module data',{timeo
       await delay(250);
     }
     assert.ok(ready,'Local server did not become ready:\n'+log);
-    const page=await call('/');assert.equal(page.status,200);assert.match(await page.text(),/Everything begins/);
+    const page=await call('/');assert.equal(page.status,200);assert.equal(page.headers.get('x-content-type-options'),'nosniff');assert.equal(page.headers.get('x-frame-options'),'DENY');assert.match(await page.text(),/Everything begins/);
     for(const asset of ['head.bin','brain.bin']){const r=await call('/geometry/'+asset);assert.equal(r.status,200);assert.ok((await r.arrayBuffer()).byteLength>100000)}
     assert.equal((await call('/api/profile')).status,401);
     assert.equal((await call('/api/profile',undefined,undefined,{'oai-authenticated-user-id':'spoof','oai-authenticated-user-email':'spoof@example.com'})).status,401);
+    const blockedLogin=await call('/signin-with-chatgpt?return_to=%2F',undefined,undefined,{'Sec-Fetch-Site':'cross-site'});assert.equal(blockedLogin.status,403);
     const login=await call('/signin-with-chatgpt?return_to=%2F%23profile');assert.equal(login.status,303);
     const cookie=login.headers.get('set-cookie')?.split(';')[0];assert.ok(cookie);
     assert.equal((await call('/api/profile',{name:'Local test',bio:'Persists on this computer.'},cookie)).status,200);
@@ -41,6 +42,7 @@ test('starts without a worker runtime and persists signed-in module data',{timeo
     const chat=await (await call('/api/chat?channel=general',undefined,cookie)).json();assert.equal(chat.messages[0].text,'Local runtime works');assert.equal(chat.messages[0].mine,true);
     assert.equal((await call('/api/chat/like',{id:chat.messages[0].id,enabled:true},cookie)).status,200);
     assert.equal((await (await call('/api/chat?channel=general',undefined,cookie)).json()).messages[0].likes,1);
+    assert.equal((await call('/signout-with-chatgpt',undefined,cookie,{'Sec-Fetch-Site':'cross-site'})).status,403);
     assert.equal((await call('/api/profile',undefined,cookie+'tampered')).status,401);
   }catch(error){console.error(log);throw error;}finally{
     child.kill('SIGTERM');await new Promise(r=>child.exitCode!==null?r():child.once('exit',r));

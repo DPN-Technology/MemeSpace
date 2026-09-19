@@ -16,7 +16,10 @@
     "serve": "node scripts/local.mjs serve",
     "test": "node scripts/local.mjs test",
     "db:migrate": "node scripts/local.mjs migrate",
-    "db:backup": "node scripts/local.mjs backup"
+    "db:backup": "node scripts/local.mjs backup",
+    "typecheck": "tsc --noEmit",
+    "security:gate": "node scripts/security-gate.mjs",
+    "ci:verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm security:gate"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
