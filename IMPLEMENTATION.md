@@ -1,3 +1,13 @@
+# Local edition v2.2 additions
+
+This version retains the v2.1 Node runtime and extends the live renderer and every module. See README.md for the release features and upgrade instructions, and RELEASE-v2.2.md for validation.
+
+Notes use the existing `saved_items` table with kind `note`; no destructive migration or new table is required. Meme settings are optional fields, so earlier saved creations still open with the original defaults. The new game best scores, visual settings and note drafts stay in browser local storage; chat drafts last for the current browser-tab session.
+
+The Wallet dashboard is a public-address connection interface. No balance service, transaction signing, trading, ownership verification or public multi-user authentication is added. Phantom integration follows its official provider documentation: https://docs.phantom.com/solana/establishing-a-connection
+
+Historical implementation notes follow.
+
 # Local edition v2.1 runtime note
 
 This export uses Node.js/Next.js and local SQLite instead of the hosted Worker/D1 runtime described below. Local authentication uses signed cookies and ignores hosted identity headers. See README.md and FIX-REPORT.md for the repair and validation. The original implementation notes below describe the published Sites version.

@@ -1,6 +1,29 @@
-# MemeSpace v2.1 — Node.js startup fix
+# MemeSpace v2.2 — Emerald Mind
 
-This is the complete local source package with the worker-runtime startup dependency removed. START-WINDOWS.cmd now runs **Next.js on Node.js with a local SQLite database**. It does not start Vite, Vinext, Wrangler or workerd. The animated binary head, brain, assets and module interfaces remain included.
+The complete runnable local source, built on the working v2.1 Node.js + Next.js + SQLite setup. The head and brain are rendered from real 3D geometry as thousands of live 0 and 1 glyphs.
+
+## New in this release
+
+- Glowing emerald binary irises, pupil tracking, blinking and stronger face lighting. Tune eye glow in Experience settings.
+- Electrical digit trails across the brain, with pulses converging on the module you hover or focus.
+- Module previews render outside the scene and automatically reposition to stay within the viewport, fixing the clipped Wallet preview.
+- Three games: Binary Match, Binary Reactor and the new Signal Sequence, with two speeds and a device-local best score.
+- Archive sorting, accurate reading-time estimates, related stories, copyable story links and search that opens exact stories and lessons.
+- Lesson notes with device drafts and signed-in library storage.
+- Multiline chat, independent drafts for each channel, refresh status and a jump-to-latest control.
+- Meme caption size and color, wrapped captions, editable saved creations, copies and deletion.
+- A larger Wallet dashboard with provider detection, live account/disconnect updates, copy address, explorer links and a direct wallet lesson link.
+- A filterable, actionable profile library with notes and creations, removal controls and a profile/library JSON export.
+
+## Upgrade from your working v2.1
+
+1. Stop your current server with Ctrl+C.
+2. Keep the old folder as your rollback copy. Extract v2.2 into a new folder.
+3. Copy the **entire `data` folder** from your working v2.1 folder into the new project folder, beside `package.json`, before starting setup. This preserves your saved profile, chat, bookmarks, progress and creations.
+4. Run **SETUP-WINDOWS.cmd**, then **START-WINDOWS.cmd**.
+5. Use the same browser and `http://localhost:5173/` to retain your browser preferences and drafts.
+
+No new paid service or API key is required. The working Node launcher and local identity are preserved.
 
 ## Windows: start here
 
@@ -15,24 +38,15 @@ The first setup needs internet access to download the locked dependencies. You d
 
 If you extracted these files over the old source folder, run setup again so the corrected scripts are used. Do not delete your old `.wrangler` directory if you want to keep its database.
 
-## What changed
+## Runtime
 
-The reported failure occurred after the database migrations succeeded, inside the Cloudflare Vite plugin's worker-entry loading path (`runInRunnerObject` / `getWorkerEntryExportTypes`). The opaque internal reference did not identify the underlying platform fault, and a Windows machine was not available to reproduce that exact native exception.
+This edition runs Next.js on Node.js 24 or newer with the native SQLite driver. It does not start Vite, Vinext, Wrangler or workerd. The original Sites/Vite files remain for source reference; this local edition uses Node-specific database and authentication adapters.
 
-This repair removes that entire startup path from the local edition:
-
-- Node.js runs Next.js using its webpack mode.
-- Node's built-in SQLite driver replaces the local D1 worker binding.
-- Local sign-in uses a signed session cookie; it ignores caller-supplied hosted identity headers.
-- The launcher checks the server and database before announcing that MemeSpace is ready.
-- The same database migrations and API behavior are retained.
-- The published Sites website was not changed by this local-package repair.
-
-Updating Wrangler is not required to run the corrected launcher. The old Sites/Vite configuration and dependencies are retained with the source for reference, but the local setup/start/build/migrate commands do not execute them. The application/database/authentication adapters in this edition target Node.js; do not deploy this edited export back to Sites without restoring the hosted adapters.
+The launcher checks both the server and database before printing its ready message. Dependency versions and the lockfile are unchanged from v2.1. Historical startup repair details remain in FIX-REPORT.md.
 
 ## Sign-in and saved features
 
-Open Community Chat or Your Profile and use **Sign in**. It signs in to one local owner identity without leaving your computer. Edit your display name and bio in Your Profile. This enables chat, replies, reactions, bookmarks, lesson progress and saved meme captions.
+Open Community Chat or Your Profile and use **Sign in**. It signs in to one local owner identity without leaving your computer. Edit your display name and bio in Your Profile. This enables chat, replies, reactions, bookmarks, lesson progress, notes and saved meme captions.
 
 The historical `local_seedy` database user ID is preserved so old saved records still belong to you. New sessions display “Local Owner”; profile names you saved remain intact. No hosted chat history or private account data is included in the ZIP.
 
@@ -73,6 +87,7 @@ Source edits reload in local development mode. Main files:
 - `app/scene.tsx`: animated binary head and brain renderer.
 - `app/page.tsx`: portal, brain navigation and module shell.
 - `app/expanded-modules.tsx`: interactive module workspaces.
+- `app/module-upgrades.tsx`: Signal Sequence, lesson notes and Wallet dashboard.
 - `app/content.ts`: stories and lessons.
 - `app/globals.css`: visual styling.
 - `app/api/`: persistent module endpoints.
@@ -97,7 +112,7 @@ The pnpm lockfile and dependency versions are retained. Do not run `npm ci`, bec
 
 ## Troubleshooting
 
-- **Old Wrangler/Vite banner still appears:** you are launching the old copy or old script. This package's START-WINDOWS.cmd starts Node.js/Next.js and prints the v2.1 Node runtime startup message.
+- **Old Wrangler/Vite banner still appears:** you are launching the old copy or old script. This package's START-WINDOWS.cmd starts Node.js/Next.js and prints a Node.js startup message.
 - **Node is not recognized:** install Node.js and reopen the terminal.
 - **Port 5173 is occupied:** stop the previous copy, or run `$env:MEMESPACE_PORT=5174; node scripts/local.mjs start` in PowerShell.
 - **Sign-in fails:** use localhost or 127.0.0.1 with the port printed by the launcher, not a LAN IP. Local sign-in is intentionally restricted to this computer.
@@ -110,6 +125,6 @@ The pnpm lockfile and dependency versions are retained. Do not run `npm ci`, bec
 
 The corrected package is tested with Node 24 on Linux. The regression check denies loading Cloudflare worker-runtime modules, then verifies server readiness, page and geometry delivery, sign-in, profile writes, chat, reactions and bookmarks. Database tests cover repeated migrations, reopening saved data and importing an earlier database without changing the original. TypeScript and production-build results are recorded in FIX-REPORT.md. Windows launchers are included; direct execution on Windows was not available here, so no Windows-specific runtime success is claimed.
 
-The current platform features and later roadmap remain described in IMPLEMENTATION.md. This repair changes local hosting, not the scope of the Build Bible. For public multi-user hosting, replace local sign-in with a proper authentication service and configure HTTPS and access controls.
+The current platform features and later roadmap remain described in IMPLEMENTATION.md. The full Build Bible roadmap is not claimed complete. For public multi-user hosting, replace local sign-in with a proper authentication service and configure HTTPS and access controls.
 
 References: [Next.js self-hosting](https://nextjs.org/docs/app/guides/self-hosting), [Node.js SQLite](https://nodejs.org/api/sqlite.html). Preserve geometry and vendored-code attribution/licenses when redistributing.
