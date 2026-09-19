@@ -32,3 +32,7 @@ This remains a single-user local edition. Public multi-user accounts, live moder
 Stop the old server. Extract v2.2 to a new folder and copy your whole existing `data` folder into it before setup. Run SETUP-WINDOWS.cmd, then START-WINDOWS.cmd. Keep the old folder until you have checked your saved information.
 
 The archive contains the full source, geometry, concept assets, licenses, database migrations, dependency lockfile, launchers and documentation. It excludes installed dependencies, compiled output, local databases, session keys, test data and temporary preview files. SHA256SUMS.txt covers every packaged file except itself.
+
+## Repository security integration
+
+The GitHub repository keeps the hardened CI/security baseline introduced after the original v2.2 source package was assembled. Runtime features come from the verified v2.2 archive, while dependency pins, security headers, repository policy checks and patched tooling remain on the newer hardened versions.
