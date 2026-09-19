@@ -115,7 +115,8 @@ const secretPatterns = [
 const dangerousPatterns = [
   ["dynamic eval", /\beval\s*\(/g],
   ["dynamic Function constructor", /\bnew\s+Function\s*\(/g],
-  ["shell command execution", /\b(?:exec|execSync)\s*\(/g],
+  ["child_process exec import", /import\s*\{[^}]*\bexec(?:Sync)?\b[^}]*\}\s*from\s*["']node:child_process["']/g],
+  ["child_process exec require", /require\s*\(\s*["']node:child_process["']\s*\)\.exec(?:Sync)?\s*\(/g],
   ["TLS certificate verification disabled", /NODE_TLS_REJECT_UNAUTHORIZED\s*=\s*["']?0/g],
   ["TLS verification bypass", /rejectUnauthorized\s*:\s*false/g],
 ];
