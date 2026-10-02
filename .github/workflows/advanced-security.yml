@@ -1,0 +1,140 @@
+name: Advanced Security and Supply Chain
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "43 10 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: advanced-security-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  codeql:
+    name: CodeQL JavaScript/TypeScript
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4
+        with:
+          languages: javascript-typescript
+      - name: Analyze locally
+        uses: github/codeql-action/analyze@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4
+        with:
+          upload: never
+          output: codeql-results
+      - name: Enforce high-severity SARIF findings
+        shell: node {0}
+        run: |
+          const fs=require('fs'), path=require('path');
+          const files=[];
+          const walk=d=>{for(const e of fs.readdirSync(d,{withFileTypes:true})){const p=path.join(d,e.name);e.isDirectory()?walk(p):p.endsWith('.sarif')&&files.push(p)}};
+          walk('codeql-results');
+          const bad=[];
+          for(const file of files){
+            const sarif=JSON.parse(fs.readFileSync(file,'utf8'));
+            for(const run of sarif.runs||[]){
+              const rules=new Map((run.tool?.driver?.rules||[]).map(r=>[r.id,r]));
+              for(const result of run.results||[]){
+                const rule=rules.get(result.ruleId)||{};
+                const score=Number(rule.properties?.['security-severity']||0);
+                const level=result.level||'warning';
+                if(score>=7 || level==='error') bad.push({rule:result.ruleId,score,level});
+              }
+            }
+          }
+          if(bad.length){console.error('Blocking CodeQL findings:',bad);process.exit(1)}
+          console.log('CodeQL local SARIF gate passed.');
+      - name: Preserve CodeQL SARIF
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: memespace-codeql-sarif
+          path: codeql-results
+          if-no-files-found: error
+          retention-days: 30
+
+  secret-scan:
+    name: Full-history secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Scan repository history
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  supply-chain:
+    name: Lockfile · License · SBOM
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CI: "true"
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24.20.0"
+          check-latest: false
+          package-manager-cache: false
+      - name: Install pinned pnpm
+        run: npm install --global pnpm@11.25.0 --ignore-scripts
+      - name: Validate dependency governance files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s pnpm-lock.yaml
+          test -s pnpm-workspace.yaml
+          test -s THIRD_PARTY_LICENSES.md
+          test -s .github/dependabot.yml
+          node <<'NODE'
+          const fs=require('fs');
+          const pkg=JSON.parse(fs.readFileSync('package.json','utf8'));
+          if(pkg.packageManager!=='pnpm@11.25.0') throw new Error('packageManager pin changed without security workflow review');
+          const licenses=fs.readFileSync('THIRD_PARTY_LICENSES.md','utf8');
+          for(const name of ['Next.js','React','Drizzle','Vite','Cloudflare','ESLint','TypeScript','Zod']){
+            if(!licenses.toLowerCase().includes(name.toLowerCase())) throw new Error('License inventory missing dependency family: '+name);
+          }
+          NODE
+      - name: Run repository security policy before dependency execution
+        run: node scripts/security-gate.mjs
+      - name: Install locked dependency graph
+        run: pnpm install --frozen-lockfile
+      - name: Generate CycloneDX SBOM
+        run: pnpm dlx --package @cyclonedx/cyclonedx-npm@4.1.2 cyclonedx-npm --output-file sbom.cdx.json --output-format JSON --ignore-npm-errors
+      - name: Upload SBOM
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: memespace-cyclonedx-sbom
+          path: sbom.cdx.json
+          if-no-files-found: error
+          retention-days: 30
