@@ -12,9 +12,10 @@ The v2.5 application source was treated as the authoritative product baseline wh
 - Package version: `2.5.0`
 - Runtime floor: Node.js 24
 - Package manager: pnpm 11.25.0
-- Existing hardened `pnpm-lock.yaml` retained because v2.5 adds no runtime dependency requirements.
+- Hardened `pnpm-lock.yaml` retained as the baseline, then regenerated only for the Next.js security patch described below.
 - React, React DOM and React Server DOM Webpack remain aligned at 19.2.8.
 - Vite remains on the repository-maintained 8.0.16 floor.
+- Next.js was upgraded from 16.3.4 to 16.3.6 after the repository security workflow detected GHSA-vcvr-r3jv-pc5j (critical `next/og` ImageResponse RCE). `eslint-config-next` was kept on the matching 16.3.6 release.
 - Existing 3D geometry assets were reused byte-for-byte instead of being unnecessarily re-uploaded.
 
 ## v2.5 product surface reviewed
@@ -60,7 +61,7 @@ The integrated working copy passed `node scripts/security-gate.mjs`.
 
 A Node-only regression pass produced 17 passing tests. The single local failure was the arcade engine test under the available Node 22 execution environment because Node 22 does not directly load the TypeScript engine module. The repository requires Node 24 and CI is pinned to Node 24.20.0, so this local environment mismatch is not treated as evidence that the arcade engine passes.
 
-Lint, TypeScript, full test, production build and dependency-advisory claims are intentionally deferred to the GitHub workflows running on the repository commit produced after this audit file is added.
+GitHub CI on Node 24.20.0 subsequently passed lint, TypeScript typechecking, the complete test suite and the production build for the integrated v2.5 source. The first dependency security run then identified the newly applicable Next.js advisory. The dedicated security upgrade regenerated the lockfile at Next.js 16.3.6 and passed the production HIGH/CRITICAL audit plus the static repository policy gate. A final normal CI/security run is triggered by this audit update.
 
 ## Deployment boundary
 
