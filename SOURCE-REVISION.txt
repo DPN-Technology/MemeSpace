@@ -1,7 +1,9 @@
-MemeSpace v2.2 — Emerald Mind local edition
-Based on the working v2.1 Node.js repair.
-Original published source: 6e7f8e8044772178828d040607a8b84d6a81d88d
-Local runtime: Next.js + Node.js 24 + native SQLite
-Release changes: animated emerald irises and light spill, receptor-focused brain pulses, viewport-safe previews, deeper module workflows and revised documentation.
-The v2.1 launchers, session implementation, dependency pins, SQLite adapter and migrations are preserved.
-The hosted Sites project is unchanged.
+MemeSpace v2.5 — Neon Arcade local edition
+Based on v2.4 Separate Control Center, v2.3 Identity Foundation and the working Node.js startup repair.
+Original hosted source baseline: 6e7f8e8044772178828d040607a8b84d6a81d88d
+Public runtime: Next.js + Node.js 24 + native SQLite
+Admin runtime: separate Node.js HTTP service, separate security SQLite database
+Release changes: six-cabinet arcade lobby; Reactor Pinball physics; After Hours Pool solo/computer/two-player modes; Quantum Reels with free play credits, settled outcomes and spin history; keyboard/touch/fullscreen/help controls; account-scoped browser records; audited admin cabinet availability; additive migration 0004; arcade engine and integration tests.
+No runtime dependencies were added or changed. The pnpm lockfile is preserved.
+This source export is not a Git checkout. Hosted Sites project is unchanged.
+Repository integration: promoted to DevelopPioneerNavigate/MemeSpace with the hardened CI/security baseline retained; React/React DOM/RSC 19.2.8 and Vite 8.0.16 are the maintained repository dependency floor for this release.

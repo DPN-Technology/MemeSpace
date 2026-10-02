@@ -23,15 +23,6 @@ const eslintConfig = defineConfig([
       "react-hooks/set-state-in-effect": "off",
     },
   },
-  {
-    files: ["app/page.tsx", "app/expanded-modules.tsx"],
-    rules: {
-      // These two pre-existing dense UI modules still carry legacy typing/effect
-      // debt. Keep it visible as warnings while CI remains strict everywhere else.
-      "@typescript-eslint/no-explicit-any": "warn",
-      "react-hooks/set-state-in-effect": "warn",
-    },
-  },
 ]);
 
 export default eslintConfig;

@@ -4,33 +4,28 @@ MemeSpace is maintained by DPN Technology. Security reports should be handled pr
 
 ## Supported code
 
-Security fixes target the current `main` branch and the most recent maintained release. Older snapshots should be upgraded before they are treated as supported.
+Security fixes target the current `main` branch and the most recent maintained release. The current source line is **MemeSpace v2.5 — Neon Arcade**.
 
 ## Reporting a vulnerability
 
-Do **not** open a public issue containing exploit instructions, credentials, tokens, private user data, or a working proof of concept.
+Do not open a public issue containing exploit instructions, credentials, tokens, private user data, MFA material, recovery codes, session cookies, wallet secrets, or a working proof of concept.
 
-Preferred reporting path:
+Use GitHub private vulnerability reporting / Security Advisory when available. Otherwise contact the repository owner privately with the affected commit, impact, reproduction conditions, and the minimum information required to validate the report.
 
-1. Use GitHub's private vulnerability reporting / Security Advisory flow for this repository when available.
-2. If that flow is unavailable, contact the repository owner privately and include the affected commit, impact, reproduction conditions, and the minimum information needed to confirm the issue.
+## Repository security baseline
 
-Never send seed phrases, wallet private keys, passwords, session cookies, or unrelated personal data as part of a report.
-
-## Security expectations
-
-The repository security baseline includes:
-
-- pinned GitHub Actions
-- least-privilege workflow permissions
-- frozen-lockfile dependency installs
-- explicit dependency advisory gates
+- pinned GitHub Actions and read-only workflow permissions
+- frozen-lockfile installs with pnpm 11.25.0
+- seven-day dependency release quarantine with a constrained security-hotfix exception
+- explicit high/critical dependency advisory gates
 - secret-pattern and dangerous-code policy checks
-- TypeScript strict mode
-- lint, test, typecheck, and production-build CI
-- delayed dependency adoption and restricted dependency build scripts
-- ignored environment files, local databases, and backups
+- TypeScript, lint, regression tests, production build, and static security validation in CI
+- ignored environment files, runtime databases, MFA keys, sessions, backups, and generated output
+- security headers on the public Next.js application
+- separate public-member and Control Center authentication/session models
 
 ## Local-runtime boundary
 
-MemeSpace v2.1 is currently designed to run as a local application bound to loopback. The local sign-in/session model is not a substitute for production internet-facing authentication. Any future public deployment must introduce production-grade identity, authorization, rate limiting, secure-cookie behavior, deployment-specific CSRF protections, and operational monitoring before exposure to untrusted networks.
+MemeSpace v2.5 is intentionally local-first. The public site and the separate Control Center bind to loopback by default and share the local operating-system trust boundary. The Control Center adds password authentication, authenticator MFA, CSRF/origin enforcement, role permissions, lockouts, audit events, and a separate security database, but this is **not** a production internet-facing deployment model.
+
+Before public exposure, add deployment-grade HTTPS, secure cookies, external identity/access controls, rate limiting, centralized secrets, operational monitoring, encrypted off-machine backups, service isolation, incident response procedures, and a security review of every public/admin route.

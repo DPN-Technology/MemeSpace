@@ -15,7 +15,7 @@ test('migrations preserve saved data after close and reopen',async()=>{
   await q.prepare('INSERT INTO profiles(user_id,name,bio,updated_at) VALUES(?,?,?,?)').bind('local_seedy','Diesel','Saved locally',1).run();
   db.close();db=openDatabase(root);q=adapter(db);
   assert.equal((await q.prepare('SELECT name FROM profiles WHERE user_id=?').bind('local_seedy').first()).name,'Diesel');
-  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM _memespace_migrations').get().n,2);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM _memespace_migrations').get().n,5);
   assert.equal((await q.prepare('SELECT name FROM profiles WHERE user_id=?').bind('missing').first()),null);
  }finally{db?.close();rmSync(root,{recursive:true,force:true})}
 });
@@ -35,4 +35,19 @@ test('copies the old database and upgrades it without losing profiles',async()=>
   old=new DatabaseSync(file,{readOnly:true});assert.equal(old.prepare('SELECT bio FROM profiles').get().bio,'Keep me');
   assert.ok(!old.prepare('PRAGMA table_info(messages)').all().some(c=>c.name==='channel'));
  }finally{db?.close();old?.close();rmSync(root,{recursive:true,force:true})}
+});
+test('creates identity tables and preserves the legacy owner during migration',async()=>{
+ const root=fixture();let db;
+ try{
+  db=openDatabase(root);
+  db.prepare('INSERT INTO profiles(user_id,name,bio,updated_at) VALUES(?,?,?,?)').run('local_seedy','Diesel','Legacy owner',Date.now());
+  db.close();db=openDatabase(root);
+  const account=db.prepare('SELECT user_id,email,display_name,password_hash FROM accounts WHERE user_id=?').get('local_seedy');
+  assert.equal(account.user_id,'local_seedy');
+  assert.equal(account.email,'owner@localhost');
+  assert.equal(account.display_name,'Local Owner');
+  assert.match(account.password_hash,/^legacy_unset\$/);
+  assert.ok(db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='sessions'").get());
+  assert.equal(db.prepare('SELECT name FROM profiles WHERE user_id=?').get('local_seedy').name,'Diesel');
+ }finally{db?.close();rmSync(root,{recursive:true,force:true})}
 });

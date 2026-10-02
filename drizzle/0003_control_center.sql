@@ -1,0 +1,15 @@
+ALTER TABLE accounts ADD COLUMN suspended_at INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE accounts ADD COLUMN suspension_reason TEXT NOT NULL DEFAULT '';
+ALTER TABLE messages ADD COLUMN hidden_at INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE messages ADD COLUMN hidden_reason TEXT NOT NULL DEFAULT '';
+ALTER TABLE reports ADD COLUMN status TEXT NOT NULL DEFAULT 'open';
+ALTER TABLE reports ADD COLUMN reviewed_at INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE reports ADD COLUMN reviewed_by TEXT NOT NULL DEFAULT '';
+ALTER TABLE reports ADD COLUMN resolution_note TEXT NOT NULL DEFAULT '';
+CREATE INDEX idx_reports_status_created ON reports(status,created_at);
+CREATE INDEX idx_accounts_created ON accounts(created_at);
+CREATE TABLE platform_settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at INTEGER NOT NULL);
+INSERT INTO platform_settings VALUES('registration_open','true',0),('chat_readonly','false',0);
+CREATE TABLE announcements (id TEXT PRIMARY KEY, title TEXT NOT NULL, body TEXT NOT NULL, tone TEXT NOT NULL DEFAULT 'info', status TEXT NOT NULL DEFAULT 'draft', created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, published_at INTEGER NOT NULL DEFAULT 0);
+CREATE INDEX idx_announcements_status ON announcements(status,published_at);
+ALTER TABLE accounts ADD COLUMN legacy_claimed_at INTEGER NOT NULL DEFAULT 0;

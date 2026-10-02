@@ -1,5 +1,6 @@
 "use client";
 import {useEffect,useRef,useState} from 'react';
+import {useIdentityScope} from './identity-scope';
 import {ArrowRight,Check,Copy,ExternalLink,RotateCcw,Save,Shield,Wallet} from 'lucide-react';
 
 type LessonEntry={payload?:{text?:string}};
@@ -9,12 +10,13 @@ type PhantomError={code?:number;message?:string};
 type PhantomProvider={isPhantom?:boolean;isConnected?:boolean;publicKey?:PhantomKey;connect:()=>Promise<{publicKey:PhantomKey}>;disconnect:()=>Promise<void>;on?:(name:string,fn:(key?:PhantomKey|null)=>void)=>void;removeListener?:(name:string,fn:(key?:PhantomKey|null)=>void)=>void};
 type PhantomWindow=Window & {phantom?:{solana?:PhantomProvider}};
 
-export function LessonNotes({id,title,entry,save}:{id:string;title:string;entry?:LessonEntry;save:(kind:string,key:string,payload:unknown)=>Promise<boolean>}){
+export function LessonNotes({id,title,entry,save,openIdentity}:{id:string;title:string;entry?:LessonEntry;save:(kind:string,key:string,payload:unknown)=>Promise<boolean>;openIdentity?:()=>void}){
+  const scope=useIdentityScope();
   const [text,setText]=useState(''),[status,setStatus]=useState('');
   const dirty=useRef(false);
-  useEffect(()=>{const timer=setTimeout(()=>{try{const draft=localStorage.getItem('memespace-note-'+id);if(draft!==null){setText(draft);dirty.current=true;}}catch{}},0);return()=>clearTimeout(timer)},[id]);
+  useEffect(()=>{const timer=setTimeout(()=>{dirty.current=false;setText('');try{const draft=localStorage.getItem('memespace-note:'+scope+':'+id);if(draft!==null){setText(draft);dirty.current=true;}}catch{}},0);return()=>clearTimeout(timer)},[id,scope]);
   useEffect(()=>{if(dirty.current)return;const timer=setTimeout(()=>setText(entry?.payload?.text||''),0);return()=>clearTimeout(timer)},[entry]);
-  return <section className="lesson-notes"><p className="micro-label">YOUR FIELD NOTES</p><h3>Make the idea your own.</h3><label className="field-label" htmlFor={'notes-'+id}>What do you want to remember?</label><textarea id={'notes-'+id} maxLength={1200} rows={5} value={text} placeholder="A useful definition, a question, or something to revisit…" onChange={e=>{dirty.current=true;setText(e.target.value);setStatus('Draft kept on this device.');try{localStorage.setItem('memespace-note-'+id,e.target.value)}catch{setStatus('Browser storage is unavailable. Save your notes before leaving.')}}}/><div className="module-toolbar"><button className="secondary-action" onClick={async()=>{if(await save('note',id,{title,text}))setStatus('Notes saved to your library.');else setStatus('Sign in to save your notes to your library. Your draft stays here.')}}><Save/>Save notes</button><span className="micro-label">{text.length}/1200</span></div><p className="notice" role="status">{status||'Keep a draft on this device, or sign in to save it in your library.'}</p></section>;
+  return <section className="lesson-notes"><p className="micro-label">YOUR FIELD NOTES</p><h3>Make the idea your own.</h3><label className="field-label" htmlFor={'notes-'+id}>What do you want to remember?</label><textarea id={'notes-'+id} maxLength={1200} rows={5} value={text} placeholder="A useful definition, a question, or something to revisit…" onChange={e=>{dirty.current=true;setText(e.target.value);setStatus('Draft kept on this device.');try{localStorage.setItem('memespace-note:'+scope+':'+id,e.target.value)}catch{setStatus('Browser storage is unavailable. Save your notes before leaving.')}}}/><div className="module-toolbar"><button className="secondary-action" onClick={async()=>{if(await save('note',id,{title,text}))setStatus('Notes saved to your library.');else setStatus('Sign in to save your notes to your library. Your draft stays here.')}}><Save/>Save notes</button>{openIdentity&&<button type="button" className="identity-inline-link" onClick={openIdentity}>Open Identity Center</button>}<span className="micro-label">{text.length}/1200</span></div><p className="notice" role="status">{status||'Keep a draft on this device, or sign in to save it in your library.'}</p></section>;
 }
 
 export function SignalSequence(){
@@ -42,7 +44,7 @@ export function SignalSequence(){
 
 export function WalletDashboard({open}:{open:(id:ModuleId,target?:string)=>void}){
   const [provider,setProvider]=useState<PhantomProvider|null>(null),[address,setAddress]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState('');
-  useEffect(()=>{const detect=()=>setProvider((window as PhantomWindow).phantom?.solana||null);window.addEventListener('focus',detect);return()=>window.removeEventListener('focus',detect)},[]);
+  useEffect(()=>{const detect=()=>setProvider((window as PhantomWindow).phantom?.solana||null);const timer=setTimeout(detect,0);window.addEventListener('focus',detect);return()=>{clearTimeout(timer);window.removeEventListener('focus',detect)}},[]);
   useEffect(()=>{
     if(!provider?.isPhantom)return;
     const connected=()=>setAddress(provider.isConnected?provider.publicKey?.toString()||'':''),changed=(key?:PhantomKey|null)=>setAddress(key?.toString()||''),disconnected=()=>setAddress('');

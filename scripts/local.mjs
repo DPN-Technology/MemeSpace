@@ -54,6 +54,6 @@ try{
     const destination=path.join(folder,'memespace-'+new Date().toISOString().replace(/[:.]/g,'-')+'.sqlite'),db=openDatabase(root);
     try{await backup(db,destination)}finally{db.close()}
     console.log('Database backup saved: '+destination);
-  }else if(command==='test')await run(process.execPath,['--test','tests/local-database.test.mjs','tests/local-startup.test.mjs'],{env:{...process.env,MEMESPACE_DATA_DIR:''}});
+  }else if(command==='test')await run(process.execPath,['--test','tests/local-database.test.mjs','tests/local-auth.test.mjs','tests/identity-ui.test.mjs','tests/admin.test.mjs','tests/arcade.test.mjs','tests/local-startup.test.mjs'],{env:{...process.env,MEMESPACE_DATA_DIR:''}});
   else throw Error('Use setup, start, build, serve, migrate, backup, or test.');
 }catch(error){console.error('\n'+error.message);process.exitCode=1;}

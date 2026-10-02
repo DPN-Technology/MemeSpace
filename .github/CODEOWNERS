@@ -1,5 +1,6 @@
 * @directordiesel
 
 /.github/ @directordiesel
+/admin/ @directordiesel
 /scripts/security-gate.mjs @directordiesel
 /SECURITY.md @directordiesel

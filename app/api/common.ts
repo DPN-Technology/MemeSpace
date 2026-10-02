@@ -1,5 +1,5 @@
 import {getChatGPTUser} from '../chatgpt-auth';
 import {sameOrigin} from '@/lib/local-session.mjs';
 export async function identity(request:Request){if(!sameOrigin(request))throw new Error('ORIGIN');const user=await getChatGPTUser();if(!user)throw new Error('AUTH');return user.userId;}
-export async function body(request:Request){const raw=await request.text();if(raw.length>4096)throw new Error('INPUT');try{return JSON.parse(raw)}catch{throw new Error('INPUT')}}
+export async function body(request:Request){const raw=await request.text();if(raw.length>4096)throw new Error('INPUT');try{const parsed=JSON.parse(raw);if(!parsed||typeof parsed!=='object'||Array.isArray(parsed))throw Error('INPUT');return parsed}catch{throw new Error('INPUT')}}
 export function failure(e:unknown){const m=e instanceof Error?e.message:'';if(m==='AUTH')return Response.json({error:'Please sign in to use this feature.'},{status:401});if(m==='ORIGIN')return Response.json({error:'This request is not allowed.'},{status:403});if(m==='INPUT')return Response.json({error:'Please check your input and try again.'},{status:400});console.error('MemeSpace storage operation failed');return Response.json({error:'This module is temporarily unavailable. Your input has been kept; please try again.'},{status:503});}

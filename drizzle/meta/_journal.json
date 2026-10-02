@@ -15,6 +15,27 @@
       "when": 1789776268030,
       "tag": "0001_overjoyed_komodo",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1789800000000,
+      "tag": "0002_identity_foundation",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1789820000000,
+      "tag": "0003_control_center",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1790000000000,
+      "tag": "0004_neon_arcade",
+      "breakpoints": true
     }
   ]
 }
