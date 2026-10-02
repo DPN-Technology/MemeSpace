@@ -3,6 +3,9 @@ minimumReleaseAge: 10080
 minimumReleaseAgeIgnoreMissingTime: false
 minimumReleaseAgeExclude:
   - image-size@2.0.3
+  # Security-response exceptions: patched Next.js release and its matched ESLint config.
+  - next@16.3.6
+  - eslint-config-next@16.3.6
 trustLockfile: false
 strictDepBuilds: true
 allowBuilds:
