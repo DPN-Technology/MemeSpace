@@ -99,7 +99,7 @@ if (existsSync(path.join(root, "pnpm-workspace.yaml"))) {
       if (match) ageExcludes.push(match[1]);
     }
   }
-  const allowedAgeExcludes = new Set(["image-size@2.0.3"]);
+  const allowedAgeExcludes = new Set(["image-size@2.0.3", "next@16.3.6", "eslint-config-next@16.3.6"]);
   for (const excluded of ageExcludes) {
     if (!allowedAgeExcludes.has(excluded)) {
       record("pnpm-workspace.yaml", `unapproved minimum-release-age exception: ${excluded}`);
