@@ -27,6 +27,10 @@ jobs:
           base64 --decode .import/memespace-v25-overlay-min.b64 > /tmp/memespace-v25-overlay.tgz
           tar -xzf /tmp/memespace-v25-overlay.tgz -C .
 
+          # Validate while the tracked one-time workflow still exists.
+          node scripts/security-gate.mjs
+
+          # Remove all transfer-only material after the gate has inspected it.
           rm -rf .import
           rm -f .github/workflows/import-v2.5.yml
 
@@ -39,8 +43,6 @@ jobs:
             ! -path './backups/*' \
             ! -name 'SHA256SUMS.txt' \
             -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt
-
-          node scripts/security-gate.mjs
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
