@@ -1,0 +1,106 @@
+name: Advanced Security and Supply Chain
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "43 10 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: advanced-security-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  codeql:
+    name: CodeQL JavaScript/TypeScript
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: javascript-typescript
+      - name: Analyze
+        uses: github/codeql-action/analyze@v4
+
+  secret-scan:
+    name: Full-history secret scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Scan repository history
+        uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  supply-chain:
+    name: Lockfile · License · SBOM
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CI: "true"
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24.20.0"
+          check-latest: false
+          package-manager-cache: false
+      - name: Install pinned pnpm
+        run: npm install --global pnpm@11.25.0 --ignore-scripts
+      - name: Validate dependency governance files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s pnpm-lock.yaml
+          test -s pnpm-workspace.yaml
+          test -s THIRD_PARTY_LICENSES.md
+          test -s .github/dependabot.yml
+          node <<'NODE'
+          const fs=require('fs');
+          const pkg=JSON.parse(fs.readFileSync('package.json','utf8'));
+          if(pkg.packageManager!=='pnpm@11.25.0') throw new Error('packageManager pin changed without security workflow review');
+          const licenses=fs.readFileSync('THIRD_PARTY_LICENSES.md','utf8');
+          for(const name of ['Next.js','React','Drizzle','Vite','Cloudflare','ESLint','TypeScript','Zod']){
+            if(!licenses.toLowerCase().includes(name.toLowerCase())) throw new Error('License inventory missing dependency family: '+name);
+          }
+          NODE
+      - name: Run repository security policy before dependency execution
+        run: node scripts/security-gate.mjs
+      - name: Install locked dependency graph
+        run: pnpm install --frozen-lockfile
+      - name: Generate CycloneDX SBOM
+        run: pnpm dlx --package @cyclonedx/cyclonedx-npm@4.1.2 cyclonedx-npm --output-file sbom.cdx.json --output-format JSON --ignore-npm-errors
+      - name: Upload SBOM
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: memespace-cyclonedx-sbom
+          path: sbom.cdx.json
+          if-no-files-found: error
+          retention-days: 30
