@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: advanced-security-${{ github.workflow }}-${{ github.ref }}
