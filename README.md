@@ -8,6 +8,61 @@
 <p align="center"><a href="https://github.com/DPN-Technology/MemeSpace/releases"><strong>Releases</strong></a>&nbsp;•&nbsp;<a href="https://github.com/DPN-Technology/MemeSpace/issues"><strong>Issues</strong></a>&nbsp;•&nbsp;<a href="https://github.com/DPN-Technology/MemeSpace/pulls"><strong>Pull Requests</strong></a></p>
 <!-- DPN-REPO-SHOWCASE:END -->
 
+<!-- DPN-REPO-DETAILS:START -->
+
+## Product Architecture
+
+```mermaid
+flowchart LR
+  P[Public Next.js Experience] --> A[Public / Member APIs]
+  A --> D[(Native SQLite)]
+  P --> G[Neon Arcade / Brain Modules]
+  C[Separate Control Center] --> AD[Admin Auth / MFA / RBAC]
+  AD --> D
+  C --> O[Moderation / Backups / Audit]
+```
+
+## Feature Matrix
+
+| Area | What this repository covers |
+| --- | --- |
+| **Immersive Experience** | Binary head, glowing eyes, brain navigation and interactive modules |
+| **Community** | Identity, chat, reports, moderation and announcements |
+| **Arcade** | Six local-first interactive game experiences |
+| **Control Center** | Separate admin service with MFA, RBAC, backups and audit |
+
+## Visual Evidence
+
+<table>
+<tr>
+<td align="center"><img src="public/head.webp" alt="Binary head" width="100%"><br><sub>Binary head</sub></td>
+<td align="center"><img src="public/brain.webp" alt="Brain experience" width="100%"><br><sub>Brain experience</sub></td>
+<td align="center"><img src="https://raw.githubusercontent.com/DPN-Technology/DPN-Website/main/assets/projects/memespace-pinball.webp" alt="Pinball project capture" width="100%"><br><sub>Pinball project capture</sub></td>
+<td align="center"><img src="https://raw.githubusercontent.com/DPN-Technology/DPN-Website/main/assets/projects/memespace-pool.webp" alt="Pool project capture" width="100%"><br><sub>Pool project capture</sub></td>
+</tr>
+</table>
+
+> Visuals above are repository-native assets or verified project captures already committed within the DPN organization. No synthetic runtime screenshot is presented as a real capture.
+
+## Install & Run
+
+| | |
+| --- | --- |
+| **Primary target** | Local Node.js |
+| **Fast path** | Use `SETUP-WINDOWS.cmd` or the documented pnpm scripts for the public app and separate Control Center. |
+| **Setup reference** | [Open setup documentation](SETUP-WINDOWS.cmd) |
+
+## Security, Architecture & Release
+
+| Resource | Purpose |
+| --- | --- |
+| [Security policy](SECURITY.md) | Vulnerability reporting, protected-data guidance and security expectations |
+| [GitHub Releases](https://github.com/DPN-Technology/MemeSpace/releases) | Published versions and downloadable release artifacts |
+
+> **Repository presentation rule:** status, release and security claims in this README should stay tied to repository evidence. Visual polish must not imply a capability is production-ready when the underlying project documentation says otherwise.
+
+<!-- DPN-REPO-DETAILS:END -->
+
 # MemeSpace v2.5 — Neon Arcade
 
 **MemeSpace** is DPN Technology's local-first immersive community platform: an animated binary head/brain experience, identity and community system, six-cabinet arcade, and a physically separate Control Center for administration, moderation, backups, platform controls, and audit history.
