@@ -129,3 +129,22 @@ table tbody tr:hover,.table tbody tr:hover{background:rgba(155,92,255,.035)}
 .module-card{transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}.module-card:hover{transform:translateY(-2px);border-color:rgba(155,92,255,.34);box-shadow:0 16px 42px rgba(0,0,0,.28),0 0 24px rgba(155,92,255,.08)}
 @keyframes memeOrbit{to{transform:rotate(360deg)}}@keyframes memeHalo{0%,100%{opacity:.28;transform:scale(.96)}50%{opacity:.75;transform:scale(1.05)}}
 @media(prefers-reduced-motion:reduce){.brand-mark::after,.node-orb::before{animation:none!important}.node-button:hover .node-orb,.module-card:hover{transform:none}}
+
+
+/* ==========================================================================
+   DPN VISUAL FABRIC PHASE 3 — MEMESPACE / PORTAL MOTION
+   ========================================================================== */
+.portal-copy>*{animation:memePortalIn .5s cubic-bezier(.2,.8,.2,1) both}.portal-copy>*:nth-child(2){animation-delay:.05s}.portal-copy>*:nth-child(3){animation-delay:.10s}
+.scene-label{animation:memeSceneIn .45s cubic-bezier(.2,.78,.2,1) both}
+.workspace-dialog{animation:memeWorkspaceIn .26s cubic-bezier(.2,.8,.2,1) both}
+.workspace-body>*{animation:memeModuleIn .24s cubic-bezier(.2,.78,.2,1) both}
+.node-button:hover{transform:translateY(-3px)}
+.synapses .pulse{filter:drop-shadow(0 0 8px currentColor)}
+.community-updates{animation:memeFloat 5s ease-in-out infinite}
+@keyframes memePortalIn{from{opacity:0;transform:translateY(9px);filter:blur(2px)}to{opacity:1;transform:none;filter:none}}
+@keyframes memeSceneIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes memeWorkspaceIn{from{opacity:0;transform:scale(.985) translateY(8px);filter:blur(2px)}to{opacity:1;transform:none;filter:none}}
+@keyframes memeModuleIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+@keyframes memeFloat{50%{transform:translateY(-3px)}}
+@media(prefers-reduced-motion:reduce){.portal-copy>*,.scene-label,.workspace-dialog,.workspace-body>*,.community-updates{animation:none!important}.node-button:hover{transform:none}}
+
