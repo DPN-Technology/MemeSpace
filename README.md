@@ -3,6 +3,11 @@
 <p align="center"><img alt="DPN Technology" src="https://img.shields.io/badge/DPN-Technology-111111?style=flat-square&logo=github"> <img alt="Development" src="https://img.shields.io/badge/Development-Active-9B5CFF?style=flat-square"> <img alt="Organization" src="https://img.shields.io/badge/Organization-DPN--Technology-9B5CFF?style=flat-square"></p>
 <!-- DPN-REPO-HERO:END -->
 
+<!-- DPN-REPO-SHOWCASE:START -->
+<p align="center"><img src=".github/repo-showcase.svg" alt="MemeSpace capabilities" width="100%"></p>
+<p align="center"><a href="https://github.com/DPN-Technology/MemeSpace/releases"><strong>Releases</strong></a>&nbsp;•&nbsp;<a href="https://github.com/DPN-Technology/MemeSpace/issues"><strong>Issues</strong></a>&nbsp;•&nbsp;<a href="https://github.com/DPN-Technology/MemeSpace/pulls"><strong>Pull Requests</strong></a></p>
+<!-- DPN-REPO-SHOWCASE:END -->
+
 # MemeSpace v2.5 — Neon Arcade
 
 **MemeSpace** is DPN Technology's local-first immersive community platform: an animated binary head/brain experience, identity and community system, six-cabinet arcade, and a physically separate Control Center for administration, moderation, backups, platform controls, and audit history.
