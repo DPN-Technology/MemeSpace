@@ -34,3 +34,8 @@ Before public exposure, add deployment-grade HTTPS, secure cookies, external ide
 ## Code scanning verification
 
 MemeSpace uses GitHub CodeQL and Code Quality analysis on the default branch. Security and quality fixes are considered complete only after the corresponding default-branch scans finish successfully so GitHub can reconcile resolved alerts against the current source tree.
+
+
+## Report a vulnerability
+
+Please report suspected vulnerabilities privately through [GitHub private vulnerability reporting](https://github.com/DPN-Technology/MemeSpace/security/advisories/new). For repository security status and published advisories, use the [MemeSpace Security page](https://github.com/DPN-Technology/MemeSpace/security).
