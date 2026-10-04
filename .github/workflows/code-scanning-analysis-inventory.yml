@@ -1,5 +1,7 @@
 name: Code Scanning Analysis Inventory
 
+# Second-commit trigger for maintenance inventory.
+
 on:
   push:
     branches:
