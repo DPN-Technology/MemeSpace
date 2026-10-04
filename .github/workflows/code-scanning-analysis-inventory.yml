@@ -1,4 +1,4 @@
-name: Code Scanning Alert Inventory
+name: Remove Scorecard Code Scanning Analyses
 
 on:
   push:
@@ -10,46 +10,66 @@ permissions:
   security-events: write
 
 jobs:
-  inventory:
+  cleanup:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
-      - name: Inventory open code scanning alerts
+      - name: Delete all Scorecard analyses from main
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
         shell: bash
         run: |
           set -euo pipefail
-          curl -fsSL             -H "Authorization: Bearer ${GH_TOKEN}"             -H "Accept: application/vnd.github+json"             -H "X-GitHub-Api-Version: 2022-11-28"             "https://api.github.com/repos/${REPO}/code-scanning/alerts?state=open&per_page=100"             -o alerts.json
+          api="https://api.github.com/repos/${REPO}"
+          headers=(
+            -H "Authorization: Bearer ${GH_TOKEN}"
+            -H "Accept: application/vnd.github+json"
+            -H "X-GitHub-Api-Version: 2022-11-28"
+          )
+
+          deleted=0
+          for iteration in $(seq 1 200); do
+            curl -fsSL "${headers[@]}" "${api}/code-scanning/analyses?per_page=100" -o analyses.json
+            candidate=$(node - <<'NODE'
+          const fs=require('fs');
+          const xs=JSON.parse(fs.readFileSync('analyses.json','utf8'));
+          const match=xs.find(x => x.ref==='refs/heads/main' && x.tool?.name==='Scorecard' && x.deletable===true);
+          process.stdout.write(match ? String(match.id) : '');
+          NODE
+            )
+            remaining=$(node - <<'NODE'
+          const fs=require('fs');
+          const xs=JSON.parse(fs.readFileSync('analyses.json','utf8'));
+          process.stdout.write(String(xs.filter(x => x.ref==='refs/heads/main' && x.tool?.name==='Scorecard').length));
+          NODE
+            )
+            echo "Scorecard analyses remaining on main: ${remaining}"
+            if [ "${remaining}" = "0" ]; then
+              break
+            fi
+            if [ -z "${candidate}" ]; then
+              echo "No deletable Scorecard analysis found while ${remaining} remain."
+              cat analyses.json
+              exit 1
+            fi
+            echo "Deleting Scorecard analysis ${candidate}"
+            curl -fsSL -X DELETE "${headers[@]}" "${api}/code-scanning/analyses/${candidate}?confirm_delete=true" -o delete.json
+            cat delete.json
+            deleted=$((deleted+1))
+          done
+
+          echo "Deleted Scorecard analyses: ${deleted}"
+
+          curl -fsSL "${headers[@]}" "${api}/code-scanning/alerts?state=open&per_page=100" -o alerts.json
           node - <<'NODE'
-          const fs = require('fs');
-          const xs = JSON.parse(fs.readFileSync('alerts.json','utf8'));
-          const out = xs.map(x => ({
-            number: x.number,
-            state: x.state,
-            rule: {
-              id: x.rule?.id,
-              name: x.rule?.name,
-              severity: x.rule?.severity,
-              security_severity_level: x.rule?.security_severity_level
-            },
-            tool: x.tool?.name,
-            created_at: x.created_at,
-            updated_at: x.updated_at,
-            fixed_at: x.fixed_at,
-            dismissed_at: x.dismissed_at,
-            html_url: x.html_url,
-            most_recent_instance: x.most_recent_instance ? {
-              ref: x.most_recent_instance.ref,
-              analysis_key: x.most_recent_instance.analysis_key,
-              category: x.most_recent_instance.category,
-              environment: x.most_recent_instance.environment,
-              state: x.most_recent_instance.state,
-              commit_sha: x.most_recent_instance.commit_sha,
-              message: x.most_recent_instance.message?.text,
-              location: x.most_recent_instance.location
-            } : null
-          }));
-          console.log(JSON.stringify({count: out.length, alerts: out},null,2));
+          const fs=require('fs');
+          const xs=JSON.parse(fs.readFileSync('alerts.json','utf8'));
+          const scorecard=xs.filter(x=>x.tool?.name==='Scorecard' && x.most_recent_instance?.ref==='refs/heads/main');
+          console.log(JSON.stringify({
+            open_total: xs.length,
+            open_scorecard_main: scorecard.length,
+            scorecard_alert_numbers: scorecard.map(x=>x.number)
+          },null,2));
+          if(scorecard.length) process.exit(2);
           NODE
