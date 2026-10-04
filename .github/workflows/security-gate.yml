@@ -49,6 +49,8 @@ jobs:
       - name: Block high or critical production advisories
         run: pnpm audit --prod --audit-level high
 
+      # Exception policy: permit only the single documented dev-only braces advisory
+      # by exact CVE/GHSA identity; any additional high or critical finding remains blocking.
       - name: Review high or critical advisories in development graph
         shell: bash
         run: |
