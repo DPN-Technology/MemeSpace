@@ -96,10 +96,21 @@ if (existsSync(path.join(root, "pnpm-workspace.yaml"))) {
     if (readingAgeExcludes && /^\S/.test(line)) break;
     if (readingAgeExcludes) {
       const match = line.match(/^\s*-\s*(\S+)\s*$/);
-      if (match) ageExcludes.push(match[1]);
+      if (match) ageExcludes.push(match[1].replace(/^['"]|['"]$/g, ""));
     }
   }
-  const allowedAgeExcludes = new Set(["image-size@2.0.3", "next@16.3.6", "eslint-config-next@16.3.6", "undici@7.29.1", "brace-expansion@1.1.20", "brace-expansion@5.0.11"]);
+  const allowedAgeExcludes = new Set([
+    "image-size@2.0.3",
+    "next@16.3.6",
+    "eslint-config-next@16.3.6",
+    "undici@7.29.1",
+    "brace-expansion@1.1.21",
+    "brace-expansion@5.0.12",
+    "esbuild@0.28.1",
+    "@babel/core@7.29.6",
+    "fflate@0.7.5",
+    "fast-uri@3.1.8",
+  ]);
   for (const excluded of ageExcludes) {
     if (!allowedAgeExcludes.has(excluded)) {
       record("pnpm-workspace.yaml", `unapproved minimum-release-age exception: ${excluded}`);
