@@ -1,5 +1,5 @@
 import {deleteAccount} from '@/lib/local-auth.mjs';
-import {authContext,authFailure,authResponse,clearLegacyCookie,clearSessionCookie,parseBody,requireAuth} from '../_shared';
+import {authFailure,authResponse,clearLegacyCookie,clearSessionCookie,parseBody,requireAuth} from '../_shared';
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
 export function GET(request:Request){try{const context=requireAuth(request);return authResponse({account:context.session.account},200,context.cookie)}catch(error){return authFailure(error)}}

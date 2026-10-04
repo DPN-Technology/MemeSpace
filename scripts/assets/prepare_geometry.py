@@ -54,9 +54,6 @@ for l in pathlib.Path('/tmp/brain.obj').read_text().splitlines():
 v=np.array(vs);f=np.array(fs);print('brain bounds',v.min(0),v.max(0),'faces',len(f))
 # MRI coordinates: left/right X, anterior Y, superior Z -> display X,Y=superior,Z=anterior.
 v=v[:,[0,2,1]];v-=(v.min(0)+v.max(0))/2;v/=max(np.ptp(v,axis=0))/2
-q,nn=sample(v,f,42000)
-# Ensure the external surface faces outwards.
-if np.median((q*nn).sum(1))<0:nn=-nn
 f=f[:,[0,2,1]]
 a=grid_sample(v,f,None,.019)
 b=grid_sample(v[:,[0,2,1]],f[:,[0,2,1]],None,.019)[:,[0,2,1,3,5,4]]

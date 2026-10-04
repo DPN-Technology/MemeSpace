@@ -12,7 +12,11 @@ export function noStore(){return {'Cache-Control':'no-store'};}
 export function withCookie(headers:HeadersInit={},cookie?:string){const result=new Headers(headers);if(cookie)result.append('Set-Cookie',cookie);result.set('Cache-Control','no-store');return result;}
 
 export function authFailure(error:unknown){
-  const code=error instanceof Error&&'code' in error?String((error as Error&{code?:unknown}).code||''):'';
+  let code='';
+  if(error instanceof Error){
+    const coded=error as Error&{code?:unknown};
+    if('code' in coded)code=String(coded.code||'');
+  }
   if(code==='ORIGIN')return Response.json({error:'This request is not allowed.'},{status:403,headers:noStore()});
   if(code==='AUTH_REQUIRED')return Response.json({error:'Please sign in to use this feature.'},{status:401,headers:noStore()});
   if(code==='AUTH_INVALID')return Response.json({error:'Invalid email or password.'},{status:401,headers:noStore()});
