@@ -62,8 +62,11 @@ jobs:
             cat /tmp/pnpm-audit.txt
             exit 0
           fi
-          high_count=$(grep -Eic "(^|[[:space:]│])high([[:space:]│]|$)" /tmp/pnpm-audit.txt || true)
-          critical_count=$(grep -Eic "(^|[[:space:]│])critical([[:space:]│]|$)" /tmp/pnpm-audit.txt || true)
+          severity_summary=$(grep -E "^Severity:" /tmp/pnpm-audit.txt | tail -n 1 || true)
+          high_count=$(printf '%s\n' "$severity_summary" | sed -nE 's/.*(^|[|[:space:]])([0-9]+) high([[:space:]|]|$).*/\2/p')
+          critical_count=$(printf '%s\n' "$severity_summary" | sed -nE 's/.*(^|[|[:space:]])([0-9]+) critical([[:space:]|]|$).*/\2/p')
+          high_count=${high_count:-0}
+          critical_count=${critical_count:-0}
           if grep -Eq "CVE-2026-93687|GHSA-vfj7-8cjw-p6xm" /tmp/pnpm-audit.txt &&
              grep -Eq "braces(@|[[:space:]])?3\.0\.3|braces" /tmp/pnpm-audit.txt &&
              [[ "$critical_count" -eq 0 && "$high_count" -eq 1 ]]; then
