@@ -63,7 +63,9 @@ jobs:
           if grep -q "braces vulnerable to stack-exhaustion denial of service" /tmp/pnpm-audit.txt &&
              grep -q "glob>micromatch>braces" /tmp/pnpm-audit.txt; then
             echo "::warning::Known upstream dev-tooling advisory: braces@3.0.3 (CVE-2026-93687). No patched upstream release exists yet; production dependency audit remains blocking. Other high/critical findings will still fail this gate."
-            if grep -E "^[[:space:]]*│ (critical|high)[[:space:]]*│" /tmp/pnpm-audit.txt | grep -vq "braces"; then
+            high_count=$(grep -Ec "^[[:space:]]*│ high[[:space:]]*│" /tmp/pnpm-audit.txt || true)
+            critical_count=$(grep -Ec "^[[:space:]]*│ critical[[:space:]]*│" /tmp/pnpm-audit.txt || true)
+            if [[ "$critical_count" -gt 0 || "$high_count" -gt 1 ]]; then
               cat /tmp/pnpm-audit.txt
               exit "$status"
             fi
