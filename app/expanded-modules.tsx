@@ -1,7 +1,7 @@
 "use client";
 import ArcadeCenter from './arcade/arcade-center';
 import {useState,useEffect,useRef,useCallback,ReactNode} from 'react';
-import {ArrowRight,ArrowLeft,Bookmark,BookOpen,Check,Clock,Search,Send,Heart,Reply,Hash,Gamepad2,RotateCcw,Download,Save,Image as ImageIcon,Edit3,X,Shield,Copy,ExternalLink} from 'lucide-react';
+import {ArrowRight,ArrowLeft,Bookmark,BookOpen,Check,Search,Send,Heart,Reply,Hash,RotateCcw,Download,Save,Image as ImageIcon,Edit3,X,Shield,Copy} from 'lucide-react';
 import {Tabs,TabsList,TabsTrigger,TabsContent} from '@/components/ui/tabs';
 import {stories,coinStories,learning,Story} from './content';
 import {useIdentityScope} from './identity-scope';
