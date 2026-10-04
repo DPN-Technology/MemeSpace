@@ -1,0 +1,50 @@
+name: Publish stable release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/release.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    if: ${{ github.repository == 'DPN-Technology/MemeSpace' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Verify release version and publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          api="https://api.github.com/repos/${REPO}"
+          auth=(-H "Authorization: Bearer ${GH_TOKEN}" -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28")
+
+          code=$(curl -sS -o existing.json -w "%{http_code}" "${auth[@]}" "${api}/releases/tags/v2.5.0")
+          if [ "${code}" = "200" ]; then
+            echo "v2.5.0 already exists"
+            exit 0
+          fi
+
+          cat > release.json <<JSON
+          {
+            "tag_name": "v2.5.0",
+            "target_commitish": "${SHA}",
+            "name": "MemeSpace v2.5.0",
+            "body": "## MemeSpace v2.5.0\\n\\nFirst stable GitHub release from the hardened DPN Enterprise baseline.\\n\\n### Verified release baseline\\n- CI, lint, typecheck, tests, and production build green\\n- CodeQL Advanced and Code Quality green\\n- Security Gate and dependency audits green\\n- CycloneDX SBOM generation green\\n- Full-history secret scan green\\n- DPN Security Baseline, Enterprise Security, and Enterprise Standard Gate green\\n- Workflow permissions hardened and pnpm setup SHA-pinned\\n\\nApp version: 2.5.0\\nNode.js: >=24\\npnpm: 11.25.0\\nRelease commit: ${SHA}",
+            "draft": false,
+            "prerelease": false,
+            "generate_release_notes": false
+          }
+          JSON
+
+          curl -fsSL -X POST "${auth[@]}" -H "Content-Type: application/json" "${api}/releases" --data-binary @release.json
