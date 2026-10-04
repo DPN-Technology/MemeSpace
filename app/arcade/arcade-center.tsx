@@ -2,7 +2,7 @@
 import {useEffect,useRef,useState} from 'react';
 import type {ReactNode} from 'react';
 import dynamic from 'next/dynamic';
-import {ArrowUpRight,ArrowLeft,Gamepad2,Trophy,Clock,Zap,Target,Sparkles,ChevronRight,LockKeyhole} from 'lucide-react';
+import {ArrowUpRight,ArrowLeft,Gamepad2,Trophy,Zap,Target,Sparkles,ChevronRight,LockKeyhole} from 'lucide-react';
 import {Tabs,TabsList,TabsTrigger} from '@/components/ui/tabs';
 import {useIdentityScope} from '../identity-scope';
 import {createPinball} from './engines/pinball';
