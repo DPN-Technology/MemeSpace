@@ -1,9 +1,9 @@
 'use client';
 import {useRef,useState,useEffect} from 'react';
-import {Crosshair,ArrowRight,MousePointer2,Check} from 'lucide-react';
+import {Crosshair,MousePointer2,Check} from 'lucide-react';
 import {Slider} from '@/components/ui/slider';
 import {Tabs,TabsList,TabsTrigger} from '@/components/ui/tabs';
-import {createPool,stepPool,strike,placeCue,cpuPlace,cpuShot,remaining,POCKETS,groupOf,canPlaceCue} from './engines/pool';
+import {createPool,stepPool,strike,placeCue,cpuPlace,cpuShot,remaining,POCKETS} from './engines/pool';
 import type {PoolMode} from './engines/pool';
 import {drawPool} from './renderers';
 import {useGameCanvas,useAutoPause,useSound,useFullscreen,canvasPoint,saveStats,readStats} from './runtime';
