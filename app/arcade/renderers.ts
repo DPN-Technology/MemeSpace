@@ -1,6 +1,6 @@
 import {BUMPERS,TARGETS,RAILS} from './engines/pinball.ts';
 import type {PinState} from './engines/pinball.ts';
-import {TABLE,POCKETS,aimTrace,legalTargets,groupOf} from './engines/pool.ts';
+import {POCKETS,aimTrace,legalTargets} from './engines/pool.ts';
 import type {PoolState,PoolBall} from './engines/pool.ts';
 import type {Vec} from './engines/physics.ts';
 type C=CanvasRenderingContext2D;
