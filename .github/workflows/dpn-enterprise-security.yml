@@ -12,8 +12,6 @@ on:
 permissions:
   contents: read
   pull-requests: read
-  security-events: write
-  id-token: write
 
 concurrency:
   group: enterprise-security-${{ github.workflow }}-${{ github.ref }}
@@ -21,9 +19,14 @@ concurrency:
 
 jobs:
   enterprise-security:
+    permissions:
+      contents: read
+      pull-requests: read
+      security-events: write
+      id-token: write
     uses: DPN-Technology/.github/.github/workflows/dpn-enterprise-security.yml@4da9e51899f69da9f08532aa02f94095fa628261
     with:
       run_dependency_review: true
       dependency_fail_severity: high
       run_scorecard: true
-      upload_scorecard_sarif: true
+      upload_scorecard_sarif: false
