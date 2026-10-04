@@ -49,6 +49,8 @@ jobs:
       - name: Block high or critical production advisories
         run: pnpm audit --prod --audit-level high
 
+      # Exception policy: permit only the single documented dev-only braces advisory
+      # by exact CVE/GHSA identity; any additional high or critical finding remains blocking.
       - name: Review high or critical advisories in development graph
         shell: bash
         run: |
@@ -60,15 +62,12 @@ jobs:
             cat /tmp/pnpm-audit.txt
             exit 0
           fi
-          if grep -q "braces vulnerable to stack-exhaustion denial of service" /tmp/pnpm-audit.txt &&
-             grep -q "glob>micromatch>braces" /tmp/pnpm-audit.txt; then
-            echo "::warning::Known upstream dev-tooling advisory: braces@3.0.3 (CVE-2026-93687). No patched upstream release exists yet; production dependency audit remains blocking. Other high/critical findings will still fail this gate."
-            high_count=$(grep -Ec "^[[:space:]]*│ high[[:space:]]*│" /tmp/pnpm-audit.txt || true)
-            critical_count=$(grep -Ec "^[[:space:]]*│ critical[[:space:]]*│" /tmp/pnpm-audit.txt || true)
-            if [[ "$critical_count" -gt 0 || "$high_count" -gt 1 ]]; then
-              cat /tmp/pnpm-audit.txt
-              exit "$status"
-            fi
+          high_count=$(grep -Eic "(^|[[:space:]│])high([[:space:]│]|$)" /tmp/pnpm-audit.txt || true)
+          critical_count=$(grep -Eic "(^|[[:space:]│])critical([[:space:]│]|$)" /tmp/pnpm-audit.txt || true)
+          if grep -Eq "CVE-2026-93687|GHSA-vfj7-8cjw-p6xm" /tmp/pnpm-audit.txt &&
+             grep -Eq "braces(@|[[:space:]])?3\.0\.3|braces" /tmp/pnpm-audit.txt &&
+             [[ "$critical_count" -eq 0 && "$high_count" -eq 1 ]]; then
+            echo "::warning::Known upstream dev-tooling advisory only: braces@3.0.3 (CVE-2026-93687 / GHSA-vfj7-8cjw-p6xm). No patched upstream release exists as of 2026-10-04; production dependency audit remains blocking and any additional high/critical advisory still fails this gate."
             exit 0
           fi
           cat /tmp/pnpm-audit.txt
