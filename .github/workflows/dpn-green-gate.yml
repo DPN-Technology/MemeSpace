@@ -1,7 +1,8 @@
-name: DPN Green Gate
+name: DPN Enterprise Green Gate
 
 on:
   pull_request:
+  merge_group:
   push:
     branches: [main]
   workflow_dispatch:
@@ -11,64 +12,14 @@ permissions:
 
 jobs:
   green-gate:
-    name: DPN Green Gate
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-
-      - name: Evaluate DPN repository baseline
-        shell: bash
-        run: |
-          set -euo pipefail
-          failures=0
-          warnings=0
-
-          required() {
-            local label="$1"
-            shift
-            for path in "$@"; do
-              if [[ -e "$path" ]]; then
-                echo "PASS: $label"
-                return 0
-              fi
-            done
-            echo "FAIL: $label"
-            failures=$((failures + 1))
-          }
-
-          optional() {
-            local label="$1"
-            shift
-            for path in "$@"; do
-              if [[ -e "$path" ]]; then
-                echo "PASS: $label"
-                return 0
-              fi
-            done
-            echo "WARN: $label"
-            warnings=$((warnings + 1))
-          }
-
-          required "README" README.md README.rst README.txt
-          required "Security policy" SECURITY.md .github/SECURITY.md
-          optional "Contribution guidance" CONTRIBUTING.md .github/CONTRIBUTING.md
-          optional "Third-party dependency/license record" THIRD_PARTY_LICENSES.md THIRD_PARTY_NOTICES.md SBOM.spdx.json SBOM.cdx.json
-
-          {
-            echo "# DPN Green Gate"
-            echo
-            echo "- Repository: \`${GITHUB_REPOSITORY}\`"
-            echo "- Commit: \`${GITHUB_SHA}\`"
-            echo "- Required failures: \`${failures}\`"
-            echo "- Advisory warnings: \`${warnings}\`"
-            echo
-            if [[ "$failures" -eq 0 ]]; then
-              echo "## Status: GREEN"
-            else
-              echo "## Status: RED"
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
-
-          [[ "$failures" -eq 0 ]]
+    uses: DPN-Technology/.github/.github/workflows/dpn-green-gate.yml@main
+    with:
+      lifecycle: development
+      enterprise_mode: audit
+      require_security_policy: true
+      require_dependency_record: false
+      require_runbook: false
+      require_codeowners: false
+      require_pr_template: false
+      require_action_sha_pinning: true
+      require_explicit_workflow_permissions: true
