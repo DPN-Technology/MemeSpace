@@ -10,10 +10,12 @@ on:
         type: boolean
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   capture:
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
@@ -21,12 +23,16 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: "24"
+      - name: Setup pinned pnpm
+        uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # pinned 2026-09-20
+        with:
+          version: "11.25.0"
+          install: "false"
       - name: Install MemeSpace dependencies
-        run: npm exec --yes --package=pnpm@11.25.0 -- pnpm install --frozen-lockfile --prod=false
+        run: pnpm install --frozen-lockfile --prod=false
       - name: Install capture browser
         run: |
-          npm exec --yes --package=playwright@1.56.1 -- playwright install --with-deps chromium
-          npm install --no-save --package-lock=false playwright@1.56.1
+          pnpm exec playwright install --with-deps chromium
       - name: Start MemeSpace with isolated data
         env:
           MEMESPACE_PORT: "5173"
