@@ -120,8 +120,11 @@ jobs:
           node-version: "24.20.0"
           check-latest: false
           package-manager-cache: false
-      - name: Install pinned pnpm
-        run: npm install --global pnpm@11.25.0 --ignore-scripts
+      - name: Setup pinned pnpm
+        uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # pinned 2026-09-20
+        with:
+          version: "11.25.0"
+          install: "false"
       - name: Validate dependency governance files
         shell: bash
         run: |
