@@ -1,6 +1,6 @@
 "use client";
 import {useState,useEffect,useRef} from 'react';
-import {ArrowUpRight,ArrowRight,AudioLines,VolumeX,Settings2,Search,Wallet,Command,Brain,MessageSquare,Gamepad2,Images,BookOpen,Orbit,User,Layers,ChevronLeft,Send,RotateCcw,Check,Compass} from 'lucide-react';
+import {ArrowUpRight,ArrowRight,AudioLines,VolumeX,Settings2,Search,Wallet,Command,Brain,MessageSquare,Gamepad2,Images,BookOpen,Orbit,User,Layers,ChevronLeft,RotateCcw,Check,Compass} from 'lucide-react';
 import {Dialog,DialogContent,DialogTitle,DialogDescription} from '@/components/ui/dialog';
 import {Switch} from '@/components/ui/switch';
 import Scene from './scene';
