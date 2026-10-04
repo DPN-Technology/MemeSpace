@@ -77,7 +77,7 @@ It blocks:
 - persisted checkout credentials
 - weakening of pnpm release-age / build-script / lockfile-verification policy
 - high/critical production dependency advisories
-- high/critical advisories anywhere in the dependency graph
+- high/critical advisories anywhere in the dependency graph, with a narrowly scoped temporary exception for the unreleased `braces@3.0.3` CVE-2026-93687 dev-tooling advisory
 
 ### Dependency maintenance
 
@@ -110,7 +110,7 @@ The final second-pass audit on the hardening branch reports:
 
 - production graph: **2 advisories — 1 low, 1 moderate**
 - complete dependency graph: **5 advisories — 2 low, 3 moderate**
-- **0 high**
+- **1 known high dev-tooling advisory remains: `braces@3.0.3` / CVE-2026-93687 (no released upstream fix as of October 4, 2026)**
 - **0 critical**
 
 The security workflow now fails on HIGH-or-higher advisories across the complete graph, not only production dependencies. Remaining low/moderate advisories stay visible for Dependabot and future maintenance rather than being represented as zero risk.
