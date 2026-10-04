@@ -1,15 +1,14 @@
 import test from 'node:test';
 import {request as httpRequest} from 'node:http';
 import assert from 'node:assert/strict';
-import {mkdtempSync,cpSync,rmSync,existsSync} from 'node:fs';
+import {mkdtempSync,cpSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {DatabaseSync} from 'node:sqlite';
 import {openDatabase} from '../lib/local-database.mjs';
 import {createAccount,issueSession,readAuthSession,authenticateAccount} from '../lib/local-auth.mjs';
-import {sessionCookie} from '../lib/local-session.mjs';
-import {openSecurity,createInvite,beginEnrollment,finishEnrollment,login,readSession,totp,base32,cookieName,sessionAge,rateLimit,requirePermission} from '../admin/security.mjs';
+import {openSecurity,createInvite,beginEnrollment,finishEnrollment,login,readSession,totp,base32,cookieName,rateLimit,requirePermission} from '../admin/security.mjs';
 import {createAdminServer} from '../admin/server.mjs';
 import * as ops from '../admin/operations.mjs';
 const source=fileURLToPath(new URL('../',import.meta.url));
