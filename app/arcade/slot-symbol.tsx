@@ -1,3 +1,3 @@
-import {CircuitBoard,Gem,Orbit,Zap} from 'lucide-react';
+import {CircuitBoard,Gem,Orbit,Zap,Star,Sparkles} from 'lucide-react';
 import type {SymbolId} from './engines/slots';
-export function SlotSymbol({id}:{id:SymbolId}){return <span className={'slot-symbol symbol-'+id} aria-label={id==='chip'?'Circuit':id==='gem'?'Crystal':id==='orbit'?'Orbit':id==='bolt'?'Lightning':'Neon seven'}>{id==='chip'?<CircuitBoard/>:id==='gem'?<Gem/>:id==='orbit'?<Orbit/>:id==='bolt'?<Zap/>:<b>7</b>}</span>}
+export function SlotSymbol({id}:{id:SymbolId}){return <span className={'slot-symbol symbol-'+id} aria-label={id==='circuit'?'Circuit':id==='crystal'?'Crystal':id==='orbit'?'Orbit':id==='lightning'?'Lightning':id==='wild'?'Wild':id==='scatter'?'Scatter':'Neon seven'}>{id==='circuit'?<CircuitBoard/>:id==='crystal'?<Gem/>:id==='orbit'?<Orbit/>:id==='lightning'?<Zap/>:id==='wild'?<Star/>:id==='scatter'?<Sparkles/>:<b>7</b>}</span>}
