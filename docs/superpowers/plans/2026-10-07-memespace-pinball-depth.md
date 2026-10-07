@@ -21,7 +21,7 @@
 
 - High-speed ball crosses a feature trigger between simulation frames; feature fires once, tested in Task 1.
 - Ball rests on or jitters across a sensor; cooldown prevents duplicate awards, tested in Task 1.
-- Tilted or paused ball contacts a feature; no score or mission progress, tested in Task 1.
+- Tilt suppresses score and mission progress on feature contact, tested in Task 1; pause freezes simulation and is verified in Task 3.
 - Multiball balls enter the same feature together; each ball obeys cooldown and scoring rules, tested in Task 1.
 - Small viewport or reduced-motion preference; board remains legible without animation, verified in Task 3.
 
@@ -69,11 +69,10 @@
 - Modify: `app/arcade/arcade.css`
 - Test: `tests/arcade.test.mjs`
 
-- [ ] **Step 1: Add failing engine-to-HUD assertions** for current mission step, completed missions, target-bank state, and spinner progress.
-- [ ] **Step 2: Run** `pnpm test:arcade`; confirm expected mission HUD fields are absent.
-- [ ] **Step 3: Update** the pinball HUD to show the active 3-shot mission, feature lights, progress, score-award feedback, and the next available route. Keep keyboard and touch flipper/plunger controls unchanged.
-- [ ] **Step 4: Verify** `pnpm lint`, `pnpm typecheck`, `pnpm test:arcade`, reduced-motion rendering, and readable layout at 360px and desktop widths.
-- [ ] **Step 5: Commit** `feat: show pinball mission progress`.
+- [ ] **Step 1: Run** the engine test for mission step, completed missions, target-bank state, and spinner progress from Task 1; confirm it passes before UI work.
+- [ ] **Step 2: Update** the pinball HUD to show the active 3-shot mission, feature lights, progress, score-award feedback, and the next available route. Keep keyboard and touch flipper/plunger controls unchanged.
+- [ ] **Step 3: Verify** `pnpm lint`, `pnpm typecheck`, `pnpm test:arcade`, reduced-motion rendering, pause freeze, and readable layout at 360px and desktop widths in a running browser.
+- [ ] **Step 4: Commit** `feat: show pinball mission progress`.
 
 ### Task 4: Full regression gate
 
