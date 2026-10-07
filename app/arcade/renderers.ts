@@ -1,5 +1,6 @@
 import {BUMPERS,TARGETS,RAILS} from './engines/pinball.ts';
 import type {PinState} from './engines/pinball.ts';
+import {PINBALL_LANES,PINBALL_ORBITS,PINBALL_SPINNER} from './engines/pinball-layout.ts';
 import {POCKETS,aimTrace,legalTargets} from './engines/pool.ts';
 import type {PoolState,PoolBall} from './engines/pool.ts';
 import type {Vec} from './engines/physics.ts';
@@ -16,6 +17,13 @@ export function drawPinball(c:C,s:PinState,lowMotion=false){
  const energy=c.createRadialGradient(272,278,10,272,278,290);energy.addColorStop(0,'#47306b60');energy.addColorStop(1,'#1d162a00');c.fillStyle=energy;c.fillRect(25,30,500,700);
  // Etched data tracks and layered guide channels.
  for(const pts of [[104,340,104,388,184,424,184,545,225,590],[442,342,442,390,360,430,360,548,332,590],[272,92,272,132,220,157],[272,92,272,132,324,157]]){line(c,pts,'#60798930',5);line(c,pts,'#a9b7ff40',1)}
+ // Orbit ramps route the ball through readable feature sensors.
+ for(const [name,path] of [['LEFT ORBIT',PINBALL_ORBITS.left],['RIGHT ORBIT',PINBALL_ORBITS.right]] as const){const pts=path.flatMap(([x,y])=>[x,y]);line(c,pts,'#090f17',14);line(c,pts,'#2a3a4a',9);line(c,pts,'#9e9bea75',2);label(c,name,name==='LEFT ORBIT'?111:449,219,7,'#c9b6f4')}
+ // Three upper lanes, a moving spinner, and a live drop bank.
+ for(const lane of PINBALL_LANES){round(c,lane.x-24,lane.y-18,48,30,6,'#111c2a','#9ea1ea70');const feature=lane.label==='1'?'left-lane':lane.label==='2'?'center-lane':'right-lane';label(c,lane.label,lane.x,lane.y+4,13,s.featureHits[feature]?'#d7ff9b':'#a6a0d3')}
+ const spinAngle=lowMotion?0:Math.sin(s.time*9)*.42;c.save();c.translate((PINBALL_SPINNER.x1+PINBALL_SPINNER.x2)/2,PINBALL_SPINNER.y1);c.rotate(spinAngle);line(c,[-29,0,29,0],'#d5c48a',7);line(c,[-26,-1,26,-1],'#fff0b0',2);circle(c,0,0,5,'#f0d990','#fff1bb');c.restore();label(c,`SPINNER ${s.spinnerCharge}/8`,272,282,7,'#e4d39c');
+ for(let i=0;i<3;i++){const x=224+i*48,lit=s.dropTargets[i];round(c,x-15,314,30,12,4,lit?'#b7ff83':'#45365b',lit?'#e6ffc6':'#ac8ce0');label(c,String(i+1),x,324,7,lit?'#122018':'#e4d7f5')}
+ label(c,`MISSION ${s.missionStep}/3 · COMPLETED ${s.missionsCompleted}`,272,70,8,s.missionStep?'#d9ffae':'#a9b7c4');
  for(let i=0;i<7;i++){const x=135+i*45;circle(c,x,570,2,i%2?'#845eaf':'#98d69a');line(c,[x,559,x,542],'#91a8b323')}
  c.save();c.translate(274,394);c.rotate(-.02);label(c,'NEURAL',0,-8,30,'#cedddd','sans-serif');label(c,'R E A C T O R',0,21,15,'#b799ed','monospace');label(c,'MEMESPACE  /  PINBALL DIVISION',0,45,7,'#647d90');c.restore();
  for(const [x1,y1,x2,y2] of RAILS){c.lineCap='round';line(c,[x1,y1,x2,y2],'#01080dc9',14);line(c,[x1,y1,x2,y2],'#435369',8);line(c,[x1-1,y1-1,x2-1,y2-1],'#9aaaaa',2)}
