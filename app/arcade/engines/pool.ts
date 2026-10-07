@@ -3,17 +3,27 @@ import type {Vec,Body} from './physics.ts';
 export const TABLE={width:1000,height:540,left:60,right:940,top:60,bottom:480,radius:12};
 export const POCKETS=[{x:60,y:60},{x:500,y:54},{x:940,y:60},{x:60,y:480},{x:500,y:486},{x:940,y:480}];
 export type PoolMode='solo'|'cpu'|'two';
+export type PoolLayoutId='standard'|'line-drill'|'bank-shot';
+export type CpuDifficulty='easy'|'standard'|'hard';
 export type Group='solids'|'stripes';
 export type PoolBall=Body&{id:number;pocketed:boolean;rotation:number};
 export type Shot={firstContact:number|null;potted:number[];pockets:Record<number,number>;rail:boolean;calledPocket:number|null;breakShot:boolean;remaining:number};
-export type PoolState={balls:PoolBall[];mode:PoolMode;phase:'aim'|'rolling'|'placement'|'over';turn:number;groups:(Group|null)[];winner:number|null;shots:number;fouls:number[];shot:Shot|null;note:string;time:number;settle:number;spin:number;events:number;lastPocket:number;lastShot:string;started:boolean};
+export type PoolState={balls:PoolBall[];mode:PoolMode;layout:PoolLayoutId;phase:'aim'|'rolling'|'placement'|'over';turn:number;groups:(Group|null)[];winner:number|null;shots:number;fouls:number[];shot:Shot|null;note:string;time:number;settle:number;spin:number;events:number;lastPocket:number;lastShot:string;started:boolean};
 export const groupOf=(id:number):Group|null=>id>0&&id<8?'solids':id>8?'stripes':null;
 export function remaining(s:PoolState,player=s.turn){const group=s.groups[player];return s.balls.filter(b=>!b.pocketed&&groupOf(b.id)===group&&group!==null).length}
 export function legalTargets(s:PoolState){if(s.mode==='solo')return s.balls.filter(b=>b.id&&!b.pocketed);const group=s.groups[s.turn];return s.balls.filter(b=>!b.pocketed&&b.id>0&&(group?(remaining(s)?groupOf(b.id)===group:b.id===8):b.id!==8))}
-export function createPool(mode:PoolMode='solo'):PoolState{
+export function createPool(mode:PoolMode='solo',layout:PoolLayoutId='standard'):PoolState{
  const balls:PoolBall[]=[{id:0,x:270,y:270,vx:0,vy:0,r:12,pocketed:false,rotation:0}],order=[1,9,2,10,8,3,11,4,12,5,6,13,7,14,15];let i=0;
  for(let row=0;row<5;row++)for(let col=0;col<=row;col++)balls.push({id:order[i++],x:690+row*Math.sqrt(3)*12.03,y:270+(col*2-row)*12.03,vx:0,vy:0,r:12,pocketed:false,rotation:0});
- return {balls,mode,phase:'aim',turn:0,groups:[null,null],winner:null,shots:0,fouls:[0,0],shot:null,note:mode==='solo'?'Clear all 15 balls. Aim, set your power, and shoot.':'Player 1 breaks. The first legal pocket assigns groups.',time:0,settle:0,spin:0,events:0,lastPocket:-1,lastShot:'',started:false};
+ if(layout==='line-drill'){
+  Object.assign(balls[0],{x:235,y:270});
+  for(const b of balls.slice(1)){const slot=b.id<=5?b.id-1:-1;if(slot<0)b.pocketed=true;else Object.assign(b,{x:455+slot*88,y:270,pocketed:false})}
+ }else if(layout==='bank-shot'){
+  Object.assign(balls[0],{x:230,y:270});const positions:Record<number,[number,number]>={1:[510,145],9:[510,395],2:[735,270]};
+  for(const b of balls.slice(1)){const pos=positions[b.id];if(pos)Object.assign(b,{x:pos[0],y:pos[1],pocketed:false});else b.pocketed=true}
+ }
+ const note=layout==='standard'?(mode==='solo'?'Clear all 15 balls. Aim, set your power, and shoot.':'Player 1 breaks. The first legal pocket assigns groups.'):`${layout==='line-drill'?'Line drill':'Bank shot'} practice. Clear the balls on the table.`;
+ return {balls,mode,layout,phase:'aim',turn:0,groups:[null,null],winner:null,shots:0,fouls:[0,0],shot:null,note,time:0,settle:0,spin:0,events:0,lastPocket:-1,lastShot:'',started:false};
 }
 export function strike(s:PoolState,angle:number,power:number,calledPocket:number|null=null,spin=0){
  if(s.phase!=='aim'||!Number.isFinite(angle)||!Number.isFinite(power))return false;
@@ -66,12 +76,17 @@ export function aimTrace(s:PoolState,angle:number){
  return {end:{x:cue.x+dir.x*length,y:cue.y+dir.y*length},target,length};
 }
 function pathClear(s:PoolState,a:Vec,b:Vec,ignore:number[]){return !s.balls.some(ball=>!ball.pocketed&&!ignore.includes(ball.id)&&Math.hypot(closestPoint(ball,a,b).x-ball.x,closestPoint(ball,a,b).y-ball.y)<24)}
-export function cpuShot(s:PoolState){
- const cue=s.balls[0],targets=legalTargets(s);let best:{angle:number;power:number;pocket:number;score:number}|null=null;
+export function cpuShot(s:PoolState,difficulty:CpuDifficulty='standard'){
+ const cue=s.balls[0],targets=legalTargets(s),options:{angle:number;power:number;pocket:number;score:number;targetId:number}[]=[],minimumAlignment=difficulty==='easy'?.05:difficulty==='hard'?.3:.15;
  for(const target of targets)for(let pocket=0;pocket<POCKETS.length;pocket++){const p=POCKETS[pocket],distance=Math.hypot(p.x-target.x,p.y-target.y),dx=(p.x-target.x)/distance,dy=(p.y-target.y)/distance,ghost={x:target.x-dx*24.2,y:target.y-dy*24.2},cueDistance=Math.hypot(ghost.x-cue.x,ghost.y-cue.y),alignment=((ghost.x-cue.x)*dx+(ghost.y-cue.y)*dy)/(cueDistance||1);
-  if(alignment<.15||ghost.x<73||ghost.x>927||ghost.y<73||ghost.y>467||!pathClear(s,cue,ghost,[0,target.id])||!pathClear(s,target,p,[0,target.id]))continue;
-  const score=alignment*1500-distance-cueDistance*.6;if(!best||score>best.score)best={angle:Math.atan2(ghost.y-cue.y,ghost.x-cue.x),power:clamp((Math.sqrt(2*95*(distance+cueDistance))/Math.max(.45,alignment)-100)/920,.18,.92),pocket,score};
+  if(alignment<minimumAlignment||ghost.x<73||ghost.x>927||ghost.y<73||ghost.y>467||!pathClear(s,cue,ghost,[0,target.id])||!pathClear(s,target,p,[0,target.id]))continue;
+  const score=difficulty==='hard'?alignment*2200-distance*1.15-cueDistance*.9:difficulty==='easy'?alignment*900-distance-cueDistance*.8:alignment*1500-distance-cueDistance*.6;
+  let angle=Math.atan2(ghost.y-cue.y,ghost.x-cue.x),power=clamp((Math.sqrt(2*95*(distance+cueDistance))/Math.max(.45,alignment)-100)/920,.18,.92);
+  if(difficulty==='easy'){angle+=.045;power=clamp(power*.78,.14,.75)}else if(difficulty==='hard')power=clamp(power,.22,.84);
+  options.push({angle,power,pocket,score,targetId:target.id});
  }
- if(best)return best;const target=targets[0];return {angle:target?Math.atan2(target.y-cue.y,target.x-cue.x):0,power:s.shots===0?.92:.48,pocket:0,score:0};
+ options.sort((a,b)=>b.score-a.score);
+ if(options.length)return options[difficulty==='easy'?Math.min(1,options.length-1):0];
+ const target=targets[0];return {angle:target?Math.atan2(target.y-cue.y,target.x-cue.x):0,power:s.shots===0?.92:.48,pocket:0,score:0,targetId:target?.id??null};
 }
 export function cpuPlace(s:PoolState){for(let x=260;x<900;x+=45)for(let y=120;y<440;y+=40)if(placeCue(s,x,y))return true;return false}
