@@ -49,13 +49,13 @@ export function spinSlots(wallet:SlotWallet,bet:number,pick:(max:number)=>number
 function validCounters(data:any){return data&&['credits','spins','totalBet','totalWon','bestWin'].every(k=>Number.isFinite(data[k])&&data[k]>=0&&data[k]<=1e12)&&Number.isSafeInteger(data.spins)&&Number.isSafeInteger(data.totalBet)}
 function legacyHistory(value:unknown):LegacySpinResult|null{
  if(!value||typeof value!=='object')return null;const r=value as any;
- if(typeof r.id!=='string'||!Number.isFinite(r.at)||!Number.isFinite(r.bet)||!Number.isFinite(r.cost)||!Number.isFinite(r.payout)||!Array.isArray(r.grid)||!Array.isArray(r.wins))return null;
- if(![1,2,5,10].includes(r.bet)||r.grid.length!==3||r.grid.some((col:unknown)=>!Array.isArray(col)||col.length!==3||col.some((id:unknown)=>!['chip','gem','orbit','bolt','seven'].includes(id))))return null;
+ if(typeof r.id!=='string'||!Number.isFinite(r.at)||!Number.isFinite(r.bet)||!Number.isFinite(r.cost)||r.cost<0||!Number.isFinite(r.payout)||r.payout<0||!Array.isArray(r.grid)||!Array.isArray(r.wins))return null;
+ if(![1,2,5,10].includes(r.bet)||r.cost!==r.bet*5||r.grid.length!==3||r.grid.some((col:unknown)=>!Array.isArray(col)||col.length!==3||col.some((id:unknown)=>!['chip','gem','orbit','bolt','seven'].includes(id))))return null;
  return {legacy:true,grid:r.grid,wins:r.wins,bet:r.bet,cost:r.cost,payout:r.payout,id:r.id,at:r.at};
 }
 function validSpin(value:unknown):value is SpinResult{
  if(!value||typeof value!=='object')return false;const r=value as SpinResult;
- try{if(typeof r.id!=='string'||!Number.isFinite(r.at)||!validGrid(r.grid)||typeof r.bonusTriggered!=='boolean'||!Number.isSafeInteger(r.freeSpinsAwarded)||(r.freeSpinIndex!==null&&!Number.isSafeInteger(r.freeSpinIndex)))return false;
+ try{if(typeof r.id!=='string'||!Number.isFinite(r.at)||!validGrid(r.grid)||typeof r.bonusTriggered!=='boolean'||!Number.isSafeInteger(r.freeSpinsAwarded)||(r.freeSpinIndex!==null&&(!Number.isSafeInteger(r.freeSpinIndex)||r.freeSpinIndex<1||r.freeSpinIndex>5)))return false;
   const free=r.freeSpinIndex!==null,bonus=!free&&scatterCount(r.grid)>=3;if(r.bonusTriggered!==bonus||r.freeSpinsAwarded!==(bonus?5:0))return false;
   const expected=evaluateSlots(r.grid,r.bet,free?1.5:1),cost=free?0:r.bet*PAYLINES.length;
   return r.cost===cost&&r.payout===expected.payout&&JSON.stringify(r.wins)===JSON.stringify(expected.wins);
@@ -73,7 +73,8 @@ export function readWallet(value:string|null):SlotWallet{
   const ids=[...new Set(data.settlementIds as string[])].slice(-128),seen=new Set<string>(),history=(Array.isArray(data.history)?data.history:[]).slice(0,12).map((record:unknown)=>{
    const spin=validSpin(record)?record:legacyHistory(record);if(!spin||seen.has(spin.id))return null;seen.add(spin.id);return spin;
   }).filter((r:SlotHistoryResult|null):r is SlotHistoryResult=>!!r);
-  return {version:2,credits:data.credits,spins:data.spins,totalBet:data.totalBet,totalWon:data.totalWon,bestWin:data.bestWin,freeSpins:data.freeSpins,settlementIds:ids,history};
+  const settlementIds=[...new Set([...ids,...history.map(record=>record.id)])].slice(-128);
+  return {version:2,credits:data.credits,spins:data.spins,totalBet:data.totalBet,totalWon:data.totalWon,bestWin:data.bestWin,freeSpins:data.freeSpins,settlementIds,history};
  }catch{return freshWallet()}
 }
 
