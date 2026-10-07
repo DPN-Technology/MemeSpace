@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {circleCollision,capsuleCollision,finiteBody} from '../app/arcade/engines/physics.ts';
 import {createPinball,launchPinball,stepPinball,nudgePinball,pinballHit,drainPinball} from '../app/arcade/engines/pinball.ts';
-import {createPool,strike,stepPool,finishShot,placeCue,canPlaceCue,cpuShot,cpuPlace,aimTrace} from '../app/arcade/engines/pool.ts';
+import {createPool,strike,stepPool,finishShot,placeCue,canPlaceCue,cpuShot,cpuPlace,aimTrace,legalTargets} from '../app/arcade/engines/pool.ts';
 import {SYMBOLS,PAYLINES,sampleSymbol,evaluateSlots,spinSlots,freshWallet,readWallet,randomIndex} from '../app/arcade/engines/slots.ts';
 import {dragToShot,beginPoolDrag,movePoolDrag,finishPoolDrag,cancelPoolDrag} from '../app/arcade/engines/pool-input.ts';
 
@@ -93,6 +93,17 @@ test('eight-ball requires the cleared group and called pocket; break eights are 
 test('computer finds and executes an unobstructed legal pool shot',()=>{
   const s=createPool('cpu');s.turn=1;s.shots=1;s.groups=['stripes','solids'];s.balls.slice(1).forEach(b=>b.pocketed=true);const target=s.balls.find(b=>b.id===1);Object.assign(target,{x:500,y:150,pocketed:false});Object.assign(s.balls[0],{x:500,y:310});
   const plan=cpuShot(s);assert.ok(Number.isFinite(plan.angle));assert.ok(plan.power>0&&plan.power<=1);assert.equal(strike(s,plan.angle,plan.power,plan.pocket),true);runPool(s);assert.ok(target.pocketed);assert.equal(s.turn,1);
+});
+test('pool practice layouts start with fixed playable positions',()=>{
+  const standard=createPool('solo'),line=createPool('solo','line-drill'),bank=createPool('solo','bank-shot');
+  assert.equal(standard.layout,'standard');assert.equal(line.layout,'line-drill');assert.equal(bank.layout,'bank-shot');
+  assert.deepEqual([line.balls[0].x,line.balls[0].y],[235,270]);assert.equal(line.balls.filter(b=>b.id&&!b.pocketed).length,5);
+  assert.equal(bank.balls.filter(b=>b.id&&!b.pocketed).length,3);assert.notDeepEqual(bank.balls.slice(0,4).map(b=>[b.x,b.y]),line.balls.slice(0,4).map(b=>[b.x,b.y]));
+});
+test('pool cpu profiles select legal targets with bounded controlled shots',()=>{
+  const s=createPool('cpu');s.turn=1;s.shots=1;s.groups=['stripes','solids'];s.balls.slice(1).forEach(b=>b.pocketed=true);const target=s.balls.find(b=>b.id===1);Object.assign(target,{x:500,y:150,pocketed:false});Object.assign(s.balls[0],{x:500,y:310});
+  for(const difficulty of ['easy','standard','hard']){const plan=cpuShot(s,difficulty);assert.ok(legalTargets(s).some(b=>b.id===plan.targetId));assert.ok(Number.isFinite(plan.angle));assert.ok(plan.power>=.05&&plan.power<=1);assert.ok(plan.pocket>=0&&plan.pocket<6)}
+  for(const difficulty of ['standard','hard']){const plan=cpuShot(s,difficulty);assert.equal(strike(s,plan.angle,plan.power,plan.pocket),true);assert.equal(s.phase,'rolling');s.phase='aim';s.balls.forEach(b=>{b.vx=0;b.vy=0});}
 });
 test('slot weights cover each sample exactly and have the documented mathematical return',()=>{
   const counts=Object.fromEntries(SYMBOLS.map(s=>[s.id,0]));for(let n=0;n<20;n++)counts[sampleSymbol(()=>n)]++;
