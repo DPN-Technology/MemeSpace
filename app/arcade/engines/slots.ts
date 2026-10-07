@@ -66,13 +66,13 @@ export function readWallet(value:string|null):SlotWallet{
   const data=JSON.parse(value||'null');if(!validCounters(data))return freshWallet();
   if(data.version===1){
    if(!Number.isSafeInteger(data.credits)||!Number.isSafeInteger(data.totalWon)||!Number.isSafeInteger(data.bestWin))return freshWallet();
-   const history:LegacySpinResult[]=(Array.isArray(data.history)?data.history:[]).slice(0,12).map((record:unknown):LegacySpinResult|null=>legacyHistory(record)).filter((r):r is LegacySpinResult=>r!==null);
+   const history:LegacySpinResult[]=(Array.isArray(data.history)?data.history:[]).slice(0,12).map((record:unknown):LegacySpinResult|null=>legacyHistory(record)).filter((r:LegacySpinResult|null):r is LegacySpinResult=>r!==null);
    return {version:2,credits:data.credits,spins:data.spins,totalBet:data.totalBet,totalWon:data.totalWon,bestWin:data.bestWin,freeSpins:0,settlementIds:history.map(r=>r.id).slice(-128),history};
   }
   if(data.version!==2||!Number.isSafeInteger(data.freeSpins)||data.freeSpins<0||data.freeSpins>100||!Array.isArray(data.settlementIds)||data.settlementIds.some((id:unknown)=>typeof id!=='string'))return freshWallet();
   const ids:string[]=[...new Set(data.settlementIds as string[])].slice(-128),seen=new Set<string>(),history:SlotHistoryResult[]=(Array.isArray(data.history)?data.history:[]).slice(0,12).map((record:unknown):SlotHistoryResult|null=>{
    const spin=validSpin(record)?record:legacyHistory(record);if(!spin||seen.has(spin.id))return null;seen.add(spin.id);return spin;
-  }).filter((r):r is SlotHistoryResult=>r!==null);
+  }).filter((r:SlotHistoryResult|null):r is SlotHistoryResult=>r!==null);
   const settlementIds=[...new Set([...ids,...history.map(record=>record.id)])].slice(-128);
   return {version:2,credits:data.credits,spins:data.spins,totalBet:data.totalBet,totalWon:data.totalWon,bestWin:data.bestWin,freeSpins:data.freeSpins,settlementIds,history};
  }catch{return freshWallet()}
