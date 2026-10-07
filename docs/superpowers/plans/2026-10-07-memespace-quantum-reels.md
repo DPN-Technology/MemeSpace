@@ -39,10 +39,10 @@
 - Extend `SpinResult` with `bonusTriggered: boolean`, `freeSpinsAwarded: number`, and `freeSpinIndex: number | null`.
 - Preserve `freshWallet()`, `readWallet(value)`, and `spinSlots(wallet, bet, pick, id, at)` as pure engine contracts.
 
-- [ ] **Step 1: Write failing tests** named `slot evaluator scores the 5x3 paylines`, `wild substitutes for regular symbols`, `three scatters trigger five free spins`, and `free spin uses no credit debit and applies its 1.5x bonus multiplier`. Assert 10 fixed paylines, 5 reels × 3 rows, 5 free spins per 3+ scatter trigger, and a 1.5× free-spin award multiplier.
+- [ ] **Step 1: Write failing tests** named `slot evaluator scores the 5x3 paylines`, `wild substitutes for regular symbols`, `three scatters trigger five free spins`, and `free spin uses no credit debit and applies its 1.5x bonus multiplier`. Assert 10 fixed paylines, a 5-reel × 3-row grid, 5 free spins for 3+ scatters, 1.5× free-spin multiplier, and no scatter retrigger.
 - [ ] **Step 2: Run** `pnpm test:arcade`; confirm evaluator rejects five columns and missing symbol behaviors.
-- [ ] **Step 3: Implement** a five-reel, three-row grid; ten fixed paylines; a wild symbol substituting for all non-scatter symbols; scatter pays anywhere and triggers 5 free spins at 3+ symbols; free-spin wins use a 1.5× multiplier, with no retrigger and no direct scatter award. Preserve independent cryptographic draws per cell.
-- [ ] **Step 4: Add** a deterministic probability calculation over the documented symbol weights and all payline/bonus cases. Recalculate the theoretical return, expose it as `theoreticalReturn()`, and test against an exact documented value to a tolerance of 1e-9.
+- [ ] **Step 3: Implement** five reels × three rows and ten fixed paylines. Use symbol weights totaling 20 per cell: Circuit 6, Crystal 5, Orbit 4, Lightning 2, Seven 1, Wild 1, Scatter 1. Wild substitutes for every non-scatter symbol. A 3+ scatter result awards five free spins at 1.5×, does not retrigger, and has no direct scatter award. Pay the longest 3/4/5 consecutive left-to-right match per line at these bet multipliers: Circuit 2/6/20, Crystal 3/10/35, Orbit 5/18/70, Lightning 10/40/160, Seven 20/100/400. Preserve independent cryptographic draws per cell.
+- [ ] **Step 4: Add** an exact analytical expected-return calculation in `theoreticalReturn()`. Test 0.8663266188535185 within 1e-9. This is the exact expectation for ten base lines plus the 3+ scatter probability × five 1.5× free spins; free spins cannot retrigger.
 - [ ] **Step 5: Run** `pnpm test:arcade`; confirm legacy single-line and wallet tests are updated and all outcomes settle exactly once.
 - [ ] **Step 6: Commit** `feat: expand slot rules and bonus rounds`.
 
@@ -52,14 +52,13 @@
 - Modify: `app/arcade/slots-game.tsx`
 - Modify: `app/arcade/slot-symbol.tsx`
 - Modify: `app/arcade/arcade.css`
-- Test: `tests/arcade.test.mjs`
 
 **Interfaces:**
 - Consume the Task 1 `SlotGrid`, `SpinResult`, and `theoreticalReturn()`.
 - Keep `SlotSymbol` rendering each symbol ID and keep keyboard Space-to-spin.
 
 - [ ] **Step 1: Run** `pnpm test:arcade`; confirm the engine, payout math, and settlement tests pass before presentation work.
-- [ ] **Step 2: Open** the cabinet in a running browser and verify all 5 reels, 10 paylines, bonus status, free-spin count, and return/paytable text.
+- [ ] **Step 2: Implement** the expanded cabinet; then open it in a running browser and verify all 5 reels, 10 paylines, bonus status, free-spin count, and return/paytable text.
 - [ ] **Step 3: Implement** the expanded reels, visible line patterns, distinct wild/scatter art, bonus-start and free-spin feedback, and responsive layout. Display the exact return from the tested engine function with wording that it is theoretical.
 - [ ] **Step 4: Verify** `pnpm lint`, `pnpm typecheck`, and visual render at 360px and desktop widths, including reduced motion.
 - [ ] **Step 5: Commit** `feat: render Quantum Reels bonus cabinet`.
