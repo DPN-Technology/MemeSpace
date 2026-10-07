@@ -35,10 +35,10 @@
 
 **Interfaces:**
 - Export `type PoolPoint = { x: number; y: number }`.
-- Export `dragToShot(cue: PoolPoint, release: PoolPoint): { angle: number; power: number }`.
-- Pull direction is opposite the cue-to-release vector; power is `clamp(distance / 180, 0.05, 1)`.
+- Export `dragToShot(cue: PoolPoint, release: PoolPoint): { angle: number; power: number } | null`.
+- Pull direction is opposite the cue-to-release vector; power is `clamp(distance / 180, 0.05, 1)`. A pull shorter than 12 table units returns `null` and must not shoot.
 
-- [ ] **Step 1: Write failing tests** named `pool drag points opposite the pull direction`, `pool drag power clamps to the playable range`, and `pool zero-length drag stays finite`. Assert the direction for horizontal and diagonal drags and power values at distances 9, 90, and 240.
+- [ ] **Step 1: Write failing tests** named `pool drag points opposite the pull direction`, `pool drag power clamps to the playable range`, and `pool zero-length drag stays finite`. Assert horizontal and diagonal direction, null at distances 0 and 11, and power values at distances 12, 90, and 240.
 - [ ] **Step 2: Run** `pnpm test:arcade`; confirm import/function failures.
 - [ ] **Step 3: Implement** `dragToShot` without DOM dependencies.
 - [ ] **Step 4: Run** `pnpm test:arcade`; confirm all mapping tests pass.
@@ -54,11 +54,11 @@
 
 **Interfaces:**
 - Use `dragToShot` from Task 1 and existing `strike(state, angle, power, calledPocket)`.
-- Add a single-shot pointer gesture state with pointer ID, cue start, drag end, and cancellation state.
+- Add a single-shot pointer gesture state with pointer ID, cue start, drag end, and cancellation state. Export `beginPoolDrag(pointerId, press, cue, phase)`, `movePoolDrag(gesture, pointerId, point)`, `finishPoolDrag(gesture, pointerId)`, and `cancelPoolDrag(gesture, pointerId)` from `pool-input.ts`; only `finishPoolDrag` for the matching pointer ID may produce a shot.
 
 - [ ] **Step 1: Add failing tests** for the gesture state: pointer down starts only in aim phase; movement updates preview; pointer up calls strike once; pointer cancel/lost capture never calls strike; aim/power/shoot via arrow keys and Space still works.
 - [ ] **Step 2: Run** `pnpm test:arcade`; confirm tests fail because no gesture controller exists.
-- [ ] **Step 3: Implement** pointer capture on the table. Only start a shot drag within 32px of the cue ball. Update aim line and draw-back power during movement; on pointer up, derive `angle` and `power`, call `strike` once, and ignore compatibility click events. Preserve the on-screen Shoot button and existing keyboard controls.
+- [ ] **Step 3: Implement** pointer capture on the table. Only start a shot drag within 32 table units of the cue ball. Update aim line and draw-back power during movement; on pointer up, derive `angle` and `power`, call `strike` once, and ignore compatibility click events. Preserve the on-screen Shoot button and existing keyboard controls.
 - [ ] **Step 4: Reproduce** the reported non-firing Shoot-button behavior in a running browser; trace button event → `shoot()` → `strike()` → phase transition. Verify both direct drag and fallback click produce exactly one shot. Exercise mouse and touch pointer types.
 - [ ] **Step 5: Commit** `fix: make pool table input fire reliably`.
 
