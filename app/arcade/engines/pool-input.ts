@@ -12,7 +12,7 @@ export function dragToShot(cue:PoolPoint,release:PoolPoint):{angle:number;power:
 }
 
 export function beginPoolDrag(pointerId:number,press:PoolPoint,cue:PoolPoint,phase:'aim'|'rolling'|'placement'|'over'):PoolDrag|null{
- if(phase!=='aim'||!Number.isFinite(pointerId)||Math.hypot(press.x-cue.x,press.y-cue.y)>MAX_PRESS_DISTANCE)return null;
+ if(phase!=='aim'||!Number.isFinite(pointerId)||![press.x,press.y,cue.x,cue.y].every(Number.isFinite)||Math.hypot(press.x-cue.x,press.y-cue.y)>MAX_PRESS_DISTANCE)return null;
  return {pointerId,cue:{...cue},start:{...press},current:{...press}};
 }
 
