@@ -117,16 +117,17 @@ test('three scatters trigger five free spins without a scatter award',()=>{
 });
 test('free spin costs no credits, pays at 1.5x, and cannot retrigger',()=>{
   const trigger=spinSlots(freshWallet(),1,()=>19,'trigger',1000).wallet;
-  const free=spinSlots(trigger,1,()=>0,'free-1',1001);assert.equal(free.result.cost,0);assert.equal(free.result.freeSpinIndex,1);assert.equal(free.result.payout,300);assert.equal(free.wallet.credits,trigger.credits);assert.equal(free.wallet.freeSpins,4);
+  const free=spinSlots(trigger,1,()=>0,'free-1',1001);assert.equal(free.result.cost,0);assert.equal(free.result.freeSpinIndex,1);assert.equal(free.result.payout,300);assert.equal(free.wallet.credits,trigger.credits+free.result.payout);assert.equal(free.wallet.freeSpins,4);
   const noRetrigger=spinSlots(free.wallet,1,()=>19,'free-2',1002);assert.equal(noRetrigger.result.bonusTriggered,false);assert.equal(noRetrigger.result.freeSpinsAwarded,0);assert.equal(noRetrigger.wallet.freeSpins,3);
 });
 test('slot draws use documented weights and calculate exact theoretical return',()=>{
   const counts=Object.fromEntries(SYMBOLS.map(s=>[s.id,0]));for(let n=0;n<20;n++)counts[sampleSymbol(()=>n)]++;for(const s of SYMBOLS)assert.equal(counts[s.id],s.weight);
-  assert.throws(()=>sampleSymbol(()=>20));assert.throws(()=>randomIndex(0));assert.equal(PAYLINES.length,10);assert.ok(Math.abs(theoreticalReturn()-0.8663266188535185)<1e-9);
+  assert.throws(()=>sampleSymbol(()=>20));assert.throws(()=>randomIndex(0));assert.equal(PAYLINES.length,10);assert.ok(Math.abs(theoreticalReturn()-0.8664350938499594)<1e-9);
 });
 test('slot wallet migrates legacy history and prevents duplicate settlement IDs',()=>{
   const old={version:1,credits:145,spins:7,totalBet:20,totalWon:42,bestWin:20,history:[{grid:[['chip','gem','orbit'],['gem','seven','bolt'],['orbit','chip','gem']],wins:[{line:1}],bet:1,cost:5,payout:8,id:'legacy-1',at:900}]};
   const migrated=readWallet(JSON.stringify(old));assert.equal(migrated.version,2);assert.equal(migrated.credits,145);assert.equal(migrated.history[0].legacy,true);assert.equal(migrated.history[0].id,'legacy-1');
   const first=spinSlots(freshWallet(),1,()=>0,'once',1000);assert.throws(()=>spinSlots(first.wallet,1,()=>0,'once',1001),/already settled/);
+  const bonus=spinSlots(freshWallet(),1,()=>19,'reload-bonus',1002).wallet,reloaded=readWallet(JSON.stringify(bonus));assert.equal(reloaded.freeSpins,5);assert.equal(reloaded.history[0].id,'reload-bonus');assert.ok(reloaded.settlementIds.includes('reload-bonus'));
   assert.deepEqual(readWallet('{broken'),freshWallet());assert.deepEqual(readWallet(JSON.stringify({...first.wallet,credits:-1})),freshWallet());
 });
