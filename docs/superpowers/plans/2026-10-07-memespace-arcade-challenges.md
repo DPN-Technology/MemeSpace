@@ -62,7 +62,7 @@
 
 - [ ] **Step 1: Add failing adapter tests** for pinball mission completion, pool rack completion, and slot bonus trigger; assert each changes only its own daily challenge.
 - [ ] **Step 2: Run** `pnpm test:arcade`; confirm cabinet events do not reach challenge progress.
-- [ ] **Step 3: Implement** a small `recordArcadeEvent(scope, event)` helper in `runtime.tsx` that loads, applies, and persists progress. Generate event IDs once when outcomes settle, never during a render.
+- [ ] **Step 3: Implement** a small `recordArcadeEvent(scope: string, event: ArcadeEvent): ChallengeProgressV1` helper in `runtime.tsx` that loads, applies, and persists progress. Generate event IDs once when outcomes settle, never during a render.
 - [ ] **Step 4: Add** storage-failure handling that keeps in-memory progress for the active visit and surfaces the existing style of warning without blocking play.
 - [ ] **Step 5: Run** `pnpm test:arcade`; verify duplicate slot settlement cannot duplicate challenge credit.
 - [ ] **Step 6: Commit** `feat: persist arcade challenge progress`.
