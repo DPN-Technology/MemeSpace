@@ -37,13 +37,14 @@
 
 **Interfaces:**
 - Export `ChallengeGame = 'pinball' | 'pool' | 'slots'`.
-- Export `ArcadeEvent = { id: string; game: ChallengeGame; type: string; value?: number; at: number }`.
-- Export `ChallengeProgressV1`, `dailyChallenges(date: Date): ChallengeDefinition[]`, `applyArcadeEvent(progress, event): ChallengeProgressV1`, `readChallengeProgress(serialized, scope): ChallengeProgressV1`, and `writeChallengeProgress(progress, scope): void`.
-- Challenge definition includes `id`, `game`, `title`, `description`, `target`, and `eventType`.
+- Export `ArcadeEvent = { id: string; game: ChallengeGame; type: 'mission-complete' | 'rack-complete' | 'bonus-triggered'; value?: number; at: number }`.
+- Export `ChallengeProgressV1`, `dailyChallenges(date: Date): ChallengeDefinition[]`, `lifetimeMilestones(progress): Milestone[]`, `applyArcadeEvent(progress, event): ChallengeProgressV1`, `readChallengeProgress(serialized): ChallengeProgressV1`, and `serializeChallengeProgress(progress): string`.
+- Keep storage scope out of the pure module. `runtime.tsx` owns `localStorage` and uses key `memespace-arcade-challenges:<scope>`.
+- Challenge definition includes `id`, `game`, `title`, `description`, `target`, and `eventType`. Daily objectives are: one pinball mission completion; one pool rack completion in either practice layout; one slot bonus trigger. Lifetime milestones are pinball missions at 1/10/50, pool racks at 5/25, and slot bonus triggers at 1/10/25.
 
 - [ ] **Step 1: Write failing tests** named `dailyChallenges are stable within and change across UTC days`, `applyArcadeEvent increments matching progress once per event ID`, `readChallengeProgress migrates existing empty and valid saves`, and `invalid progress recovers to scoped empty state`.
 - [ ] **Step 2: Run** `pnpm test:arcade`; confirm missing module/function failures.
-- [ ] **Step 3: Implement** pure deterministic challenge definitions with one daily objective for each featured game. Use UTC date keys, reject events for a mismatched game/type, de-duplicate the latest 500 event IDs, and keep a 30-day history.
+- [ ] **Step 3: Implement** pure deterministic challenge definitions with one daily objective for each featured game. Use UTC date keys, reject events for a mismatched game/type, de-duplicate the latest 500 event IDs, and keep 30 days of daily progress plus lifetime totals. Test `dailyChallenges` at 2026-10-07T23:59:59Z and 2026-10-08T00:00:00Z.
 - [ ] **Step 4: Run** `pnpm test:arcade`; confirm rotation, progress, migration, and deduplication pass.
 - [ ] **Step 5: Commit** `feat: add deterministic arcade challenges`.
 
@@ -76,8 +77,8 @@
 - Modify: `app/arcade/slots-game.tsx`
 - Modify: `app/arcade/arcade.css`
 
-- [ ] **Step 1: Add failing UI contract checks** for one daily objective per cabinet, progress count, completed state, and milestone history.
-- [ ] **Step 2: Run** `pnpm test:arcade`; confirm the challenge views are absent.
+- [ ] **Step 1: Run** `pnpm test:arcade`; confirm UTC rotation, reducer, migration, and event-adapter tests pass before UI work.
+- [ ] **Step 2: Open** the lobby and each cabinet in a running browser and verify one daily objective per cabinet, progress count, completed state, and lifetime milestone history.
 - [ ] **Step 3: Implement** lobby cards for today's three challenges and compact cabinet HUD progress. Show UTC reset date in local display time; show an explicit empty-progress state and never imply online competition.
 - [ ] **Step 4: Verify** `pnpm lint`, `pnpm typecheck`, identity switch behavior, and desktop/mobile render sizes.
 - [ ] **Step 5: Commit** `feat: show arcade challenges and milestones`.
