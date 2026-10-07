@@ -22,7 +22,7 @@
 
 - Corrupt or old wallet save; migrate valid existing balance/history and reset only malformed data, tested in Task 3.
 - Player reloads or leaves during reel animation; settled outcome is not repeated, tested in Task 3.
-- Bonus starts while balance is below normal bet; free spins continue without debiting credits, tested in Task 2.
+- Bonus starts while balance is below normal bet; free spins continue without debiting credits, tested in Task 1.
 - Invalid bet, symbol, or grid shape; reject without changing wallet, tested in Task 1.
 - Browser storage unavailable; allow play for current visit and show persistence warning, tested in Task 3.
 
@@ -39,7 +39,7 @@
 - Extend `SpinResult` with `bonusTriggered: boolean`, `freeSpinsAwarded: number`, and `freeSpinIndex: number | null`.
 - Preserve `freshWallet()`, `readWallet(value)`, and `spinSlots(wallet, bet, pick, id, at)` as pure engine contracts.
 
-- [ ] **Step 1: Write failing tests** named `slot evaluator scores the 5x3 paylines`, `wild substitutes for regular symbols`, `three scatters trigger eight free spins`, and `free spin uses no credit debit and applies its 2x bonus multiplier`. Assert 10 fixed paylines, 5 reels × 3 rows, 8 free spins per 3+ scatter trigger, and a 2× free-spin award multiplier.
+- [ ] **Step 1: Write failing tests** named `slot evaluator scores the 5x3 paylines`, `wild substitutes for regular symbols`, `three scatters trigger eight free spins`, and `free spin uses no credit debit and applies its 2x bonus multiplier`. Assert 10 fixed paylines, 5 reels × 3 rows, 5 free spins per 3+ scatter trigger, and a 1.5× free-spin award multiplier.
 - [ ] **Step 2: Run** `pnpm test:arcade`; confirm evaluator rejects five columns and missing symbol behaviors.
 - [ ] **Step 3: Implement** a five-reel, three-row grid; ten fixed paylines; a wild symbol substituting for all non-scatter symbols; scatter pays anywhere and triggers 8 free spins at 3+ symbols; free-spin wins use a 2× multiplier. Preserve independent cryptographic draws per cell.
 - [ ] **Step 4: Add** a deterministic probability calculation over the documented symbol weights and all payline/bonus cases. Recalculate the theoretical return, expose it as `theoreticalReturn()`, and test against an exact documented value to a tolerance of 1e-9.
