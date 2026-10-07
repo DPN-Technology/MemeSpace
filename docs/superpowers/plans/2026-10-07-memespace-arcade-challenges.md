@@ -32,7 +32,6 @@
 
 **Files:**
 - Create: `app/arcade/challenges.ts`
-- Modify: `app/arcade/runtime.tsx`
 - Test: `tests/arcade.test.mjs`
 
 **Interfaces:**
@@ -42,7 +41,7 @@
 - Keep storage scope out of the pure module. `runtime.tsx` owns `localStorage` and uses key `memespace-arcade-challenges:<scope>`.
 - Challenge definition includes `id`, `game`, `title`, `description`, `target`, and `eventType`. Daily objectives are: one pinball mission completion; one pool rack completion in either practice layout; one slot bonus trigger. Lifetime milestones are pinball missions at 1/10/50, pool racks at 5/25, and slot bonus triggers at 1/10/25.
 
-- [ ] **Step 1: Write failing tests** named `dailyChallenges are stable within and change across UTC days`, `applyArcadeEvent increments matching progress once per event ID`, `readChallengeProgress migrates existing empty and valid saves`, and `invalid progress recovers to scoped empty state`.
+- [ ] **Step 1: Write failing tests** named `dailyChallenges are stable within and change across UTC days`, `applyArcadeEvent increments matching progress once per event ID`, `readChallengeProgress migrates existing empty and valid saves`, and `invalid progress recovers to empty progress`.
 - [ ] **Step 2: Run** `pnpm test:arcade`; confirm missing module/function failures.
 - [ ] **Step 3: Implement** pure deterministic challenge definitions with one daily objective for each featured game. Use UTC date keys, reject events for a mismatched game/type, de-duplicate the latest 500 event IDs, and keep 30 days of daily progress plus lifetime totals. Test `dailyChallenges` at 2026-10-07T23:59:59Z and 2026-10-08T00:00:00Z.
 - [ ] **Step 4: Run** `pnpm test:arcade`; confirm rotation, progress, migration, and deduplication pass.
