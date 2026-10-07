@@ -34,9 +34,10 @@
 - Test: `tests/arcade.test.mjs`
 
 **Interfaces:**
-- Export `type PoolPoint = { x: number; y: number }`.
+- Export `type PoolPoint = { x: number; y: number }` and `type PoolDrag = { pointerId: number; cue: PoolPoint; start: PoolPoint; current: PoolPoint }`.
 - Export `dragToShot(cue: PoolPoint, release: PoolPoint): { angle: number; power: number } | null`.
-- Pull direction is opposite the cue-to-release vector; power is `clamp(distance / 180, 0.05, 1)`. A pull shorter than 12 table units returns `null` and must not shoot.
+- Export `beginPoolDrag(pointerId: number, press: PoolPoint, cue: PoolPoint, phase: 'aim' | 'rolling' | 'placement' | 'over'): PoolDrag | null`, `movePoolDrag(gesture: PoolDrag, pointerId: number, point: PoolPoint): PoolDrag`, `finishPoolDrag(gesture: PoolDrag, pointerId: number): { angle: number; power: number } | null`, and `cancelPoolDrag(gesture: PoolDrag, pointerId: number): null`.
+- Pull direction is opposite the cue-to-release vector; power is `clamp(distance / 180, 0.05, 1)`. A pull shorter than 12 table units returns `null` and must not shoot. A press more than 32 table units from the cue returns `null`.
 
 - [ ] **Step 1: Write failing tests** named `pool drag points opposite the pull direction`, `pool drag power clamps to the playable range`, and `pool zero-length drag stays finite`. Assert horizontal and diagonal direction, null at distances 0 and 11, and power values at distances 12, 90, and 240.
 - [ ] **Step 2: Run** `pnpm test:arcade`; confirm import/function failures.
@@ -54,7 +55,7 @@
 
 **Interfaces:**
 - Use `dragToShot` from Task 1 and existing `strike(state, angle, power, calledPocket)`.
-- Add a single-shot pointer gesture state with pointer ID, cue start, drag end, and cancellation state. Export `beginPoolDrag(pointerId, press, cue, phase)`, `movePoolDrag(gesture, pointerId, point)`, `finishPoolDrag(gesture, pointerId)`, and `cancelPoolDrag(gesture, pointerId)` from `pool-input.ts`; only `finishPoolDrag` for the matching pointer ID may produce a shot.
+- Add a single-shot pointer gesture state with pointer ID, cue start, drag end, and cancellation state using the exact Task 1 signatures; only `finishPoolDrag` for the matching pointer ID may produce a shot.
 
 - [ ] **Step 1: Add failing tests** for the pure gesture state: pointer down starts only in aim phase and within 32 table units of the cue; movement updates preview; matching pointer up returns one shot; mismatched pointer ID, cancel, and lost capture return no shot; short pull returns no shot.
 - [ ] **Step 2: Run** `pnpm test:arcade`; confirm tests fail because no gesture controller exists.
