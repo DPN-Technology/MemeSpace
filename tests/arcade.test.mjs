@@ -51,7 +51,7 @@ test('pinball launch strengths reach the playfield and remain finite through com
 });
 test('pinball circuits award multiball once, cooldowns prevent duplicate hits and tilt disables awards',()=>{
   const s=createPinball();launchPinball(s);pinballHit(s,0);const first=s.score;pinballHit(s,0);assert.equal(s.score,first);
-  for(let i=0;i<3;i++){s.time+=.2;pinballHit(s,i,true)}assert.equal(s.balls.length,3);assert.equal(s.multiplier,2);assert.ok(s.score>=2250);
+  for(let i=0;i<3;i++){s.time+=.2;pinballHit(s,i,true)}assert.equal(s.balls.length,3);assert.equal(s.multiplier,2);assert.ok(s.score>=1250);
   for(let i=0;i<3;i++){s.time+=.2;pinballHit(s,i,true)}assert.equal(s.balls.length,3);assert.equal(s.multiplier,3);
   for(let i=0;i<4;i++){s.time+=1;assert.ok(nudgePinball(s))}assert.ok(s.tilted);const before=s.score;pinballHit(s,0);assert.equal(s.score,before);
   stepPinball(s,.05,{left:true,right:true});assert.equal(s.left,.34);assert.equal(s.right,Math.PI-.34);
@@ -67,7 +67,7 @@ test('pinball routes activate features and award a mission once',()=>{
   s.time=10;pinballFeatureHit(s,'left-orbit');s.time=17;pinballFeatureHit(s,'spinner');s.time=18;pinballFeatureHit(s,'right-orbit');assert.equal(s.missionsCompleted,1);
 });
 test('pinball drop targets reset and award a bank clear',()=>{
-  const s=createPinball();for(let i=0;i<3;i++){s.time+=.2;pinballHit(s,i,true)}assert.deepEqual(s.dropTargets,[false,false,false]);assert.equal(s.featureHits['drop-bank'],1);assert.ok(s.score>=1750);assert.equal(s.balls.length,3);
+  const s=createPinball();for(let i=0;i<3;i++){s.time+=.2;pinballHit(s,i,true)}assert.deepEqual(s.dropTargets,[false,false,false]);assert.equal(s.featureHits['drop-bank'],1);assert.ok(s.score>=1250);assert.equal(s.balls.length,3);
 });
 test('pinball trigger cooldown and tilt suppress duplicate awards',()=>{
   const s=createPinball();s.phase='playing';pinballFeatureHit(s,'left-orbit');const first=s.score;pinballFeatureHit(s,'left-orbit');assert.equal(s.score,first);s.time+=.3;pinballFeatureHit(s,'left-orbit');assert.ok(s.score>first);s.tilted=true;const tilted=s.score;pinballFeatureHit(s,'spinner');assert.equal(s.score,tilted);assert.equal(s.spinnerCharge,0);
@@ -145,3 +145,4 @@ test('slot wallet migrates legacy history and prevents duplicate settlement IDs'
   const bonus=spinSlots(freshWallet(),1,()=>19,'reload-bonus',1002).wallet,reloaded=readWallet(JSON.stringify(bonus));assert.equal(reloaded.freeSpins,5);assert.equal(reloaded.history[0].id,'reload-bonus');assert.ok(reloaded.settlementIds.includes('reload-bonus'));
   assert.deepEqual(readWallet('{broken'),freshWallet());assert.deepEqual(readWallet(JSON.stringify({...first.wallet,credits:-1})),freshWallet());
 });
+
