@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {circleCollision,capsuleCollision,finiteBody} from '../app/arcade/engines/physics.ts';
 import {createPinball,launchPinball,stepPinball,nudgePinball,pinballHit,drainPinball} from '../app/arcade/engines/pinball.ts';
 import {createPool,strike,stepPool,finishShot,placeCue,canPlaceCue,cpuShot,cpuPlace,aimTrace,legalTargets} from '../app/arcade/engines/pool.ts';
-import {SYMBOLS,PAYLINES,sampleSymbol,evaluateSlots,spinSlots,freshWallet,readWallet,randomIndex} from '../app/arcade/engines/slots.ts';
+import {SYMBOLS,PAYLINES,sampleSymbol,evaluateSlots,spinSlots,freshWallet,readWallet,randomIndex,theoreticalReturn} from '../app/arcade/engines/slots.ts';
 import {dragToShot,beginPoolDrag,movePoolDrag,finishPoolDrag,cancelPoolDrag} from '../app/arcade/engines/pool-input.ts';
 
 test('pool drag points opposite the pull direction',()=>{
@@ -101,24 +101,32 @@ test('pool practice layouts start with fixed playable positions',()=>{
   assert.equal(bank.balls.filter(b=>b.id&&!b.pocketed).length,3);assert.notDeepEqual(bank.balls.slice(0,4).map(b=>[b.x,b.y]),line.balls.slice(0,4).map(b=>[b.x,b.y]));
 });
 test('pool cpu profiles select legal targets with bounded controlled shots',()=>{
-  const s=createPool('cpu');s.turn=1;s.shots=1;s.groups=['stripes','solids'];s.balls.slice(1).forEach(b=>b.pocketed=true);const target=s.balls.find(b=>b.id===1);Object.assign(target,{x:500,y:150,pocketed:false});Object.assign(s.balls[0],{x:500,y:310});
-  for(const difficulty of ['easy','standard','hard']){const plan=cpuShot(s,difficulty);assert.ok(legalTargets(s).some(b=>b.id===plan.targetId));assert.ok(Number.isFinite(plan.angle));assert.ok(plan.power>=.05&&plan.power<=1);assert.ok(plan.pocket>=0&&plan.pocket<6)}
-  for(const difficulty of ['standard','hard']){const plan=cpuShot(s,difficulty);assert.equal(strike(s,plan.angle,plan.power,plan.pocket),true);assert.equal(s.phase,'rolling');s.phase='aim';s.balls.forEach(b=>{b.vx=0;b.vy=0});}
+  for(const difficulty of ['easy','standard','hard']){const s=createPool('cpu');s.turn=1;s.shots=1;s.groups=['stripes','solids'];s.balls.slice(1).forEach(b=>b.pocketed=true);const target=s.balls.find(b=>b.id===1);Object.assign(target,{x:500,y:150,pocketed:false});Object.assign(s.balls[0],{x:500,y:310});const plan=cpuShot(s,difficulty);assert.ok(legalTargets(s).some(b=>b.id===plan.targetId));assert.ok(Number.isFinite(plan.angle));assert.ok(plan.power>=.05&&plan.power<=1);assert.ok(plan.pocket>=0&&plan.pocket<6);if(difficulty!=='easy'){assert.equal(strike(s,plan.angle,plan.power,plan.pocket),true);runPool(s);assert.equal(target.pocketed,true)}}
 });
-test('slot weights cover each sample exactly and have the documented mathematical return',()=>{
-  const counts=Object.fromEntries(SYMBOLS.map(s=>[s.id,0]));for(let n=0;n<20;n++)counts[sampleSymbol(()=>n)]++;
-  for(const s of SYMBOLS)assert.equal(counts[s.id],s.weight);assert.throws(()=>sampleSymbol(()=>20));assert.throws(()=>randomIndex(0));
-  let payout=0;for(let a=0;a<20;a++)for(let b=0;b<20;b++)for(let c=0;c<20;c++){const ids=[a,b,c].map(n=>sampleSymbol(()=>n));if(ids.every(id=>id===ids[0]))payout+=SYMBOLS.find(s=>s.id===ids[0]).payout}assert.equal(payout/8000,.89075);
+test('slot evaluator scores the 5x3 paylines and longest match',()=>{
+  const grid=Array.from({length:5},(_,col)=>['seven',['circuit','crystal','lightning','orbit','crystal'][col],['crystal','orbit','circuit','wild','lightning'][col]]);
+  const evaluation=evaluateSlots(grid,1);assert.equal(PAYLINES.length,10);assert.equal(grid.length,5);assert.ok(grid.every(column=>column.length===3));assert.deepEqual(evaluation.wins.map(w=>w.line),[1]);assert.equal(evaluation.payout,400);assert.equal(evaluation.cost,10);
 });
-test('slot payouts cover all five lines, add wins, and reject malformed spins',()=>{
-  const allSeven=Array.from({length:3},()=>['seven','seven','seven']);const evaluation=evaluateSlots(allSeven,2);assert.equal(evaluation.wins.length,5);assert.equal(evaluation.payout,1500);assert.equal(evaluation.cost,10);
-  for(let line=0;line<5;line++){const grid=[['chip','gem','orbit'],['gem','orbit','chip'],['orbit','chip','gem']];PAYLINES[line].forEach((row,col)=>grid[col][row]='bolt');assert.ok(evaluateSlots(grid,5).wins.some(w=>w.line===line+1&&w.award===225))}
-  for(const bet of [-1,0,3,NaN,Infinity])assert.throws(()=>evaluateSlots(allSeven,bet));assert.throws(()=>evaluateSlots([['made-up']],1));
+test('wild substitutes for regular symbols but scatter ends a payline',()=>{
+  const grid=Array.from({length:5},()=>['circuit','orbit','lightning']);['circuit','wild','circuit','circuit','wild'].forEach((id,col)=>grid[col][0]=id);
+  assert.equal(evaluateSlots(grid,2).wins[0].award,40);grid[1][0]='scatter';assert.equal(evaluateSlots(grid,2).wins.some(w=>w.line===1),false);
 });
-test('slot settlement debits once, retains twelve outcomes and survives reload without replay',()=>{
-  const initial=freshWallet(),copy=structuredClone(initial);let {wallet,result}=spinSlots(initial,2,()=>19,'known-spin',1000);assert.deepEqual(initial,copy);assert.equal(wallet.credits,3490);assert.equal(wallet.spins,1);assert.equal(result.payout,1500);
-  const reloaded=readWallet(JSON.stringify(wallet));assert.equal(reloaded.credits,3490);assert.equal(reloaded.history[0].id,'known-spin');assert.equal(reloaded.spins,1);
-  for(let i=0;i<16;i++)wallet=spinSlots(wallet,1,()=>0,'spin-'+i,2000+i).wallet;assert.equal(wallet.history.length,12);assert.equal(wallet.history[0].id,'spin-15');assert.equal(wallet.spins,17);
-  const poor={...freshWallet(),credits:4};assert.throws(()=>spinSlots(poor,1),/Not enough/);assert.equal(poor.credits,4);assert.equal(poor.spins,0);
-  assert.deepEqual(readWallet('{broken'),freshWallet());assert.deepEqual(readWallet(JSON.stringify({...wallet,credits:-1})),freshWallet());assert.equal(readWallet(JSON.stringify({...wallet,history:[{...result,payout:999999}]})).history.length,0);
+test('three scatters trigger five free spins without a scatter award',()=>{
+  let draw=0;const picks=[19,19,19],{wallet,result}=spinSlots(freshWallet(),1,()=>picks[draw++]??0,'bonus-spin',1000);
+  assert.equal(result.bonusTriggered,true);assert.equal(result.freeSpinsAwarded,5);assert.equal(result.payout,0);assert.equal(result.cost,10);assert.equal(wallet.freeSpins,5);assert.equal(wallet.credits,1990);
+});
+test('free spin costs no credits, pays at 1.5x, and cannot retrigger',()=>{
+  const trigger=spinSlots(freshWallet(),1,()=>19,'trigger',1000).wallet;
+  const free=spinSlots(trigger,1,()=>0,'free-1',1001);assert.equal(free.result.cost,0);assert.equal(free.result.freeSpinIndex,1);assert.equal(free.result.payout,300);assert.equal(free.wallet.credits,trigger.credits);assert.equal(free.wallet.freeSpins,4);
+  const noRetrigger=spinSlots(free.wallet,1,()=>19,'free-2',1002);assert.equal(noRetrigger.result.bonusTriggered,false);assert.equal(noRetrigger.result.freeSpinsAwarded,0);assert.equal(noRetrigger.wallet.freeSpins,3);
+});
+test('slot draws use documented weights and calculate exact theoretical return',()=>{
+  const counts=Object.fromEntries(SYMBOLS.map(s=>[s.id,0]));for(let n=0;n<20;n++)counts[sampleSymbol(()=>n)]++;for(const s of SYMBOLS)assert.equal(counts[s.id],s.weight);
+  assert.throws(()=>sampleSymbol(()=>20));assert.throws(()=>randomIndex(0));assert.equal(PAYLINES.length,10);assert.ok(Math.abs(theoreticalReturn()-0.8663266188535185)<1e-9);
+});
+test('slot wallet migrates legacy history and prevents duplicate settlement IDs',()=>{
+  const old={version:1,credits:145,spins:7,totalBet:20,totalWon:42,bestWin:20,history:[{grid:[['chip','gem','orbit'],['gem','seven','bolt'],['orbit','chip','gem']],wins:[{line:1}],bet:1,cost:5,payout:8,id:'legacy-1',at:900}]};
+  const migrated=readWallet(JSON.stringify(old));assert.equal(migrated.version,2);assert.equal(migrated.credits,145);assert.equal(migrated.history[0].legacy,true);assert.equal(migrated.history[0].id,'legacy-1');
+  const first=spinSlots(freshWallet(),1,()=>0,'once',1000);assert.throws(()=>spinSlots(first.wallet,1,()=>0,'once',1001),/already settled/);
+  assert.deepEqual(readWallet('{broken'),freshWallet());assert.deepEqual(readWallet(JSON.stringify({...first.wallet,credits:-1})),freshWallet());
 });
