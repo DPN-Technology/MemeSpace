@@ -19,7 +19,7 @@
 
 ## Review Focus
 
-- Pointer cancel, lost capture, or leaving the table; cancel drag without firing, tested in Task 1.
+- Pointer cancel, lost capture, or leaving the table; cancel drag without firing, tested in Task 2.
 - Short or zero-length drag; no invalid or accidental zero-power shot, tested in Task 1.
 - One pointer-up event fires once despite pointer-capture/compatibility clicks, tested in Task 2.
 - Wrong turn or non-aim phase; no shot is fired, tested in Task 2.
@@ -56,9 +56,9 @@
 - Use `dragToShot` from Task 1 and existing `strike(state, angle, power, calledPocket)`.
 - Add a single-shot pointer gesture state with pointer ID, cue start, drag end, and cancellation state. Export `beginPoolDrag(pointerId, press, cue, phase)`, `movePoolDrag(gesture, pointerId, point)`, `finishPoolDrag(gesture, pointerId)`, and `cancelPoolDrag(gesture, pointerId)` from `pool-input.ts`; only `finishPoolDrag` for the matching pointer ID may produce a shot.
 
-- [ ] **Step 1: Add failing tests** for the gesture state: pointer down starts only in aim phase; movement updates preview; pointer up calls strike once; pointer cancel/lost capture never calls strike; aim/power/shoot via arrow keys and Space still works.
+- [ ] **Step 1: Add failing tests** for the pure gesture state: pointer down starts only in aim phase and within 32 table units of the cue; movement updates preview; matching pointer up returns one shot; mismatched pointer ID, cancel, and lost capture return no shot; short pull returns no shot.
 - [ ] **Step 2: Run** `pnpm test:arcade`; confirm tests fail because no gesture controller exists.
-- [ ] **Step 3: Implement** pointer capture on the table. Only start a shot drag within 32 table units of the cue ball. Update aim line and draw-back power during movement; on pointer up, derive `angle` and `power`, call `strike` once, and ignore compatibility click events. Preserve the on-screen Shoot button and existing keyboard controls.
+- [ ] **Step 3: Implement** pointer capture on the table. Only start a shot drag within 32 table units of the cue ball. Update aim line and draw-back power during movement; on matching pointer up, derive `angle` and `power`, call `strike` once, then clear gesture state so compatibility clicks cannot fire a second shot. Preserve the on-screen Shoot button and existing keyboard controls.
 - [ ] **Step 4: Reproduce** the reported non-firing Shoot-button behavior in a running browser; trace button event → `shoot()` → `strike()` → phase transition. Verify both direct drag and fallback click produce exactly one shot. Exercise mouse and touch pointer types.
 - [ ] **Step 5: Commit** `fix: make pool table input fire reliably`.
 
