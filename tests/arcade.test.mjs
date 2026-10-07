@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {circleCollision,capsuleCollision,finiteBody} from '../app/arcade/engines/physics.ts';
-import {createPinball,launchPinball,stepPinball,nudgePinball,pinballHit,drainPinball} from '../app/arcade/engines/pinball.ts';
+import {createPinball,launchPinball,stepPinball,nudgePinball,pinballHit,drainPinball,pinballFeatureHit} from '../app/arcade/engines/pinball.ts';
+import {sweptFeatureTrigger} from '../app/arcade/engines/pinball-layout.ts';
 import {createPool,strike,stepPool,finishShot,placeCue,canPlaceCue,cpuShot,cpuPlace,aimTrace,legalTargets} from '../app/arcade/engines/pool.ts';
 import {SYMBOLS,PAYLINES,sampleSymbol,evaluateSlots,spinSlots,freshWallet,readWallet,randomIndex,theoreticalReturn} from '../app/arcade/engines/slots.ts';
 import {dragToShot,beginPoolDrag,movePoolDrag,finishPoolDrag,cancelPoolDrag} from '../app/arcade/engines/pool-input.ts';
@@ -60,6 +61,19 @@ test('pinball ball-save is single use and the third drained ball ends the game',
   launchPinball(s);s.balls=[];s.ballTime=2;drainPinball(s);assert.equal(s.ballNumber,2);assert.equal(s.saverUsed,false);
   launchPinball(s);s.balls=[];s.ballTime=10;drainPinball(s);assert.equal(s.ballNumber,3);
   launchPinball(s);s.balls=[];s.ballTime=10;drainPinball(s);assert.equal(s.phase,'over');assert.equal(launchPinball(s),false);
+});
+test('pinball routes activate features and award a mission once',()=>{
+  const s=createPinball();s.phase='playing';s.multiplier=2;const before=s.score;pinballFeatureHit(s,'left-orbit');s.time=1;pinballFeatureHit(s,'spinner');s.time=2;pinballFeatureHit(s,'right-orbit');assert.equal(s.missionsCompleted,1);assert.equal(s.missionStep,0);assert.ok(s.score>=before+1000*2);
+  s.time=10;pinballFeatureHit(s,'left-orbit');s.time=17;pinballFeatureHit(s,'spinner');s.time=18;pinballFeatureHit(s,'right-orbit');assert.equal(s.missionsCompleted,1);
+});
+test('pinball drop targets reset and award a bank clear',()=>{
+  const s=createPinball();for(let i=0;i<3;i++){s.time+=.2;pinballHit(s,i,true)}assert.deepEqual(s.dropTargets,[false,false,false]);assert.equal(s.featureHits['drop-bank'],1);assert.ok(s.score>=1750);assert.equal(s.balls.length,3);
+});
+test('pinball trigger cooldown and tilt suppress duplicate awards',()=>{
+  const s=createPinball();s.phase='playing';pinballFeatureHit(s,'left-orbit');const first=s.score;pinballFeatureHit(s,'left-orbit');assert.equal(s.score,first);s.time+=.3;pinballFeatureHit(s,'left-orbit');assert.ok(s.score>first);s.tilted=true;const tilted=s.score;pinballFeatureHit(s,'spinner');assert.equal(s.score,tilted);assert.equal(s.spinnerCharge,0);
+});
+test('pinball swept sensors catch a fast ball between frames',()=>{
+  assert.equal(sweptFeatureTrigger({x:0,y:0},{x:100,y:0},{x:50,y:0,r:5}),true);assert.equal(sweptFeatureTrigger({x:0,y:0},{x:100,y:0},{x:50,y:12,r:5}),false);
 });
 function runPool(s,seconds=25,dt=1/120){for(let i=0;i<seconds/dt&&s.phase==='rolling';i++)stepPool(s,dt);return s}
 function shot(s,{contact=1,potted=[],pocket=0,rail=true,called=null}={}){
