@@ -1,6 +1,9 @@
 export type ChallengeGame='pinball'|'pool'|'slots';
-export type ChallengeEvent='pinball-mission'|'pool-rack'|'slot-bonus';
-export type ChallengeState={version:1;counts:{pinballMissions:number;poolRacks:number;slotBonuses:number};daily:{date:string;complete:Record<ChallengeGame,boolean>}};
+export type ArcadeEvent=
+ | {id:string;game:'pinball';type:'mission-complete'}
+ | {id:string;game:'pool';type:'rack-clear'}
+ | {id:string;game:'slots';type:'bonus-triggered'};
+export type ChallengeState={version:1;counts:{pinballMissions:number;poolRacks:number;slotBonuses:number};daily:{date:string;complete:Record<ChallengeGame,boolean>};dailyHistory:Record<string,Record<ChallengeGame,boolean>>;eventIds:string[]};
 export type DailyChallenge={id:string;game:ChallengeGame;title:string;description:string;progress:number;target:1;complete:boolean};
 export type MilestoneProgress={game:ChallengeGame;count:number;thresholds:number[];unlocked:number;next:number|null};
 const games:ChallengeGame[]=['pinball','pool','slots'];
@@ -9,13 +12,14 @@ const descriptions:Record<ChallengeGame,string>={pinball:'Complete a Left Orbit 
 const thresholds:Record<ChallengeGame,number[]>={pinball:[1,10,50],pool:[5,25],slots:[1,10,25]};
 export function utcChallengeDate(at=new Date()){return `${at.getUTCFullYear()}-${String(at.getUTCMonth()+1).padStart(2,'0')}-${String(at.getUTCDate()).padStart(2,'0')}`}
 export function challengeStorageKey(scope:string){return `memespace-arcade-challenges:${scope}`}
-export function createChallengeState(at=new Date()):ChallengeState{return {version:1,counts:{pinballMissions:0,poolRacks:0,slotBonuses:0},daily:{date:utcChallengeDate(at),complete:{pinball:false,pool:false,slots:false}}}}
-function dated(state:ChallengeState,at:Date){const date=utcChallengeDate(at);return state.daily.date===date?state:{...state,daily:{date,complete:{pinball:false,pool:false,slots:false}}}}
-function fieldFor(event:ChallengeEvent){return event==='pinball-mission'?'pinballMissions':event==='pool-rack'?'poolRacks':'slotBonuses'}
-function gameFor(event:ChallengeEvent):ChallengeGame{return event==='pinball-mission'?'pinball':event==='pool-rack'?'pool':'slots'}
-export function recordChallengeEvent(state:ChallengeState,event:ChallengeEvent,at=new Date()):ChallengeState{
- const current=dated(state,at),field=fieldFor(event),game=gameFor(event);
- return {...current,counts:{...current.counts,[field]:Math.min(1_000_000_000,current.counts[field]+1)},daily:{...current.daily,complete:{...current.daily.complete,[game]:true}}};
+const emptyDaily=():Record<ChallengeGame,boolean>=>({pinball:false,pool:false,slots:false});
+export function createChallengeState(at=new Date()):ChallengeState{const date=utcChallengeDate(at),complete=emptyDaily();return {version:1,counts:{pinballMissions:0,poolRacks:0,slotBonuses:0},daily:{date,complete},dailyHistory:{[date]:complete},eventIds:[]}}
+function dated(state:ChallengeState,at:Date){const date=utcChallengeDate(at);if(state.daily.date===date)return state;const complete=state.dailyHistory[date]||emptyDaily();return {...state,daily:{date,complete}}}
+export function applyArcadeEvent(state:ChallengeState,event:ArcadeEvent,at=new Date()):ChallengeState{
+ if(!event.id||state.eventIds.includes(event.id))return state;
+ const current=dated(state,at),field=event.game==='pinball'?'pinballMissions':event.game==='pool'?'poolRacks':'slotBonuses',complete={...current.daily.complete,[event.game]:true},dailyHistory={...current.dailyHistory,[current.daily.date]:complete};
+ const dates=Object.keys(dailyHistory).sort().slice(-30),recent=Object.fromEntries(dates.map(date=>[date,dailyHistory[date]]));
+ return {...current,counts:{...current.counts,[field]:Math.min(1_000_000_000,current.counts[field]+1)},daily:{...current.daily,complete},dailyHistory:recent,eventIds:[...current.eventIds,event.id].slice(-500)};
 }
 export function dailyChallenges(at=new Date(),state:ChallengeState=createChallengeState(at)):DailyChallenge[]{
  const current=dated(state,at),date=utcChallengeDate(at),day=Math.floor(Date.UTC(at.getUTCFullYear(),at.getUTCMonth(),at.getUTCDate())/86_400_000);
@@ -26,7 +30,9 @@ export function milestoneProgress(state:ChallengeState):MilestoneProgress[]{
 }
 export function readChallengeState(value:string|null,at=new Date()):ChallengeState{
  try{const data=JSON.parse(value||'null');if(!data||data.version!==1||!data.counts||['pinballMissions','poolRacks','slotBonuses'].some(key=>!Number.isSafeInteger(data.counts[key])||data.counts[key]<0||data.counts[key]>1_000_000_000))return createChallengeState(at);
-  const complete=data.daily?.complete;if(typeof data.daily?.date!=='string'||!complete||games.some(game=>typeof complete[game]!=='boolean'))return createChallengeState(at);
-  return dated({version:1,counts:{...data.counts},daily:{date:data.daily.date,complete:{pinball:complete.pinball,pool:complete.pool,slots:complete.slots}}},at);
+  const history=data.dailyHistory;if(!history||typeof history!=='object'||Array.isArray(history)||!Array.isArray(data.eventIds)||data.eventIds.some((id:unknown)=>typeof id!=='string'))return createChallengeState(at);
+  const validHistory:ChallengeState['dailyHistory']={};for(const [date,complete] of Object.entries(history)){if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!complete||games.some(game=>typeof (complete as any)[game]!=='boolean'))return createChallengeState(at);validHistory[date]=complete as Record<ChallengeGame,boolean>}
+  const dates=Object.keys(validHistory).sort().slice(-30),dailyHistory=Object.fromEntries(dates.map(date=>[date,validHistory[date]])),date=utcChallengeDate(at),complete=dailyHistory[date]||emptyDaily();
+  return {version:1,counts:{...data.counts},daily:{date,complete},dailyHistory,eventIds:[...new Set(data.eventIds as string[])].slice(-500)};
  }catch{return createChallengeState(at)}
 }
