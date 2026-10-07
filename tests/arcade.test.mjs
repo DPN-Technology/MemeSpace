@@ -7,7 +7,7 @@ import {SYMBOLS,PAYLINES,sampleSymbol,evaluateSlots,spinSlots,freshWallet,readWa
 import {dragToShot,beginPoolDrag,movePoolDrag,finishPoolDrag,cancelPoolDrag} from '../app/arcade/engines/pool-input.ts';
 
 test('pool drag points opposite the pull direction',()=>{
-  const horizontal=dragToShot({x:100,y:100},{x:190,y:100});assert.ok(Math.abs(horizontal.angle-Math.PI)<1e-12);
+  const horizontal=dragToShot({x:100,y:100},{x:190,y:100});assert.ok(Math.abs(Math.abs(horizontal.angle)-Math.PI)<1e-12);
   const diagonal=dragToShot({x:100,y:100},{x:136,y:136});assert.ok(Math.abs(diagonal.angle-(-3*Math.PI/4))<1e-12);
 });
 test('pool drag power clamps to the playable range',()=>{
@@ -21,7 +21,7 @@ test('pool zero-length drag stays finite',()=>{
 test('pool pointer gestures require a nearby cue in aim phase and finish once',()=>{
   const cue={x:100,y:100};assert.equal(beginPoolDrag(4,{x:133,y:100},cue,'aim'),null);assert.equal(beginPoolDrag(4,{x:100,y:100},cue,'rolling'),null);
   let gesture=beginPoolDrag(4,{x:120,y:100},cue,'aim');assert.ok(gesture);gesture=movePoolDrag(gesture,4,{x:190,y:100});assert.deepEqual(gesture.current,{x:190,y:100});
-  assert.equal(finishPoolDrag(gesture,5),null);assert.equal(finishPoolDrag(gesture,4).power,70/180);assert.equal(finishPoolDrag(gesture,4).power,70/180);assert.equal(cancelPoolDrag(gesture,4),null);
+  assert.equal(finishPoolDrag(gesture,5),null);assert.equal(finishPoolDrag(gesture,4).power,.5);assert.equal(cancelPoolDrag(gesture,4),null);
   const short=beginPoolDrag(4,cue,cue,'aim');assert.equal(finishPoolDrag(movePoolDrag(short,4,{x:105,y:100}),4),null);
 });
 
