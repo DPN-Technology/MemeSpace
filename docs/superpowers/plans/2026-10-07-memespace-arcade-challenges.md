@@ -35,11 +35,11 @@
 - Test: `tests/arcade.test.mjs`
 
 **Interfaces:**
-- Export `ChallengeGame = 'pinball' | 'pool' | 'slots'`.
-- Export `ArcadeEvent = { id: string; game: ChallengeGame; type: 'mission-complete' | 'rack-complete' | 'bonus-triggered'; value?: number; at: number }`.
-- Export `ChallengeProgressV1`, `dailyChallenges(date: Date): ChallengeDefinition[]`, `lifetimeMilestones(progress): Milestone[]`, `applyArcadeEvent(progress, event): ChallengeProgressV1`, `readChallengeProgress(serialized): ChallengeProgressV1`, and `serializeChallengeProgress(progress): string`.
+- Export `ChallengeGame = 'pinball' | 'pool' | 'slots'` and `ArcadeEvent = { id: string; game: ChallengeGame; type: 'mission-complete' | 'rack-complete' | 'bonus-triggered'; value?: number; at: number }`.
+- Define `ChallengeDefinition = { id: string; game: ChallengeGame; title: string; description: string; target: number; eventType: ArcadeEvent['type'] }`, `Milestone = { id: string; game: ChallengeGame; title: string; target: number; current: number; completed: boolean }`, and `ChallengeProgressV1 = { version: 1; daily: Record<string, Record<string, number>>; totals: Record<ChallengeGame, number>; processedEventIds: string[] }`.
+- Export `dailyChallenges(date: Date): ChallengeDefinition[]`, `lifetimeMilestones(progress: ChallengeProgressV1): Milestone[]`, `applyArcadeEvent(progress: ChallengeProgressV1, event: ArcadeEvent): ChallengeProgressV1`, `readChallengeProgress(serialized: string | null): ChallengeProgressV1`, and `serializeChallengeProgress(progress: ChallengeProgressV1): string`.
 - Keep storage scope out of the pure module. `runtime.tsx` owns `localStorage` and uses key `memespace-arcade-challenges:<scope>`.
-- Challenge definition includes `id`, `game`, `title`, `description`, `target`, and `eventType`. Daily objectives are: one pinball mission completion; one pool rack completion in either practice layout; one slot bonus trigger. Lifetime milestones are pinball missions at 1/10/50, pool racks at 5/25, and slot bonus triggers at 1/10/25.
+- Daily objectives are: one pinball mission completion; one pool rack completion in either practice layout; one slot bonus trigger. Lifetime milestones are pinball missions at 1/10/50, pool racks at 5/25, and slot bonus triggers at 1/10/25.
 
 - [ ] **Step 1: Write failing tests** named `dailyChallenges are stable within and change across UTC days`, `applyArcadeEvent increments matching progress once per event ID`, `readChallengeProgress migrates existing empty and valid saves`, and `invalid progress recovers to empty progress`.
 - [ ] **Step 2: Run** `pnpm test:arcade`; confirm missing module/function failures.
