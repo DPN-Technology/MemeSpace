@@ -1,1 +1,51 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="320" viewBox="0 0 1200 320"><defs><linearGradient id="b" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#050507"/><stop offset=".55" stop-color="#0A0A0E"/><stop offset="1" stop-color="#12060A"/></linearGradient><radialGradient id="g" cx=".72" cy=".38" r=".65"><stop stop-color="#9B5CFF" stop-opacity=".22"/><stop offset="1" stop-color="#9B5CFF" stop-opacity="0"/></radialGradient><pattern id="p" width="34" height="34" patternUnits="userSpaceOnUse"><path d="M34 0H0V34" fill="none" stroke="#fff" stroke-opacity=".035"/></pattern></defs><rect width="1200" height="320" rx="24" fill="url(#b)"/><rect width="1200" height="320" rx="24" fill="url(#p)"/><rect width="1200" height="320" rx="24" fill="url(#g)"/><g opacity=".18" font-family="Consolas,monospace" font-size="15" fill="#9B5CFF"><text x="770" y="42">01000100 01010000 01001110</text><text x="825" y="70">00110101 00110010 00110110</text><text x="735" y="258">01000100 01000101 01010110</text><text x="850" y="286">01001110 01000001 01010110</text></g><g stroke="#9B5CFF" stroke-opacity=".30" fill="none"><circle cx="1005" cy="160" r="92"/><circle cx="1005" cy="160" r="58" stroke-dasharray="5 8"/><circle cx="1005" cy="160" r="26"/><path d="M913 160h184M1005 68v184"/><path d="M1005 160l76-46" stroke-width="2"/></g><circle cx="1081" cy="114" r="5" fill="#9B5CFF"/><rect x="72" y="57" width="44" height="4" rx="2" fill="#9B5CFF"/><text x="72" y="98" font-family="Segoe UI,Arial,sans-serif" font-size="18" font-weight="700" fill="#9B5CFF" letter-spacing="4">DPN TECHNOLOGY</text><text x="72" y="160" font-family="Segoe UI,Arial,sans-serif" font-size="44" font-weight="800" fill="#F6F6F8">MemeSpace</text><text x="72" y="202" font-family="Segoe UI,Arial,sans-serif" font-size="18" fill="#9A9AA5">Immersive Community • Neon Arcade • Digital Mind</text><text x="72" y="260" font-family="Consolas,monospace" font-size="13" font-weight="700" fill="#6F6F78" letter-spacing="2">DEVELOP  •  PIONEER  •  NAVIGATE</text><rect x="1" y="1" width="1198" height="318" rx="23" fill="none" stroke="#9B5CFF" stroke-opacity=".28"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="490" viewBox="0 0 1440 490" role="img" aria-labelledby="title desc">
+  <title id="title">MemeSpace — DPN Technology</title>
+  <desc id="desc">A dark technical banner with mint binary streams, lavender circuit lines and a digital mind. Enter the mind. Stay for the arcade.</desc>
+  <defs>
+    <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#080D0B"/><stop offset=".55" stop-color="#101B15"/><stop offset="1" stop-color="#191525"/></linearGradient>
+    <radialGradient id="halo"><stop stop-color="#A5FFB4" stop-opacity=".16"/><stop offset="1" stop-color="#A5FFB4" stop-opacity="0"/></radialGradient>
+    <linearGradient id="edge"><stop stop-color="#A5FFB4"/><stop offset=".6" stop-color="#A5FFB4" stop-opacity=".2"/><stop offset="1" stop-color="#C9B6F6"/></linearGradient>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#A5FFB4" stroke-opacity=".05"/></pattern>
+  </defs>
+  <rect width="1440" height="490" rx="24" fill="url(#bg)"/>
+  <rect width="1440" height="490" rx="24" fill="url(#grid)"/>
+  <ellipse cx="1110" cy="224" rx="355" ry="290" fill="url(#halo)"/>
+  <path d="M30 1H1410" stroke="url(#edge)" stroke-width="2"/>
+  <path d="M36 66V36H66M1374 36H1404V66M36 424V454H66M1374 454H1404V424" fill="none" stroke="#A5FFB4" stroke-opacity=".55" stroke-width="2"/>
+  <g font-family="Arial, Helvetica, sans-serif">
+    <path d="M75 52L60 76H73L65 94L92 66H78L88 52Z" fill="#A5FFB4"/>
+    <text x="108" y="70" fill="#EDF5EF" font-size="22" font-weight="700" letter-spacing="4">DPN TECHNOLOGY</text>
+    <text x="108" y="93" fill="#93A69B" font-size="12" letter-spacing="3">DEVELOP · PIONEER · NAVIGATE</text>
+    <rect x="66" y="144" width="265" height="30" rx="15" fill="#A5FFB4" fill-opacity=".08" stroke="#A5FFB4" stroke-opacity=".28"/>
+    <circle cx="83" cy="159" r="3" fill="#A5FFB4"/>
+    <text x="97" y="164" fill="#C6E9D0" font-size="12" font-weight="700" letter-spacing="2">THE DIGITAL CULTURE SPACE</text>
+    <text x="61" y="260" fill="#F1F7F2" font-size="92" font-weight="700" letter-spacing="-5">Meme<tspan fill="#A5FFB4">Space</tspan><tspan fill="#C9B6F6">.</tspan></text>
+    <text x="67" y="308" fill="#D5E3D9" font-size="25">Enter the mind. Stay for the arcade.</text>
+    <path d="M67 345H600" stroke="#A5FFB4" stroke-opacity=".18"/>
+    <text x="67" y="381" fill="#A5FFB4" font-size="13" font-weight="700" letter-spacing="2.2">IMMERSIVE MIND</text>
+    <circle cx="239" cy="376" r="2" fill="#627769"/>
+    <text x="260" y="381" fill="#C9B6F6" font-size="13" font-weight="700" letter-spacing="2.2">NEON ARCADE</text>
+    <circle cx="410" cy="376" r="2" fill="#627769"/>
+    <text x="431" y="381" fill="#D5E3D9" font-size="13" font-weight="700" letter-spacing="2.2">COMMUNITY</text>
+    <text x="67" y="434" fill="#81998B" font-size="12" letter-spacing="1.4">LOCAL-FIRST EXPERIENCE / BUILT BY DPN</text>
+  </g>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="1136" cy="231" r="171" stroke="#A5FFB4" stroke-opacity=".12"/>
+    <circle cx="1136" cy="231" r="153" stroke="#C9B6F6" stroke-opacity=".22" stroke-dasharray="3 12"/>
+    <path d="M990 330A174 174 0 0 1 996 127M1285 141A174 174 0 0 1 1297 299" stroke="#A5FFB4" stroke-opacity=".65" stroke-width="2"/>
+    <path d="M1129 362V320H1089L1071 296V272L1046 263L1068 225V199C1068 151 1101 119 1146 119C1192 119 1229 151 1229 199C1229 231 1218 253 1196 276V362" fill="#0A120E" fill-opacity=".65" stroke="#A5FFB4" stroke-width="2.5"/>
+    <path d="M1110 164L1140 147L1175 160L1198 193L1185 229L1151 246L1112 220L1094 190Z" stroke="#C9B6F6" stroke-width="1.5"/>
+    <path d="M1110 164L1151 187L1140 147M1151 187L1175 160M1151 187L1198 193M1151 187L1185 229M1151 187V246M1151 187L1112 220M1151 187L1094 190" stroke="#A5FFB4" stroke-opacity=".65"/>
+    <path d="M1097 240H1114M1129 320H1170L1181 305M1196 337H1268L1298 367H1350M1069 206H1005L974 176H916M1229 206H1280L1300 185H1350M1004 382H1054L1075 361" stroke="#C9B6F6" stroke-opacity=".45"/>
+    <path d="M924 245H985L1005 265H1049M1197 291H1240L1260 310H1350" stroke="#A5FFB4" stroke-opacity=".35"/>
+  </g>
+  <g fill="#C9B6F6"><circle cx="1110" cy="164" r="4"/><circle cx="1175" cy="160" r="4"/><circle cx="1198" cy="193" r="4"/><circle cx="1185" cy="229" r="4"/><circle cx="1112" cy="220" r="4"/></g>
+  <g fill="#A5FFB4"><circle cx="1151" cy="187" r="7"/><circle cx="1140" cy="147" r="4"/><circle cx="1151" cy="246" r="4"/><circle cx="1094" cy="190" r="4"/><circle cx="1004" cy="382" r="3"/><circle cx="916" cy="176" r="3"/></g>
+  <g font-family="monospace" font-size="12" letter-spacing="5" fill="#A5FFB4" opacity=".18">
+    <text x="818" y="115">01001101</text><text x="834" y="137">11010010</text><text x="798" y="159">00101101</text>
+    <text x="1320" y="94">1010</text><text x="1320" y="116">0011</text><text x="1320" y="138">1101</text>
+    <text x="838" y="332">101101</text><text x="822" y="354">011010</text><text x="838" y="376">100101</text>
+    <text x="1265" y="415">01001101</text><text x="1265" y="437">01010011</text>
+  </g>
+  <text x="1035" y="420" fill="#9CB8A6" font-family="monospace" font-size="11" letter-spacing="3">MIND / PLAY / CONNECT</text>
+</svg>

@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "product": "MemeSpace",
+  "generatedAt": "2026-10-08T12:01:09.857Z",
+  "sourceCommit": "53397f2c13dffd48d37b12f98b2495b18f0879a5",
+  "evidenceType": "actual-rendered-ui",
+  "dataBoundary": "Unmodified production app built from the merged main tree, captured against a fresh isolated local SQLite data directory. Control Center uses a temporary preview operator enrolled with password and authenticator MFA. No real member data or credentials are included.",
+  "artifacts": [
+    {
+      "file": "entry.jpg",
+      "label": "Binary head entry",
+      "route": "/",
+      "viewport": {
+        "width": 1600,
+        "height": 1100
+      }
+    },
+    {
+      "file": "arcade.jpg",
+      "label": "Six-cabinet Neon Arcade lobby",
+      "route": "/#games",
+      "viewport": {
+        "width": 1600,
+        "height": 2600
+      },
+      "element": ".arcade-lobby"
+    },
+    {
+      "file": "pinball.jpg",
+      "label": "Reactor Pinball",
+      "route": "/#games",
+      "viewport": {
+        "width": 1600,
+        "height": 2600
+      },
+      "element": ".arcade-cabinet"
+    },
+    {
+      "file": "pool.jpg",
+      "label": "After Hours Pool",
+      "route": "/#games",
+      "viewport": {
+        "width": 1600,
+        "height": 2600
+      },
+      "element": ".arcade-cabinet"
+    },
+    {
+      "file": "slots.jpg",
+      "label": "Quantum Reels",
+      "route": "/#games",
+      "viewport": {
+        "width": 1600,
+        "height": 2600
+      },
+      "element": ".arcade-cabinet"
+    },
+    {
+      "file": "control-center.jpg",
+      "label": "Control Center overview with fresh local data",
+      "route": "admin:/",
+      "viewport": {
+        "width": 1600,
+        "height": 1100
+      }
+    }
+  ]
+}
