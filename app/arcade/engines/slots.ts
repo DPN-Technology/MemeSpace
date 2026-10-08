@@ -84,7 +84,7 @@ export function theoreticalReturn(){
  let lineNumerator=0;
  const visit=(cells:SymbolId[],weight:number)=>{if(cells.length===5){const win=lineMultiplier(cells);if(win)lineNumerator+=weight*win.multiplier;return}for(const symbol of SYMBOLS)visit([...cells,symbol.id],weight*symbol.weight)};
  visit([],1);
- let triggerNumerator=0;for(let k=3;k<=15;k++){let choose=1;for(let i=1;i<=k;i++)choose=choose*(16-i)/i;triggerNumerator+=choose*19**(15-k)}
+ let triggerNumerator=0;for(let k=3;k<=15;k++){let choose=1;for(let i=1;i<=k;i++)choose=choose*(16-i)/i;triggerNumerator+=choose*19**(15-k);}
  const lineExpected=lineNumerator/20**5,bonusProbability=triggerNumerator/20**15;
  returnCache=lineExpected*(1+5*1.5*bonusProbability);return returnCache;
 }

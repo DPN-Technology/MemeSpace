@@ -96,7 +96,10 @@ test('arcade controls work in the production browser at desktop and mobile sizes
  await page.locator('.pinball-canvas').click();
  await page.waitForFunction(()=>document.querySelector('.arcade-live-note')?.textContent?.includes('Reactor online'));
  assert.equal(await page.getByRole('button',{name:'Launch ball',exact:true}).isDisabled(),true,'tapping the table should launch a ready pinball ball');
- await page.getByRole('button',{name:'Launch ball',exact:true}).click();
+ // Exercise the button on a fresh ball instead of waiting for a random drain.
+ await page.getByRole('button',{name:'Restart this game',exact:true}).click();
+ await page.getByRole('button',{name:'Launch ball',exact:true}).click({timeout:1500});
+ assert.equal(await page.getByRole('button',{name:'Launch ball',exact:true}).isDisabled(),true,'the launch button should start the fresh ball');
  await page.getByRole('button',{name:'Pause game',exact:true}).click();
  await waitForVisible(page.locator('.arcade-tools button[aria-label="Resume game"]'));
  await page.locator('.arcade-tools button[aria-label="Resume game"]').click();

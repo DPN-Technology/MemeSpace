@@ -82,7 +82,7 @@ export function cpuShot(s:PoolState,difficulty:CpuDifficulty='standard'){
   if(alignment<minimumAlignment||ghost.x<73||ghost.x>927||ghost.y<73||ghost.y>467||!pathClear(s,cue,ghost,[0,target.id])||!pathClear(s,target,p,[0,target.id]))continue;
   const score=difficulty==='hard'?alignment*2200-distance*1.15-cueDistance*.9:difficulty==='easy'?alignment*900-distance-cueDistance*.8:alignment*1500-distance-cueDistance*.6;
   let angle=Math.atan2(ghost.y-cue.y,ghost.x-cue.x),power=clamp((Math.sqrt(2*95*(distance+cueDistance))/Math.max(.45,alignment)-100)/920,.18,.92);
-  if(difficulty==='easy'){angle+=.045;power=clamp(power*.78,.14,.75)}else if(difficulty==='hard')power=clamp(power,.22,.84);
+  if(difficulty==='easy'){angle+=.045;power=clamp(power*.78,.14,.75);}else if(difficulty==='hard')power=clamp(power,.22,.84);
   options.push({angle,power,pocket,score,targetId:target.id});
  }
  options.sort((a,b)=>b.score-a.score);
