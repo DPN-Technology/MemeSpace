@@ -15,8 +15,8 @@ test('community and knowledge flows persist across navigation at desktop and mob
  const port=Number(process.env.MEMESPACE_COMMUNITY_UI_PORT||5399),base='http://127.0.0.1:'+port;
  const server=spawn(process.execPath,['scripts/local.mjs','serve'],{cwd:root,env:{...process.env,MEMESPACE_PORT:String(port),MEMESPACE_DATA_DIR:data},stdio:['ignore','pipe','pipe']});
  let log='';server.stdout.on('data',v=>log+=v);server.stderr.on('data',v=>log+=v);
- t.after(async()=>{server.kill('SIGTERM');await Promise.race([new Promise(resolve=>server.once('exit',resolve)),delay(5000)]);await rm(data,{recursive:true,force:true})});
- let ready=false;for(let i=0;i<160;i++){try{if((await fetch(base+'/api/health')).ok){ready=true;break}}catch{}await delay(250)}assert.ok(ready,log);
+ t.after(async()=>{server.kill('SIGTERM');await Promise.race([new Promise(resolve=>server.once('exit',resolve)),delay(5000)]);await rm(data,{recursive:true,force:true});});
+ let ready=false;for(let i=0;i<160;i++){try{if((await fetch(base+'/api/health')).ok){ready=true;break;}}catch{}await delay(250);}assert.ok(ready,log);
  const builtHtml=await readFile(path.join(root,'.next/server/app/index.html'),'utf8');
  const servedHtml=await (await fetch(base)).text();
  const builtBundle=builtHtml.match(/page-[a-z0-9]+\.js/)?.[0],servedBundle=servedHtml.match(/page-[a-z0-9]+\.js/)?.[0];
@@ -31,7 +31,7 @@ test('community and knowledge flows persist across navigation at desktop and mob
  const waitEnabled=async locator=>{await locator.waitFor();for(let i=0;i<80&&await locator.isDisabled();i++)await delay(100);assert.equal(await locator.isEnabled(),true);};
  const message=page.getByRole('textbox',{name:'Message',exact:true});
  const evidence=process.env.MEMESPACE_COMMUNITY_EVIDENCE_DIR;
- async function capture(name){if(evidence){await mkdir(evidence,{recursive:true});await page.screenshot({path:path.join(evidence,name+'.png'),fullPage:true})}}
+ async function capture(name){if(evidence){await mkdir(evidence,{recursive:true});await page.screenshot({path:path.join(evidence,name+'.png'),fullPage:true});}}
  async function assertFits(){const dimensions=await page.locator('.workspace-body').evaluate(el=>({width:el.clientWidth,scrollWidth:el.scrollWidth}));assert.ok(dimensions.scrollWidth<=dimensions.width+1,'workspace content must not overflow horizontally');const box=await page.locator('.workspace-dialog').boundingBox(),size=page.viewportSize();assert.ok(box.x>=0&&box.y>=0&&box.x+box.width<=size.width+1&&box.y+box.height<=size.height+1,'workspace must remain on screen');}
 
  await t.test('editing preserves the unsent draft; keyboard replies and room drafts work',async()=>{
@@ -79,7 +79,7 @@ test('community and knowledge flows persist across navigation at desktop and mob
    await page.locator('.chat-compose-context').waitFor({state:'detached',timeout:12000});
    assert.equal(await message.inputValue(),'Keep this unsent draft');
    assert.equal(await page.getByText('What is your best pinball strategy?',{exact:true}).count(),0,'neither the list nor a reply preview may retain hidden text');
-  }finally{db.prepare('UPDATE messages SET hidden_at=0 WHERE id=?').run(id);db.close()}
+  }finally{db.prepare('UPDATE messages SET hidden_at=0 WHERE id=?').run(id);db.close();}
  });
  await t.test('reading-list toggles persist, including removal from the article view',async()=>{
   await open('history/forums');

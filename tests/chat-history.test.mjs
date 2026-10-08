@@ -25,11 +25,11 @@ test('chat history keeps stable pages, searches older text and never leaks moder
  const port=Number(process.env.MEMESPACE_CHAT_TEST_PORT||5398),base='http://127.0.0.1:'+port;
  const server=spawn(process.execPath,['scripts/local.mjs',process.env.MEMESPACE_TEST_MODE==='serve'?'serve':'start'],{cwd:root,env:{...process.env,MEMESPACE_PORT:String(port),MEMESPACE_DATA_DIR:data},stdio:['ignore','pipe','pipe']});
  let log='';server.stdout.on('data',v=>log+=v);server.stderr.on('data',v=>log+=v);
- t.after(async()=>{server.kill('SIGTERM');await Promise.race([new Promise(resolve=>server.once('exit',resolve)),delay(5000)]);db.close();await rm(data,{recursive:true,force:true})});
+ t.after(async()=>{server.kill('SIGTERM');await Promise.race([new Promise(resolve=>server.once('exit',resolve)),delay(5000)]);db.close();await rm(data,{recursive:true,force:true});});
  let ready=false;
- for(let i=0;i<180;i++){try{if((await fetch(base+'/api/health')).ok){ready=true;break}}catch{}await delay(250)}
+ for(let i=0;i<180;i++){try{if((await fetch(base+'/api/health')).ok){ready=true;break;}}catch{}await delay(250);}
  assert.ok(ready,log);
- const read=async query=>{const r=await fetch(base+'/api/chat?'+query);assert.equal(r.status,200);return r.json()};
+ const read=async query=>{const r=await fetch(base+'/api/chat?'+query);assert.equal(r.status,200);return r.json();};
  const first=await read('channel=general');
  assert.equal(first.messages.length,50,'history should return a bounded page');
  assert.equal(first.channels.find(c=>c.id==='general').messages,128);
@@ -40,7 +40,7 @@ test('chat history keeps stable pages, searches older text and never leaks moder
  assert.equal(JSON.stringify(first).includes('Moderated secret'),false);
  assert.equal(first.messages.some(m=>'user_id' in m),false);
  const seen=new Set(first.messages.map(m=>m.id));let cursor=first.nextCursor;
- while(cursor){const page=await read('channel=general&before='+encodeURIComponent(cursor));for(const m of page.messages){assert.equal(seen.has(m.id),false,'same-timestamp pages must not overlap');seen.add(m.id)}cursor=page.nextCursor}
+ while(cursor){const page=await read('channel=general&before='+encodeURIComponent(cursor));for(const m of page.messages){assert.equal(seen.has(m.id),false,'same-timestamp pages must not overlap');seen.add(m.id);}cursor=page.nextCursor;}
  assert.equal(seen.size,128,'same-timestamp pages must not omit older messages');
  const search=await read('channel=general&q='+encodeURIComponent('100%_'));
  assert.deepEqual(search.messages.map(m=>m.id),['m000'],'search must reach beyond the newest page and treat wildcard characters literally');
