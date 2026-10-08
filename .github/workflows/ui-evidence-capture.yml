@@ -37,6 +37,7 @@ jobs:
         run: |
           pnpm build
           pnpm test:arcade-ui
+          pnpm test:community-ui
       - name: Start MemeSpace with isolated data
         env:
           MEMESPACE_PORT: "5173"
