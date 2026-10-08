@@ -21,7 +21,11 @@ export function movePoolDrag(gesture:PoolDrag,pointerId:number,point:PoolPoint):
 }
 
 export function finishPoolDrag(gesture:PoolDrag,pointerId:number):{angle:number;power:number}|null{
- return pointerId===gesture.pointerId?dragToShot(gesture.cue,gesture.current):null;
+ if(pointerId!==gesture.pointerId)return null;
+ // A tap beside the cue starts a gesture for forgiving touch targeting, but it
+ // must not become a shot unless the player actually pulls the cue back.
+ if(Math.hypot(gesture.current.x-gesture.start.x,gesture.current.y-gesture.start.y)<MIN_PULL)return null;
+ return dragToShot(gesture.cue,gesture.current);
 }
 
 export function cancelPoolDrag(_gesture:PoolDrag,_pointerId:number):null{return null}

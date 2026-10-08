@@ -25,6 +25,18 @@ test('pool pointer gestures require a nearby cue in aim phase and finish once',(
   assert.equal(finishPoolDrag(gesture,5),null);assert.equal(finishPoolDrag(gesture,4).power,.5);assert.equal(cancelPoolDrag(gesture,4),null);
   const short=beginPoolDrag(4,cue,cue,'aim');assert.equal(finishPoolDrag(movePoolDrag(short,4,{x:105,y:100}),4),null);
 });
+test('pool taps beside the cue do not take a shot',()=>{
+  const cue={x:100,y:100};
+  const gesture=beginPoolDrag(7,{x:125,y:100},cue,'aim');
+  assert.ok(gesture);
+  assert.equal(finishPoolDrag(gesture,7),null);
+});
+test('pool ignores small pointer movement near the cue',()=>{
+  const cue={x:100,y:100};
+  const gesture=beginPoolDrag(8,{x:100,y:100},cue,'aim');
+  assert.ok(gesture);
+  assert.equal(finishPoolDrag(movePoolDrag(gesture,8,{x:109,y:104}),8),null);
+});
 
 test('ball collisions transfer momentum, preserve tangential motion and separate overlap',()=>{
   const a={x:0,y:0,r:12,vx:100,vy:3},b={x:23,y:0,r:12,vx:0,vy:3};
