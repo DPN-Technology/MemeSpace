@@ -13,6 +13,8 @@ export const groupOf=(id:number):Group|null=>id>0&&id<8?'solids':id>8?'stripes':
 export function remaining(s:PoolState,player=s.turn){const group=s.groups[player];return s.balls.filter(b=>!b.pocketed&&groupOf(b.id)===group&&group!==null).length}
 export function legalTargets(s:PoolState){if(s.mode==='solo')return s.balls.filter(b=>b.id&&!b.pocketed);const group=s.groups[s.turn];return s.balls.filter(b=>!b.pocketed&&b.id>0&&(group?(remaining(s)?groupOf(b.id)===group:b.id===8):b.id!==8))}
 export function createPool(mode:PoolMode='solo',layout:PoolLayoutId='standard'):PoolState{
+ // Competitive eight-ball needs the complete rack, including the eight.
+ if(mode!=='solo')layout='standard';
  const balls:PoolBall[]=[{id:0,x:270,y:270,vx:0,vy:0,r:12,pocketed:false,rotation:0}],order=[1,9,2,10,8,3,11,4,12,5,6,13,7,14,15];let i=0;
  for(let row=0;row<5;row++)for(let col=0;col<=row;col++)balls.push({id:order[i++],x:690+row*Math.sqrt(3)*12.03,y:270+(col*2-row)*12.03,vx:0,vy:0,r:12,pocketed:false,rotation:0});
  if(layout==='line-drill'){

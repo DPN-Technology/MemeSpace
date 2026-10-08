@@ -93,6 +93,30 @@ function shot(s,{contact=1,potted=[],pocket=0,rail=true,called=null}={}){
   for(const id of potted){s.balls.find(b=>b.id===id).pocketed=true;s.shot.potted.push(id);s.shot.pockets[id]=pocket}
   for(const b of s.balls)b.vx=b.vy=0;finishShot(s);return s;
 }
+test('competitive pool normalizes practice layouts to a finishable eight-ball rack',()=>{
+  for(const mode of ['cpu','two'])for(const layout of ['standard','line-drill','bank-shot']){
+    const s=createPool(mode,layout);
+    assert.equal(s.layout,'standard',`${mode}/${layout} must use a competitive rack`);
+    assert.equal(s.balls.filter(b=>b.id&&!b.pocketed).length,15);
+    assert.equal(s.balls.find(b=>b.id===8).pocketed,false);
+    s.shots=1;s.groups=['solids','stripes'];
+    for(const b of s.balls)if(b.id>0&&b.id<8)b.pocketed=true;
+    shot(s,{contact:8,potted:[8],pocket:2,called:2});
+    assert.equal(s.phase,'over');assert.equal(s.winner,0);
+  }
+});
+test('pinball balls collide with each displayed drop-bank target and clear the bank',()=>{
+  const s=createPinball();launchPinball(s);
+  for(const [index,x] of [224,272,320].entries()){
+    Object.assign(s.balls[0],{x,y:368,vx:0,vy:-800});
+    // Inspect the collision before newly released multiballs can score elsewhere.
+    stepPinball(s,1/240,{left:false,right:false});
+    assert.ok(s.balls[0].vy>0,`target ${index+1} must bounce the ball`);
+    if(index<2){assert.equal(s.dropTargets[index],true);assert.equal(s.score,(index+1)*250);}
+  }
+  assert.equal(s.featureHits['drop-bank'],1);assert.equal(s.score,1250);
+  assert.deepEqual(s.dropTargets,[false,false,false]);assert.equal(s.balls.length,3);
+});
 test('pool opening break disperses the rack and settles across fixed frame rates',()=>{
   const states=[1/30,1/60,1/120].map(dt=>{const s=createPool('two');strike(s,0,1);return runPool(s,25,dt)});
   for(const s of states){assert.notEqual(s.phase,'rolling');assert.ok(s.shot.firstContact);assert.ok(s.balls.every(finiteBody));assert.ok(s.balls.filter(b=>b.id&&!b.pocketed&&Math.abs(b.x-690)>100).length>=3);assert.ok(s.balls.every(b=>b.pocketed||Math.hypot(b.vx,b.vy)===0))}

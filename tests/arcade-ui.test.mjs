@@ -86,11 +86,20 @@ test('arcade controls work in the production browser at desktop and mobile sizes
  await page.locator('.pool-cabinet').press('Space');
  await page.waitForFunction(()=>document.querySelector('.pool-scorebar .arcade-stat:nth-child(2) strong')?.textContent==='1');
  await page.getByRole('button',{name:'Restart this game',exact:true}).click();
- await page.getByRole('tab',{name:'Vs computer',exact:true}).click();
- const cpu=page.locator('.pool-options label').filter({hasText:/CPU/}).locator('select');
- await cpu.waitFor({state:'visible'});await cpu.selectOption('hard');
- const practice=page.getByLabel('Practice table');await practice.selectOption('line-drill');
- assert.equal(await practice.inputValue(),'line-drill');assert.equal(await cpu.inputValue(),'hard');
+ await t.test('practice racks cannot leak into competitive pool modes',async()=>{
+  const practice=page.getByLabel('Practice table');
+  for(const layout of ['line-drill','bank-shot'])for(const mode of ['Vs computer','Two players']){
+   await page.getByRole('tab',{name:'Solo clearance',exact:true}).click();
+   await practice.selectOption(layout);
+   assert.equal(await practice.inputValue(),layout);
+   await page.getByRole('tab',{name:mode,exact:true}).click();
+   assert.equal(await practice.inputValue(),'standard','changing mode must restore a complete rack');
+   assert.equal(await practice.isDisabled(),true,'practice layouts are solo-only');
+  }
+  await page.getByRole('tab',{name:'Vs computer',exact:true}).click();
+  const cpu=page.locator('.pool-options label').filter({hasText:/CPU/}).locator('select');
+  await cpu.selectOption('hard');assert.equal(await cpu.inputValue(),'hard');
+ });
 
  await openGame('.pinball-feature','.pinball-canvas');
  await page.locator('.pinball-canvas').click();
@@ -115,6 +124,40 @@ test('arcade controls work in the production browser at desktop and mobile sizes
  await openGame('.slots-feature','.slot-reels');
  const reloadedWallet=await page.evaluate(()=>JSON.parse(localStorage.getItem('memespace-arcade-slots:guest')));
  assert.equal(reloadedWallet.spins,1,'slot history should survive returning to the cabinet');
+
+ await t.test('a slot bonus keeps challenge credit when leaving before animation finishes',async()=>{
+  await lobby();
+  await page.evaluate(()=>{
+   localStorage.removeItem('memespace-arcade-slots:guest');
+   localStorage.removeItem('memespace-arcade-challenges:guest');
+  });
+  await page.emulateMedia({reducedMotion:'no-preference'});
+  await openGame('.slots-feature','.slot-reels');
+  await page.waitForFunction(()=>document.querySelector('.slot-spin')?.disabled===false);
+  const settled=await page.evaluate(()=>{
+   const original=crypto.getRandomValues;
+   try{
+    // Control only random samples; real settlement, storage and navigation still run.
+    crypto.getRandomValues=array=>{array.fill(19);return array;};
+    document.querySelector('.slot-spin').click();
+    document.querySelector('.arcade-backbar button').click();
+    return {
+     wallet:JSON.parse(localStorage.getItem('memespace-arcade-slots:guest')),
+     challenge:JSON.parse(localStorage.getItem('memespace-arcade-challenges:guest'))
+    };
+   }finally{crypto.getRandomValues=original;}
+  });
+  assert.equal(settled.wallet.freeSpins,5,'the triggering spin should settle before leaving');
+  assert.equal(settled.challenge?.counts.slotBonuses,1,'challenge credit must settle with the bonus');
+  assert.equal(settled.challenge.daily.complete.slots,true);
+  await openGames();await openGame('.slots-feature','.slot-reels');
+  const restored=await page.evaluate(()=>({
+   wallet:JSON.parse(localStorage.getItem('memespace-arcade-slots:guest')),
+   challenge:JSON.parse(localStorage.getItem('memespace-arcade-challenges:guest'))
+  }));
+  assert.equal(restored.wallet.freeSpins,5);
+  assert.equal(restored.challenge.counts.slotBonuses,1,'reopening must not count a bonus twice');
+ });
 
  const mobile=await browser.newPage({viewport:{width:390,height:844},hasTouch:true,isMobile:true,reducedMotion:'reduce'});
  const mobileErrors=[];mobile.on('pageerror',error=>mobileErrors.push(error));

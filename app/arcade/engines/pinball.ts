@@ -1,6 +1,6 @@
 import {clamp,capsuleCollision,circleCollision,closestPoint} from './physics.ts';
 import type {Body,Vec} from './physics.ts';
-import {PINBALL_SENSORS,PINBALL_SPINNER,RAILS,sweptFeatureTrigger} from './pinball-layout.ts';
+import {PINBALL_SENSORS,PINBALL_SPINNER,PINBALL_DROP_TARGETS,RAILS,sweptFeatureTrigger} from './pinball-layout.ts';
 import type {PinballFeatureId} from './pinball-layout.ts';
 export {RAILS} from './pinball-layout.ts';
 export const PIN={width:560,height:820};
@@ -44,6 +44,9 @@ export function stepPinball(s:PinState,dt:number,input:{left:boolean;right:boole
    const from={x:ball.x,y:ball.y};ball.vy+=650*h;ball.vx*=Math.exp(-.07*h);ball.x+=ball.vx*h;ball.y+=ball.vy*h;const to={x:ball.x,y:ball.y};
    for(const [feature,sensor] of PINBALL_SENSORS)if(sweptFeatureTrigger(from,to,sensor))pinballFeatureHit(s,feature,ball.id);
    if(capsuleCollision(ball,{x:PINBALL_SPINNER.x1,y:PINBALL_SPINNER.y1},{x:PINBALL_SPINNER.x2,y:PINBALL_SPINNER.y2},2,.88))pinballFeatureHit(s,'spinner',ball.id);
+   for(const [i,target] of PINBALL_DROP_TARGETS.entries()){
+    if(!s.dropTargets[i]&&capsuleCollision(ball,{x:target.x-9,y:target.y},{x:target.x+9,y:target.y},6,.88))pinballHit(s,i,true,ball.id);
+   }
    for(const [x1,y1,x2,y2] of RAILS)capsuleCollision(ball,{x:x1,y:y1},{x:x2,y:y2},3,.78);
    for(let i=0;i<BUMPERS.length;i++){const b=BUMPERS[i],dx=ball.x-b.x,dy=ball.y-b.y,d=Math.hypot(dx,dy);if(d<b.r+ball.r){const nx=dx/(d||1),ny=dy/(d||1);ball.x=b.x+nx*(b.r+ball.r+.1);ball.y=b.y+ny*(b.r+ball.r+.1);const dot=ball.vx*nx+ball.vy*ny;ball.vx+=nx*(Math.max(0,-dot*1.7)+240);ball.vy+=ny*(Math.max(0,-dot*1.7)+240);pinballHit(s,i,false,ball.id)}}
    for(let i=0;i<TARGETS.length;i++){const b=TARGETS[i],dx=ball.x-b.x,dy=ball.y-b.y,d=Math.hypot(dx,dy);if(d<b.r+ball.r){const nx=dx/(d||1),ny=dy/(d||1);ball.x=b.x+nx*(b.r+ball.r+.1);ball.y=b.y+ny*(b.r+ball.r+.1);const dot=ball.vx*nx+ball.vy*ny;ball.vx+=nx*(Math.max(0,-dot*1.6)+110);ball.vy+=ny*(Math.max(0,-dot*1.6)+110);pinballHit(s,i,true,ball.id)}}

@@ -1,6 +1,6 @@
 import {BUMPERS,TARGETS,RAILS} from './engines/pinball.ts';
 import type {PinState} from './engines/pinball.ts';
-import {PINBALL_LANES,PINBALL_ORBITS,PINBALL_SPINNER} from './engines/pinball-layout.ts';
+import {PINBALL_LANES,PINBALL_ORBITS,PINBALL_SPINNER,PINBALL_DROP_TARGETS} from './engines/pinball-layout.ts';
 import {POCKETS,aimTrace,legalTargets} from './engines/pool.ts';
 import type {PoolState,PoolBall} from './engines/pool.ts';
 import type {Vec} from './engines/physics.ts';
@@ -22,7 +22,7 @@ export function drawPinball(c:C,s:PinState,lowMotion=false){
  // Three upper lanes, a moving spinner, and a live drop bank.
  for(const lane of PINBALL_LANES){round(c,lane.x-24,lane.y-18,48,30,6,'#111c2a','#9ea1ea70');const feature=lane.label==='1'?'left-lane':lane.label==='2'?'center-lane':'right-lane';label(c,lane.label,lane.x,lane.y+4,13,s.featureHits[feature]?'#d7ff9b':'#a6a0d3')}
  const spinAngle=lowMotion?0:Math.sin(s.time*9)*.42;c.save();c.translate((PINBALL_SPINNER.x1+PINBALL_SPINNER.x2)/2,PINBALL_SPINNER.y1);c.rotate(spinAngle);line(c,[-29,0,29,0],'#d5c48a',7);line(c,[-26,-1,26,-1],'#fff0b0',2);circle(c,0,0,5,'#f0d990','#fff1bb');c.restore();label(c,`SPINNER ${s.spinnerCharge}/8`,272,282,7,'#e4d39c');
- for(let i=0;i<3;i++){const x=224+i*48,lit=s.dropTargets[i];round(c,x-15,314,30,12,4,lit?'#b7ff83':'#45365b',lit?'#e6ffc6':'#ac8ce0');label(c,String(i+1),x,324,7,lit?'#122018':'#e4d7f5')}
+ for(const [i,{x,y}] of PINBALL_DROP_TARGETS.entries()){const lit=s.dropTargets[i];round(c,x-15,y-6,30,12,6,lit?'#263729':'#45365b',lit?'#b7ff83':'#ac8ce0');label(c,String(i+1),x,y+4,7,lit?'#b7ff83':'#e4d7f5')}
  label(c,`MISSION ${s.missionStep}/3 · COMPLETED ${s.missionsCompleted}`,272,70,8,s.missionStep?'#d9ffae':'#a9b7c4');
  for(let i=0;i<7;i++){const x=135+i*45;circle(c,x,570,2,i%2?'#845eaf':'#98d69a');line(c,[x,559,x,542],'#91a8b323')}
  c.save();c.translate(274,394);c.rotate(-.02);label(c,'NEURAL',0,-8,30,'#cedddd','sans-serif');label(c,'R E A C T O R',0,21,15,'#b799ed','monospace');label(c,'MEMESPACE  /  PINBALL DIVISION',0,45,7,'#647d90');c.restore();
