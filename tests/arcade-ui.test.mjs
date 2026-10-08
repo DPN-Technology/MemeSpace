@@ -93,6 +93,9 @@ test('arcade controls work in the production browser at desktop and mobile sizes
  assert.equal(await practice.inputValue(),'line-drill');assert.equal(await cpu.inputValue(),'hard');
 
  await openGame('.pinball-feature','.pinball-canvas');
+ await page.locator('.pinball-canvas').click();
+ await page.waitForFunction(()=>document.querySelector('.arcade-live-note')?.textContent?.includes('Reactor online'));
+ assert.equal(await page.getByRole('button',{name:'Launch ball',exact:true}).isDisabled(),true,'tapping the table should launch a ready pinball ball');
  await page.getByRole('button',{name:'Launch ball',exact:true}).click();
  await page.getByRole('button',{name:'Pause game',exact:true}).click();
  await waitForVisible(page.locator('.arcade-tools button[aria-label="Resume game"]'));
@@ -101,7 +104,7 @@ test('arcade controls work in the production browser at desktop and mobile sizes
 
  await openGame('.slots-feature','.slot-reels');
  assert.equal(await page.locator('.slot-reel').count(),5,'Quantum Reels should render five reels');
- await page.locator('.slot-spin').click();
+ await page.locator('.slots-cabinet').press('Enter');
  await waitForVisible(page.locator('.slot-history-list > div'),10000);
  const wallet=await page.evaluate(()=>JSON.parse(localStorage.getItem('memespace-arcade-slots:guest')));
  assert.equal(wallet.spins,1,'a completed spin should persist in the browser wallet');
