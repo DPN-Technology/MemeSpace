@@ -101,8 +101,6 @@ if (existsSync(path.join(root, "pnpm-workspace.yaml"))) {
   }
   const allowedAgeExcludes = new Set([
     "image-size@2.0.3",
-    "next@16.3.6",
-    "eslint-config-next@16.3.6",
     "undici@7.29.1",
     "brace-expansion@1.1.21",
     "brace-expansion@5.0.12",

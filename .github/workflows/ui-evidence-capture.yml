@@ -33,12 +33,16 @@ jobs:
       - name: Install capture browser
         run: |
           pnpm exec playwright install --with-deps chromium
+      - name: Build and verify arcade controls in the production browser
+        run: |
+          pnpm build
+          pnpm test:arcade-ui
       - name: Start MemeSpace with isolated data
         env:
           MEMESPACE_PORT: "5173"
           MEMESPACE_DATA_DIR: ${{ runner.temp }}/memespace-data
         run: |
-          nohup node scripts/local.mjs start > /tmp/memespace.log 2>&1 &
+          nohup node scripts/local.mjs serve > /tmp/memespace.log 2>&1 &
           for i in {1..120}; do
             if curl -fsS http://127.0.0.1:5173/api/health >/dev/null; then exit 0; fi
             sleep 2

@@ -6,7 +6,8 @@ const baseUrl=process.env.CAPTURE_BASE_URL||"http://127.0.0.1:5173";
 const outputDir=path.resolve("docs/evidence/runtime");
 await fs.mkdir(outputDir,{recursive:true});
 
-const browser=await chromium.launch({headless:true});
+const executable=process.env.MEMESPACE_CHROMIUM_EXECUTABLE;
+const browser=await chromium.launch({headless:true,executablePath:executable||undefined,args:['--no-sandbox']});
 const context=await browser.newContext({
   viewport:{width:1600,height:1000},
   colorScheme:"dark",
@@ -28,18 +29,16 @@ await page.goto(baseUrl+"/#games",{waitUntil:"networkidle",timeout:120000});
 await page.getByText("A different kind", {exact:false}).first().waitFor({state:"visible",timeout:30000});
 await shot("memespace-arcade-lobby.png","Neon Arcade Lobby");
 
-for(const [name,file,label] of [
-  ["Reactor Pinball","memespace-reactor-pinball.png","Reactor Pinball"],
-  ["After Hours Pool","memespace-after-hours-pool.png","After Hours Pool"],
-  ["Quantum Reels","memespace-quantum-reels.png","Quantum Reels"]
+for(const [card,file,label,ready] of [
+  [".pinball-feature","memespace-reactor-pinball.png","Reactor Pinball",".pinball-canvas"],
+  [".pool-feature","memespace-after-hours-pool.png","After Hours Pool",".pool-canvas"],
+  [".slots-feature","memespace-quantum-reels.png","Quantum Reels",".slot-reels"]
 ]){
   await page.goto(baseUrl+"/#games",{waitUntil:"networkidle",timeout:120000});
-  const button=page.getByText(name,{exact:true}).first();
-  if(await button.count()){
-    await button.click();
-    await page.waitForTimeout(1000);
-    await shot(file,label);
-  }
+  await page.locator(card+":not([disabled])").waitFor({state:"visible",timeout:30000});
+  await page.locator(card).click();
+  await page.locator(ready).waitFor({state:"visible",timeout:30000});
+  await shot(file,label);
 }
 
 await fs.writeFile(path.join(outputDir,"manifest.json"),JSON.stringify({

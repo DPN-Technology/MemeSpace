@@ -3,9 +3,6 @@ minimumReleaseAge: 10080
 minimumReleaseAgeIgnoreMissingTime: false
 minimumReleaseAgeExclude:
   - image-size@2.0.3
-  # Security-response exceptions: patched Next.js release and its matched ESLint config.
-  - next@16.3.6
-  - eslint-config-next@16.3.6
   # High-severity transitive security hotfixes discovered by the full dev audit.
   - undici@7.29.1
   - brace-expansion@1.1.21
@@ -46,4 +43,6 @@ overrides:
   undici: 7.29.1
   vite: 8.0.16
   ws: 8.21.0
-  miniflare>sharp: 0.35.4
+  miniflare>sharp: 0.35.5
+  sharp: 0.35.5
+  "source-map-js@>=1.0.0 <1.2.2": ">=1.2.2"
