@@ -1,0 +1,56 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {spawn} from 'node:child_process';
+import {mkdtemp,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {setTimeout as delay} from 'node:timers/promises';
+import {openDatabase} from '../lib/local-database.mjs';
+
+const root=fileURLToPath(new URL('../',import.meta.url));
+test('chat history keeps stable pages, searches older text and never leaks moderated context',{timeout:180000},async t=>{
+ const data=await mkdtemp(path.join(tmpdir(),'memespace-chat-history-'));
+ const prior=process.env.MEMESPACE_DATA_DIR;process.env.MEMESPACE_DATA_DIR=data;
+ const db=openDatabase(root);
+ if(prior===undefined)delete process.env.MEMESPACE_DATA_DIR;else process.env.MEMESPACE_DATA_DIR=prior;
+ const insert=db.prepare('INSERT INTO messages(id,user_id,text,created_at,channel,reply_to,hidden_at) VALUES(?,?,?,?,?,?,?)');
+ for(let i=0;i<125;i++)insert.run('m'+String(i).padStart(3,'0'),'local_seedy',i===0?'Historical needle 100%_':'Archive note '+i,1000,'general',null,0);
+ insert.run('parent','local_seedy','Thread root',2000,'general',null,0);
+ insert.run('child','local_seedy','Visible reply',3000,'general','parent',0);
+ insert.run('hidden','local_seedy','Moderated secret',4000,'general',null,1);
+ insert.run('orphan','local_seedy','Reply without visible context',5000,'general','hidden',0);
+ insert.run('other','local_seedy','Other room',6000,'gaming',null,0);
+ db.prepare('INSERT INTO likes(id,user_id,message_id) VALUES(?,?,?)').run('like-fixture','local_seedy','m000');
+ const port=Number(process.env.MEMESPACE_CHAT_TEST_PORT||5398),base='http://127.0.0.1:'+port;
+ const server=spawn(process.execPath,['scripts/local.mjs',process.env.MEMESPACE_TEST_MODE==='serve'?'serve':'start'],{cwd:root,env:{...process.env,MEMESPACE_PORT:String(port),MEMESPACE_DATA_DIR:data},stdio:['ignore','pipe','pipe']});
+ let log='';server.stdout.on('data',v=>log+=v);server.stderr.on('data',v=>log+=v);
+ t.after(async()=>{server.kill('SIGTERM');await Promise.race([new Promise(resolve=>server.once('exit',resolve)),delay(5000)]);db.close();await rm(data,{recursive:true,force:true})});
+ let ready=false;
+ for(let i=0;i<180;i++){try{if((await fetch(base+'/api/health')).ok){ready=true;break}}catch{}await delay(250)}
+ assert.ok(ready,log);
+ const read=async query=>{const r=await fetch(base+'/api/chat?'+query);assert.equal(r.status,200);return r.json()};
+ const first=await read('channel=general');
+ assert.equal(first.messages.length,50,'history should return a bounded page');
+ assert.equal(first.channels.find(c=>c.id==='general').messages,128);
+ assert.equal(first.channels.find(c=>c.id==='general').voices,1);
+ assert.equal(first.messages.find(m=>m.id==='orphan').parent,null,'hidden parent preview must be absent');
+ assert.deepEqual(first.messages.find(m=>m.id==='child').parent,{id:'parent',name:'Local Owner',text:'Thread root'});
+ assert.equal(first.messages.find(m=>m.id==='parent').replyCount,1);
+ assert.equal(JSON.stringify(first).includes('Moderated secret'),false);
+ assert.equal(first.messages.some(m=>'user_id' in m),false);
+ const seen=new Set(first.messages.map(m=>m.id));let cursor=first.nextCursor;
+ while(cursor){const page=await read('channel=general&before='+encodeURIComponent(cursor));for(const m of page.messages){assert.equal(seen.has(m.id),false,'same-timestamp pages must not overlap');seen.add(m.id)}cursor=page.nextCursor}
+ assert.equal(seen.size,128,'same-timestamp pages must not omit older messages');
+ const search=await read('channel=general&q='+encodeURIComponent('100%_'));
+ assert.deepEqual(search.messages.map(m=>m.id),['m000'],'search must reach beyond the newest page and treat wildcard characters literally');
+ assert.equal((await read('q=Moderated')).messages.length,0);
+ assert.equal((await read('context=hidden')).context,null,'selected composer context must disappear when moderated');
+ assert.equal((await read('context=parent&q=not-found')).context.id,'parent','context must remain available when search excludes it');
+ assert.deepEqual((await read('filter=liked')).messages.map(m=>m.id),['m000']);
+ assert.deepEqual((await read('filter=replies')).messages.map(m=>m.id),['child','orphan']);
+ const thread=await read('thread=parent');assert.equal(thread.thread.id,'parent');assert.deepEqual(thread.messages.map(m=>m.id),['child']);
+ assert.equal((await fetch(base+'/api/chat?thread=hidden')).status,404);
+ assert.equal((await fetch(base+'/api/chat?channel=gaming&thread=parent')).status,404);
+ for(const query of ['channel=unknown','before=invalid','filter=bad','q='+('x'.repeat(101))])assert.equal((await fetch(base+'/api/chat?'+query)).status,400);
+});

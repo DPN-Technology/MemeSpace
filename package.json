@@ -22,6 +22,7 @@
     "test:admin": "node --test tests/admin.test.mjs",
     "test:arcade": "node --test tests/arcade.test.mjs tests/arcade-extra.test.mjs",
     "test:arcade-ui": "node --test tests/arcade-ui.test.mjs",
+    "test:community-ui": "node --test tests/community-ui.test.mjs",
     "typecheck": "tsc --noEmit",
     "security:gate": "node scripts/security-gate.mjs",
     "ci:verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm security:gate"

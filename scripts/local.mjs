@@ -1,5 +1,5 @@
 import {spawn} from 'node:child_process';
-import {access,mkdir} from 'node:fs/promises';
+import {access,mkdir,rm} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import {setTimeout as delay} from 'node:timers/promises';
@@ -47,13 +47,19 @@ try{
     await installed();await migrate();console.log('\nSetup complete. Open START-WINDOWS.cmd next.');
   }else if(command==='start')await serve();
   else if(command==='serve')await serve(true);
-  else if(command==='build'){await installed();await migrate();await run(process.execPath,['node_modules/next/dist/bin/next','build','--webpack']);}
+  else if(command==='build'){
+    await installed();await migrate();
+    // Next's persisted page responses can point to the prior client bundle after a rebuild.
+    // Only discard generated route responses; application data and backups live elsewhere.
+    await rm(path.join(root,'.next/server/route-cache'),{recursive:true,force:true});
+    await run(process.execPath,['node_modules/next/dist/bin/next','build','--webpack']);
+  }
   else if(command==='migrate')await migrate();
   else if(command==='backup'){
     await migrate();const folder=path.join(root,'backups');await mkdir(folder,{recursive:true});
     const destination=path.join(folder,'memespace-'+new Date().toISOString().replace(/[:.]/g,'-')+'.sqlite'),db=openDatabase(root);
     try{await backup(db,destination)}finally{db.close()}
     console.log('Database backup saved: '+destination);
-  }else if(command==='test')await run(process.execPath,['--test','tests/local-database.test.mjs','tests/local-auth.test.mjs','tests/identity-ui.test.mjs','tests/admin.test.mjs','tests/arcade.test.mjs','tests/arcade-extra.test.mjs','tests/local-startup.test.mjs'],{env:{...process.env,MEMESPACE_DATA_DIR:''}});
+  }else if(command==='test')await run(process.execPath,['--test','--test-concurrency=1','tests/local-database.test.mjs','tests/local-auth.test.mjs','tests/identity-ui.test.mjs','tests/admin.test.mjs','tests/arcade.test.mjs','tests/arcade-extra.test.mjs','tests/local-startup.test.mjs','tests/chat-history.test.mjs'],{env:{...process.env,MEMESPACE_DATA_DIR:''}});
   else throw Error('Use setup, start, build, serve, migrate, backup, or test.');
 }catch(error){console.error('\n'+error.message);process.exitCode=1;}

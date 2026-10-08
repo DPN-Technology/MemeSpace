@@ -69,11 +69,14 @@ Setup runs the pinned pnpm version through npm. You need npm registry access for
 | Experience | What you can do |
 | --- | --- |
 | **The Meme Mind** | Enter through the animated binary head, navigate the brain, and open modules for meme history, memecoin history and crypto education. |
-| **Community & identity** | Create a local member account, manage your profile, chat, report messages and read operator-published announcements. |
-| **Media & learning** | Create and save meme edits, collect content, and work through lessons and quizzes. |
+| **Community & identity** | Join four rooms, search stored conversations, browse older messages and focused replies, react, edit, report and keep a separate draft in each room. Manage your local account and read operator-published announcements. |
+| **Reading room** | Explore 12 culture stories and 7 memecoin field guides with outlines, practical examples, source links, full-text search and a saved reading list. |
+| **Media & learning** | Create and save meme edits. Follow 9 lessons with practical exercises, explanatory knowledge checks, saved progress and personal notes. |
 | **Neon Arcade** | Play six cabinets, chase personal records, and complete local daily challenges and lifetime milestones. |
 | **Wallet connection** | Connect a compatible Solana/Phantom extension to display its public address. The app does not transfer funds. |
 | **Control Center** | Manage members, moderation, announcements, cabinet availability, staff access, backups and audit history. |
+
+See the [community and learning guide](docs/community-and-learning.md) for the new conversation, reading and progress controls.
 
 ### A look inside
 
