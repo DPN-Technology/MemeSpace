@@ -1,7 +1,21 @@
 # MemeSpace Mind — Market & Community Node
 > Engineering and visual implementation blueprint for [Issue #25](https://github.com/DPN-Technology/MemeSpace/issues/25). This document is a specification, not a claim that the features are implemented.
 
-![Mind Market & Community UI concept](./issue-25-mind-market-community-node.svg)
+## Original MemeSpace UI concepts
+
+These are web-optimized copies of the actual generated UI images selected for issue #25, **not a recreated diagram**.
+
+### Trading Terminal
+
+![MemeSpace advanced trading terminal](./references/issue25-trading-terminal.webp)
+
+### Social & Community
+
+![MemeSpace social and community dashboard](./references/issue25-social-community.webp)
+
+### Creator Studio
+
+![MemeSpace creator studio and launch dashboard](./references/issue25-creator-studio.webp)
 
 ## Design directive
 
