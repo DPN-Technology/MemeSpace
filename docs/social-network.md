@@ -69,3 +69,12 @@ A dedicated social-post restoration UI, block/mute tools and richer reporting re
 - The social API filters private posts from global/followed/saved/author feeds, direct threads, quote previews, hashtag trends, community feeds, and activity notifications unless the viewer is an approved member. Binary image reads and source quote checks enforce the same policy.
 - Owners may change visibility and transfer ownership to an existing active member with the exact phrase TRANSFER OWNERSHIP. Ownership and role changes are transactional, with the previous owner retained as a moderator; transfer history records the change.
 - Account data export and deletion include pending requests and transfer records. This is locally persisted SQLite permissioning, not end-to-end encryption or a globally hosted network.
+
+## Community Trust Center (moderation phase)
+
+- Communities have a dedicated Trust Center for **open post reports**, **member appeals**, **active removals**, and a **recent decision history**. The moderator dashboard requires an active owner or moderator membership, even for public communities.
+- Reviewed reports may be resolved, dismissed, or used to remove a post. These decisions are recorded in the existing social reports queue and an append-only moderation event timeline. Community moderators may not remove owner-authored posts.
+- Members can appeal an active post removal they authored or their own active community ban. One pending appeal per decision and at most four submitted appeals per day limit repeat submissions. Members see only their own appeals, while moderators see the queue; reviewers cannot decide their own appeals.
+- Approving a removed-post appeal restores visibility by deleting the community removal record. Approving a ban appeal removes the ban without silently reinstating membership. Denial preserves the decision. Direct restoration closes pending appeals about that removal. **Platform-hidden or deleted posts cannot be restored by community moderators.**
+- Decision history records actor, action, target, note and timestamp. Account export includes personal appeals and actions; account deletion purges affected member records and disbanded-community logs. Current history is limited to recent entries and is not a tamper-proof external audit service.
+- HTTP integration tests cover report review, unauthorized access, duplicate appeals, approval, denial, bans, media restoration, and audit events. These controls are local-instance functionality; no automated content scanning or cross-instance arbitration is implied.
