@@ -5,6 +5,7 @@ import Image from 'next/image';
 import {SocialCommunities,type Community} from './social-communities';
 import {SocialNotifications} from './social-notifications';
 import {SocialCreatorProfile} from './social-creator-profile';
+import {SocialDiscovery} from './social-discovery';
 import Link from 'next/link';
 import {Activity,ArrowLeft,ArrowRight,Bell,Bookmark,Check,Compass,Flame,Heart,Hash,MessageCircle,Plus,RefreshCw,Search,Send,ShieldAlert,Sparkles,Users,UserRound,ImagePlus,PenLine,Trash2,ShieldCheck,X,Repeat2,UserRoundX,VolumeX,Volume2,CalendarDays} from 'lucide-react';
 import './social-network.css';
@@ -91,7 +92,6 @@ export function SocialNetwork({openIdentity}:{openIdentity:()=>void}){
  const [trends,setTrends]=useState<Trend[]>([]);
  const [tag,setTag]=useState('');
  const [hasMore,setHasMore]=useState(false);
- const [people,setPeople]=useState<Member[]>([]);
  const [notifUnread,setNotifUnread]=useState(0);
  const [selectedId,setSelectedId]=useState<string|null>(null);
  const [thread,setThread]=useState<{root:Post;replies:Post[]}|null>(null);
@@ -139,11 +139,6 @@ export function SocialNetwork({openIdentity}:{openIdentity:()=>void}){
   social<{trends:Trend[]}>({mode:'trends'}).then(data=>{if(!cancelled)setTrends(data.trends)}).catch(()=>{if(!cancelled)setTrends([])});
   return()=>{cancelled=true};
  },[refreshId]);
- useEffect(()=>{
-  if(section!=='people')return;let cancelled=false;
-  social<{people:Member[]}>({mode:'people',q:query}).then(data=>{if(!cancelled)setPeople(data.people)}).catch((e:Error)=>{if(!cancelled)setError(e.message)});
-  return()=>{cancelled=true};
- },[section,query,refreshId]);
  useEffect(()=>{
   if(view!=='profile'||!profileId||section!=='feed')return;let cancelled=false;
   social<{profile:Profile}>({mode:'profile',id:profileId}).then(data=>{if(!cancelled)setProfile(data.profile)})
@@ -244,7 +239,7 @@ export function SocialNetwork({openIdentity}:{openIdentity:()=>void}){
      <div><p className="social-kicker">{section==='feed'?'THE COMMUNITY STREAM':section==='people'?'CONNECTION DIRECTORY':section==='communities'?'CREATOR UNIVERSES':'YOUR COMMUNITY SIGNALS'}</p><h2>{section==='people'?'Discover creators':section==='communities'?'Creator communities':section==='activity'?'Your activity':communityId?(communityInfo?.name||'Community feed'):view==='following'?'People you follow':view==='mine'?'Your posts':view==='saved'?'Saved for later':view==='profile'?'Member timeline':'The Feed'}</h2></div>
      <button className="social-new-btn" onClick={()=>{setSection('feed');changeView('all');setTag('');setQuery('');setSearchInput('');document.querySelector<HTMLTextAreaElement>('.social-composer textarea')?.focus()}}><Plus/> New post</button>
     </div>
-    <form className="social-search" onSubmit={e=>{e.preventDefault();setTag('');setQuery(searchInput.trim());setPage(0)}}><Search/><input aria-label="Search the social network" placeholder="Search posts, topics and people…" value={searchInput} onChange={e=>setSearchInput(e.target.value)}/><button type="submit">Search <ArrowRight/></button>{query&&<button type="button" aria-label="Clear search" className="social-search-clear" onClick={()=>{setSearchInput('');setQuery('');setPage(0)}}><X/></button>}</form>
+    {section!=='people'&&<form className="social-search" onSubmit={e=>{e.preventDefault();setTag('');setQuery(searchInput.trim());setPage(0)}}><Search/><input aria-label="Search the social network" placeholder="Search posts, topics and people…" value={searchInput} onChange={e=>setSearchInput(e.target.value)}/><button type="submit">Search <ArrowRight/></button>{query&&<button type="button" aria-label="Clear search" className="social-search-clear" onClick={()=>{setSearchInput('');setQuery('');setPage(0)}}><X/></button>}</form>}
     {error&&<div role="alert" className="social-alert social-error">{error}<button onClick={()=>setError('')} aria-label="Dismiss error"><X/></button></div>}
     {success&&<div role="status" className="social-alert social-success">{success}<button onClick={()=>setSuccess('')} aria-label="Dismiss message"><X/></button></div>}
     {reportTarget&&<section className="social-report-panel" aria-label="Report a community post"><div><ShieldAlert/><strong>Report a post</strong><button onClick={()=>setReportTarget(null)} aria-label="Close reporting form"><X/></button></div><p>Choose the most accurate reason. A moderator will review the post.</p><label htmlFor="social-report-reason">Reason</label><select id="social-report-reason" value={reportReason} onChange={e=>setReportReason(e.target.value as ReportReason)}><option value="spam">Spam</option><option value="harassment">Harassment or bullying</option><option value="scam">Scam or impersonation</option><option value="privacy">Exposed private information</option><option value="other">Other violation</option></select><button className="social-primary" disabled={busy} onClick={sendReport}>Submit report</button></section>}
@@ -263,7 +258,7 @@ export function SocialNetwork({openIdentity}:{openIdentity:()=>void}){
       <div className="social-timeline-bar"><div><Activity/> {view==='profile'?'MEMBER TIMELINE':topic==='all'?'ALL CONVERSATIONS':topicLabels[topic].toUpperCase()}</div><div><button className={sort==='latest'?'active':''} onClick={()=>{setSort('latest');setPage(0)}}>Latest</button><button className={sort==='popular'?'active':''} onClick={()=>{setSort('popular');setPage(0)}}><Flame/> Popular</button></div></div>
      {loading?<p className="social-empty">Loading the community stream…</p>:posts.length?posts.map(postCard):<div className="social-empty"><Sparkles/><h3>Make the first connection.</h3><p>No posts match this view yet. Try another topic or publish something new.</p></div>}
      <div className="social-pagination">{page>0&&<button onClick={()=>setPage(p=>Math.max(0,p-1))}><ArrowLeft/> Newer posts</button>}{hasMore&&<button onClick={()=>setPage(p=>p+1)}>Older posts <ArrowRight/></button>}</div>
-    </>:section==='communities'?<SocialCommunities selectedId="" onOpen={openCommunity} onBack={allCommunities} onCommunityChange={communityChanged} onRefresh={refresh} signedIn={signedIn} openIdentity={openIdentity}/>:section==='people'?<section className="social-directory">{people.length?people.map(person=><article key={person.userId} className="social-person"><Avatar name={person.name} size="large"/><div><button className="social-person-name" onClick={()=>changeView('profile',person.userId)}>{person.name}</button><p>{person.bio||'Part of the MemeSpace community.'}</p><small>{person.posts} posts · {person.followers} followers{person.blocked?' · Blocked':person.muted?' · Muted':''}</small></div><button className={person.following?'social-follow following':'social-follow'} disabled={busy||!!person.blocked} onClick={()=>toggleFollow(person)}>{person.following?<Check/>:<Plus/>}{person.following?'Following':'Follow'}</button></article>):<div className="social-empty"><Users/><h3>No members found.</h3><p>Search a different name or check back as the community grows.</p></div>}</section>:
+    </>:section==='communities'?<SocialCommunities selectedId="" onOpen={openCommunity} onBack={allCommunities} onCommunityChange={communityChanged} onRefresh={refresh} signedIn={signedIn} openIdentity={openIdentity}/>:section==='people'?<SocialDiscovery signedIn={signedIn} openIdentity={openIdentity} onOpenProfile={id=>changeView('profile',id)} onRefresh={refresh}/>:
     <section className="social-notifications">{!signedIn?<div className="social-empty"><Bell/><h3>Your community, your signal.</h3><p>Sign in to see reactions, mentions and moderation alerts.</p><button onClick={openIdentity} className="social-primary">Sign in</button></div>:<SocialNotifications onUnreadChange={setNotifUnread} onOpenPost={id=>{setSelectedId(id);setThread(null);setSection('feed')}} onOpenCommunity={openCommunity} onOpenProfile={id=>changeView('profile',id)}/>}</section>}
    </main>
    <aside className="social-right" aria-label="Community overview">
