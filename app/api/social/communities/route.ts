@@ -68,14 +68,53 @@ export async function POST(request:Request){
   if(!validId(d.communityId))throw Error('INPUT');
   const c=find(db,d.communityId);if(!c)return reject('Community not found.',404);
   const mine=role(db,c.id,uid);
+  if(d.action==='cancel_request'){
+   db.prepare('DELETE FROM social_community_requests WHERE community_id=? AND user_id=?').run(c.id,uid);
+   return Response.json({ok:true},{headers:noStore});
+  }
   if(d.action==='join'){
    if(db.prepare('SELECT 1 FROM social_community_bans WHERE community_id=? AND user_id=?').get(c.id,uid))return reject('You cannot join this community.');
+   if(mine)return Response.json({ok:true,joined:true},{headers:noStore});
+   if(c.visibility==='private'){
+    db.prepare('INSERT OR IGNORE INTO social_community_requests(community_id,user_id,requested_at) VALUES(?,?,?)').run(c.id,uid,now);
+    return Response.json({ok:true,requested:true},{headers:noStore});
+   }
    db.prepare("INSERT OR IGNORE INTO social_community_members(community_id,user_id,role,joined_at) VALUES(?,?,'member',?)").run(c.id,uid,now);
-   return Response.json({ok:true},{headers:noStore});
+   return Response.json({ok:true,joined:true},{headers:noStore});
   }
   if(d.action==='leave'){
    if(mine==='owner')return reject('Owners cannot leave their communities.');
    db.prepare('DELETE FROM social_community_members WHERE community_id=? AND user_id=?').run(c.id,uid);
+   return Response.json({ok:true},{headers:noStore});
+  }
+  if(d.action==='approve'||d.action==='deny'){
+   if(!['owner','moderator'].includes(mine||''))return reject('Moderator approval required.');
+   if(!validId(d.userId))throw Error('INPUT');
+   if(!db.prepare('SELECT 1 FROM social_community_requests WHERE community_id=? AND user_id=?').get(c.id,d.userId))return reject('Membership request not found.',404);
+   if(d.action==='approve'){
+    if(db.prepare('SELECT 1 FROM social_community_bans WHERE community_id=? AND user_id=?').get(c.id,d.userId))return reject('This member is banned.');
+    if(!db.prepare('SELECT 1 FROM accounts WHERE user_id=? AND deleted_at=0 AND suspended_at=0').get(d.userId))return reject('Member unavailable.',404);
+    db.exec('BEGIN IMMEDIATE');
+    try{
+     db.prepare("INSERT OR IGNORE INTO social_community_members(community_id,user_id,role,joined_at) VALUES(?,?,'member',?)").run(c.id,d.userId,now);
+     db.prepare('DELETE FROM social_community_requests WHERE community_id=? AND user_id=?').run(c.id,d.userId);
+     db.exec('COMMIT');
+    }catch(e){try{db.exec('ROLLBACK')}catch{}throw e;}
+   }else db.prepare('DELETE FROM social_community_requests WHERE community_id=? AND user_id=?').run(c.id,d.userId);
+   return Response.json({ok:true},{headers:noStore});
+  }
+  if(d.action==='transfer'){
+   if(mine!=='owner'||!validId(d.userId)||d.userId===uid||d.confirm!=='TRANSFER OWNERSHIP')return reject('Only the owner can transfer to an existing member with confirmation.');
+   if(!role(db,c.id,d.userId))return reject('The new owner must already be a member.');
+   if((db.prepare('SELECT COUNT(*) AS n FROM social_communities WHERE owner_id=?').get(d.userId) as {n:number}).n>=5)return reject('The recipient already owns five communities.',409);
+   db.exec('BEGIN IMMEDIATE');
+   try{
+    db.prepare("UPDATE social_community_members SET role='moderator' WHERE community_id=? AND user_id=? AND role='owner'").run(c.id,uid);
+    db.prepare("UPDATE social_community_members SET role='owner' WHERE community_id=? AND user_id=?").run(c.id,d.userId);
+    db.prepare('UPDATE social_communities SET owner_id=?,updated_at=? WHERE id=? AND owner_id=?').run(d.userId,now,c.id,uid);
+    db.prepare('INSERT INTO social_community_transfers(community_id,old_owner_id,new_owner_id,transferred_at) VALUES(?,?,?,?)').run(c.id,uid,d.userId,now);
+    db.exec('COMMIT');
+   }catch(e){try{db.exec('ROLLBACK')}catch{}throw e;}
    return Response.json({ok:true},{headers:noStore});
   }
   if(d.action==='role'){
@@ -93,6 +132,7 @@ export async function POST(request:Request){
     try{
      db.prepare('INSERT OR REPLACE INTO social_community_bans(community_id,user_id,actor_id,reason,created_at) VALUES(?,?,?,?,?)').run(c.id,d.userId,uid,d.reason.trim(),now);
      db.prepare('DELETE FROM social_community_members WHERE community_id=? AND user_id=?').run(c.id,d.userId);
+     db.prepare('DELETE FROM social_community_requests WHERE community_id=? AND user_id=?').run(c.id,d.userId);
      db.exec('COMMIT');
     }catch(e){try{db.exec('ROLLBACK')}catch{}throw e;}
    }else db.prepare('DELETE FROM social_community_bans WHERE community_id=? AND user_id=?').run(c.id,d.userId);
