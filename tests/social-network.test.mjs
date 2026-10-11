@@ -20,8 +20,8 @@ test('social posts, discovery, reactions, follows, replies, search and moderatio
  assert.ok(ready,logs);
  async function register(identifier,displayName){
   const r=await fetch(base+'/api/auth/register',{method:'POST',headers:{Origin:base,'Content-Type':'application/json'},body:JSON.stringify({identifier,displayName,password:'social-testing-password-123'})});
-  assert.equal(r.status,201,await r.text());
-  return {cookie:r.headers.get('set-cookie')?.split(';')[0],account:(await r.json()).account};
+  const data=await r.json();assert.equal(r.status,201,JSON.stringify(data));
+  return {cookie:r.headers.get('set-cookie')?.split(';')[0],account:data.account};
  }
  // A POST without session must not create content.
  const denied=await fetch(base+'/api/social',{method:'POST',headers:{Origin:base,'Content-Type':'application/json'},body:JSON.stringify({action:'create',text:'Unauthenticated content',topic:'memes'})});
@@ -36,8 +36,8 @@ test('social posts, discovery, reactions, follows, replies, search and moderatio
  }
  async function read(path,actor){
   const r=await fetch(base+path,{headers:actor?.cookie?{Cookie:actor.cookie}:{}});
-  assert.equal(r.status,200,await r.text());
-  return r.json();
+  const data=await r.json();assert.equal(r.status,200,JSON.stringify(data));
+  return data;
  }
  const created=await mutate(alice,{action:'create',text:'Our first MemeSpace signal 100%_! What should we build?',topic:'memes'});
  assert.ok(created.id);
