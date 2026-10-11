@@ -18,8 +18,10 @@ function postQuery(userId:string,where:string,args:(string|number)[],limit=20,of
  "EXISTS(SELECT 1 FROM social_follows f WHERE f.following_id=p.user_id AND f.follower_id=?) AS following,"+
  "(SELECT COUNT(*) FROM social_follows f WHERE f.following_id=p.user_id) AS followers "+
  "FROM social_posts p JOIN accounts a ON a.user_id=p.user_id AND a.deleted_at=0 AND a.suspended_at=0 "+
- "LEFT JOIN profiles pr ON pr.user_id=p.user_id WHERE p.hidden_at=0 AND "+where+" ORDER BY "+order+" LIMIT ? OFFSET ?";
- return db.prepare(sql).all(userId,userId,userId,...args,limit,offset) as PostRow[];
+ "LEFT JOIN profiles pr ON pr.user_id=p.user_id WHERE p.hidden_at=0 "+
+ "AND NOT EXISTS(SELECT 1 FROM social_relationships sr WHERE sr.actor_id=? AND sr.target_id=p.user_id AND sr.kind IN ('block','mute')) "+
+ "AND NOT EXISTS(SELECT 1 FROM social_relationships sr WHERE sr.actor_id=p.user_id AND sr.target_id=? AND sr.kind='block') AND "+where+" ORDER BY "+order+" LIMIT ? OFFSET ?";
+ return db.prepare(sql).all(userId,userId,userId,userId,userId,...args,limit,offset) as PostRow[];
 }
 function present(row:PostRow,userId:string){
  return {id:row.id,userId:row.user_id,body:row.body,topic:row.topic,replyTo:row.reply_to,
@@ -27,8 +29,10 @@ function present(row:PostRow,userId:string){
   reactions:row.reactions,replies:row.replies,reacted:!!row.reacted,saved:!!row.saved,
   following:!!row.following,followers:row.followers,mine:row.user_id===userId};
 }
-function visible(id:string){
- return rawDatabase().prepare("SELECT p.id,p.user_id,p.reply_to,p.topic FROM social_posts p JOIN accounts a ON a.user_id=p.user_id WHERE p.id=? AND p.hidden_at=0 AND a.deleted_at=0 AND a.suspended_at=0").get(id) as {id:string;user_id:string;reply_to:string|null;topic:string}|undefined;
+function visible(id:string,viewer=''){
+ return rawDatabase().prepare("SELECT p.id,p.user_id,p.reply_to,p.topic FROM social_posts p JOIN accounts a ON a.user_id=p.user_id WHERE p.id=? AND p.hidden_at=0 AND a.deleted_at=0 AND a.suspended_at=0 "+
+ "AND NOT EXISTS(SELECT 1 FROM social_relationships sr WHERE sr.actor_id=? AND sr.target_id=p.user_id AND sr.kind IN ('block','mute')) "+
+ "AND NOT EXISTS(SELECT 1 FROM social_relationships sr WHERE sr.actor_id=p.user_id AND sr.target_id=? AND sr.kind='block')").get(id,viewer,viewer) as {id:string;user_id:string;reply_to:string|null;topic:string}|undefined;
 }
 function restricted(){return rawDatabase().prepare("SELECT value FROM platform_settings WHERE key='chat_readonly'").get()?.value==='true';}
 function readonlyResponse(){return Response.json({error:'Community posting is temporarily paused.'},{status:403,headers:noStore});}
@@ -39,17 +43,37 @@ export async function GET(request:Request){
   const mode=query.get('mode')||'feed',q=(query.get('q')||'').trim(),topic=query.get('topic')||'all';
   if(q.length>90||!['all',...topics].includes(topic))throw Error('INPUT');
   if(mode==='people'){
-   const args:(string|number)[]=[uid,uid],filters=["a.deleted_at=0","a.suspended_at=0","a.user_id<>?"];
+   const args:(string|number)[]=[uid,uid,uid,uid],filters=["a.deleted_at=0","a.suspended_at=0","a.user_id<>?"];
    if(q){filters.push("(instr(lower(COALESCE(p.name,a.display_name)),lower(?))>0 OR instr(lower(COALESCE(p.bio,'')),lower(?))>0)");args.push(q,q);}
    const people=rawDatabase().prepare(
     "SELECT a.user_id AS userId,COALESCE(p.name,a.display_name) AS name,COALESCE(p.bio,'') AS bio,"+
     "(SELECT COUNT(*) FROM social_posts s WHERE s.user_id=a.user_id AND s.hidden_at=0 AND s.reply_to IS NULL) AS posts,"+
     "(SELECT COUNT(*) FROM social_follows f WHERE f.following_id=a.user_id) AS followers,"+
-    "EXISTS(SELECT 1 FROM social_follows f WHERE f.following_id=a.user_id AND f.follower_id=?) AS following "+
+    "EXISTS(SELECT 1 FROM social_follows f WHERE f.following_id=a.user_id AND f.follower_id=?) AS following,"+
+    "EXISTS(SELECT 1 FROM social_relationships sr WHERE sr.actor_id=? AND sr.target_id=a.user_id AND sr.kind='block') AS blocked,"+
+    "EXISTS(SELECT 1 FROM social_relationships sr WHERE sr.actor_id=? AND sr.target_id=a.user_id AND sr.kind='mute') AS muted "+
     "FROM accounts a LEFT JOIN profiles p ON p.user_id=a.user_id WHERE "+filters.join(' AND ')+
     " ORDER BY followers DESC,a.created_at DESC LIMIT 20"
    ).all(...args);
    return Response.json({people},{headers:noStore});
+  }
+  if(mode==='profile'){
+   const target=query.get('id');
+   if(!validId(target))throw Error('INPUT');
+   const profile=rawDatabase().prepare(
+    "SELECT a.user_id AS userId,COALESCE(p.name,a.display_name) AS name,COALESCE(p.bio,'') AS bio,a.created_at AS joinedAt,"+
+    "(SELECT COUNT(*) FROM social_posts s WHERE s.user_id=a.user_id AND s.hidden_at=0 AND s.reply_to IS NULL) AS posts,"+
+    "(SELECT COUNT(*) FROM social_follows f WHERE f.following_id=a.user_id) AS followers,"+
+    "(SELECT COUNT(*) FROM social_follows f WHERE f.follower_id=a.user_id) AS followingCount,"+
+    "EXISTS(SELECT 1 FROM social_follows f WHERE f.following_id=a.user_id AND f.follower_id=?) AS following,"+
+    "EXISTS(SELECT 1 FROM social_relationships sr WHERE sr.actor_id=? AND sr.target_id=a.user_id AND sr.kind='block') AS blocked,"+
+    "EXISTS(SELECT 1 FROM social_relationships sr WHERE sr.actor_id=? AND sr.target_id=a.user_id AND sr.kind='mute') AS muted,"+
+    "EXISTS(SELECT 1 FROM social_relationships sr WHERE sr.actor_id=a.user_id AND sr.target_id=? AND sr.kind='block') AS blockedBy "+
+    "FROM accounts a LEFT JOIN profiles p ON p.user_id=a.user_id WHERE a.user_id=? AND a.deleted_at=0 AND a.suspended_at=0"
+   ).get(uid,uid,uid,uid,target) as {userId:string;name:string;bio:string;joinedAt:number;posts:number;followers:number;followingCount:number;following:number;blocked:number;muted:number;blockedBy:number}|undefined;
+   if(!profile||profile.blockedBy)return Response.json({error:'Member not found.'},{status:404,headers:noStore});
+   const {blockedBy,...publicProfile}=profile;
+   return Response.json({profile:{...publicProfile,following:!!profile.following,blocked:!!profile.blocked,muted:!!profile.muted,mine:target===uid}},{headers:noStore});
   }
   if(mode==='activity'){
    if(!uid)return Response.json({activity:[],signedIn:false},{headers:noStore});
@@ -60,14 +84,16 @@ export async function GET(request:Request){
     "UNION ALL SELECT 'follow',f.follower_id,NULL,f.following_id,f.created_at FROM social_follows f) activity "+
     "JOIN accounts a ON a.user_id=activity.actor_id AND a.deleted_at=0 AND a.suspended_at=0 "+
     "LEFT JOIN profiles pr ON pr.user_id=activity.actor_id "+
-    "WHERE activity.owner_id=? AND activity.actor_id<>? ORDER BY activity.created_at DESC LIMIT 40"
-   ).all(uid,uid);
+    "WHERE activity.owner_id=? AND activity.actor_id<>? "+
+    "AND NOT EXISTS(SELECT 1 FROM social_relationships sr WHERE sr.actor_id=? AND sr.target_id=activity.actor_id AND sr.kind IN ('block','mute')) "+
+    "AND NOT EXISTS(SELECT 1 FROM social_relationships sr WHERE sr.actor_id=activity.actor_id AND sr.target_id=? AND sr.kind='block') ORDER BY activity.created_at DESC LIMIT 40"
+   ).all(uid,uid,uid,uid);
    return Response.json({activity,signedIn:true},{headers:noStore});
   }
   if(mode==='thread'){
    const threadId=query.get('id');
    if(!validId(threadId))throw Error('INPUT');
-   const root=visible(threadId);
+   const root=visible(threadId,uid);
    if(!root)return Response.json({error:'Post not found.'},{status:404,headers:noStore});
    const main=postQuery(uid,'p.id=?',[threadId],1)[0];
    const replies=postQuery(uid,'p.reply_to=?',[threadId],50,0,'p.created_at ASC,p.id ASC');
@@ -100,8 +126,8 @@ export async function POST(request:Request){
    if(restricted())return readonlyResponse();
    if(typeof d.text!=='string'||d.text.trim().length<2||d.text.length>1200||!topics.includes(d.topic))throw Error('INPUT');
    const parent=d.replyTo;
-   if(parent!==undefined&&(!validId(parent)||!visible(parent)))return Response.json({error:'This conversation is no longer available.'},{status:404,headers:noStore});
-   const root=parent?visible(parent):null;
+   if(parent!==undefined&&(!validId(parent)||!visible(parent,uid)))return Response.json({error:'This conversation is no longer available.'},{status:404,headers:noStore});
+   const root=parent?visible(parent,uid):null;
    const replyTo=root?(root.reply_to||root.id):null;
    const topic=root?root.topic:d.topic;
    const postId=crypto.randomUUID();
@@ -111,16 +137,32 @@ export async function POST(request:Request){
    if(!result.changes)return Response.json({error:'You can publish up to five posts or replies per minute.'},{status:429,headers:noStore});
    return Response.json({ok:true,id:postId},{status:201,headers:noStore});
   }
+  if(action==='block'||action==='mute'){
+   if(!validId(d.userId)||typeof d.enabled!=='boolean'||d.userId===uid)throw Error('INPUT');
+   const target=db.prepare('SELECT user_id FROM accounts WHERE user_id=? AND deleted_at=0 AND suspended_at=0').get(d.userId);
+   if(d.enabled&&!target)return Response.json({error:'This member is unavailable.'},{status:404,headers:noStore});
+   if(d.enabled){
+    db.exec('BEGIN IMMEDIATE');
+    try{
+     db.prepare('INSERT OR IGNORE INTO social_relationships(actor_id,target_id,kind,created_at) VALUES(?,?,?,?)').run(uid,d.userId,action,now);
+     if(action==='block')db.prepare('DELETE FROM social_follows WHERE (follower_id=? AND following_id=?) OR (follower_id=? AND following_id=?)').run(uid,d.userId,d.userId,uid);
+     db.exec('COMMIT');
+    }catch(e){db.exec('ROLLBACK');throw e;}
+   }else db.prepare('DELETE FROM social_relationships WHERE actor_id=? AND target_id=? AND kind=?').run(uid,d.userId,action);
+   return Response.json({ok:true},{headers:noStore});
+  }
   if(action==='follow'){
    if(!validId(d.userId)||typeof d.enabled!=='boolean'||d.userId===uid)throw Error('INPUT');
    const target=db.prepare('SELECT user_id FROM accounts WHERE user_id=? AND deleted_at=0 AND suspended_at=0').get(d.userId);
    if(!target)return Response.json({error:'This member is unavailable.'},{status:404,headers:noStore});
+   if(d.enabled&&db.prepare("SELECT 1 FROM social_relationships WHERE kind='block' AND ((actor_id=? AND target_id=?) OR (actor_id=? AND target_id=?))").get(uid,d.userId,d.userId,uid))
+    return Response.json({error:'You cannot follow a blocked member.'},{status:403,headers:noStore});
    if(d.enabled)db.prepare('INSERT OR IGNORE INTO social_follows(follower_id,following_id,created_at) VALUES(?,?,?)').run(uid,d.userId,now);
    else db.prepare('DELETE FROM social_follows WHERE follower_id=? AND following_id=?').run(uid,d.userId);
    return Response.json({ok:true},{headers:noStore});
   }
   if(!validId(d.postId)||typeof d.enabled!=='boolean'&&action!=='report')throw Error('INPUT');
-  if(!visible(d.postId))return Response.json({error:'This post is unavailable.'},{status:404,headers:noStore});
+  if(!visible(d.postId,uid))return Response.json({error:'This post is unavailable.'},{status:404,headers:noStore});
   if(action==='react'||action==='bookmark'){
    const table=action==='react'?'social_reactions':'social_bookmarks';
    if(d.enabled)db.prepare('INSERT OR IGNORE INTO '+table+'(user_id,post_id,created_at) VALUES(?,?,?)').run(uid,d.postId,now);

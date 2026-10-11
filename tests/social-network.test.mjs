@@ -50,6 +50,9 @@ test('social posts, discovery, reactions, follows, replies, search and moderatio
  assert.equal((await read('/api/social?mode=feed&q=nomatch',bob)).posts.length,0);
  assert.equal((await read('/api/social?mode=feed&topic=gaming',bob)).posts.length,0);
  assert.equal((await read('/api/social?mode=people',bob)).people.some(p=>p.userId===alice.account.userId),true);
+ const profile=await read('/api/social?mode=profile&id='+alice.account.userId,bob);
+ assert.equal(profile.profile.name,'Alice Builder');assert.equal(profile.profile.posts,1);
+ assert.equal(profile.profile.followers,0);assert.equal(profile.profile.mine,false);
  await mutate(bob,{action:'follow',userId:alice.account.userId,enabled:true});
  assert.equal((await read('/api/social?mode=feed&view=following',bob)).posts.length,1);
  await mutate(bob,{action:'react',postId:created.id,enabled:true});
@@ -63,6 +66,21 @@ test('social posts, discovery, reactions, follows, replies, search and moderatio
  assert.ok(activity.activity.some(e=>e.kind==='reaction'));
  assert.ok(activity.activity.some(e=>e.kind==='reply'));
  assert.ok(activity.activity.some(e=>e.kind==='follow'));
+ await mutate(bob,{action:'mute',userId:alice.account.userId,enabled:true});
+ assert.equal((await read('/api/social?mode=feed',bob)).posts.length,0);
+ assert.equal((await read('/api/social?mode=profile&id='+alice.account.userId,bob)).profile.muted,true);
+ await mutate(bob,{action:'mute',userId:alice.account.userId,enabled:false});
+ assert.equal((await read('/api/social?mode=feed',bob)).posts.length,1);
+ await mutate(bob,{action:'block',userId:alice.account.userId,enabled:true});
+ assert.equal((await read('/api/social?mode=feed',bob)).posts.length,0);
+ assert.equal((await read('/api/social?mode=feed&view=following',bob)).posts.length,0);
+ assert.equal((await read('/api/social?mode=profile&id='+alice.account.userId,bob)).profile.blocked,true);
+ const deniedFollow=await fetch(base+'/api/social',{method:'POST',headers:{Origin:base,'Content-Type':'application/json',Cookie:bob.cookie},body:JSON.stringify({action:'follow',userId:alice.account.userId,enabled:true})});
+ assert.equal(deniedFollow.status,403);
+ const blockedThread=await fetch(base+'/api/social?mode=thread&id='+created.id,{headers:{Cookie:bob.cookie}});
+ assert.equal(blockedThread.status,404);
+ await mutate(bob,{action:'block',userId:alice.account.userId,enabled:false});
+ assert.equal((await read('/api/social?mode=feed',bob)).posts.length,1);
  await mutate(bob,{action:'report',postId:created.id,reason:'spam'});
  let db;const old=process.env.MEMESPACE_DATA_DIR;process.env.MEMESPACE_DATA_DIR=data;
  try{db=openDatabase(root);assert.equal(db.prepare('SELECT reason FROM social_reports WHERE post_id=?').get(created.id).reason,'spam');}

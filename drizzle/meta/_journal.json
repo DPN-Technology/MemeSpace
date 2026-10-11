@@ -50,6 +50,13 @@
       "when": 1791687900000,
       "tag": "0006_social_moderation",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1791690000000,
+      "tag": "0007_social_relationships",
+      "breakpoints": true
     }
   ]
 }
