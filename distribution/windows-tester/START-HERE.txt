@@ -1,6 +1,17 @@
 MEMESPACE @@TAG@@ — WINDOWS TESTER EDITION
 DPN TECHNOLOGY | OFFICIAL VERSION @@VERSION@@
 
+LICENSE AND AUTHORIZED USE
+- DPN Technology's current proprietary MemeSpace releases require prior
+  written permission to install, run, modify, redistribute or host.
+- Downloading this ZIP or viewing GitHub does NOT grant that permission.
+- If you lack authorization, do not launch a proprietary release.
+- Previously distributed MIT versions retain their historical grants.
+- Check the license at this exact release commit:
+  https://github.com/DPN-Technology/MemeSpace/blob/@@COMMIT@@/LICENSE
+- Third-party assets and packages have separate applicable notices.
+- Request permission through an official verified DPN Technology channel.
+
 QUICK START
 1. Download MemeSpace-@@TAG@@-Windows-Tester.zip from:
    https://github.com/DPN-Technology/MemeSpace/releases/tag/@@TAG@@
