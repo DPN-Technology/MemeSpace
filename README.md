@@ -28,6 +28,14 @@
 
 > **Current source:** this README describes `main`, including the latest arcade improvements. For a downloaded version, follow its [release notes](https://github.com/DPN-Technology/MemeSpace/releases). The supported runtime is local Node.js 24+, Next.js and native SQLite.
 
+## Windows tester download
+
+**[Download MemeSpace v2.5.0 for Windows (.ZIP)](https://github.com/DPN-Technology/MemeSpace/releases/download/v2.5.0/MemeSpace-v2.5.0-Windows-Tester.zip)**
+
+Extract the ZIP, install Node.js 24 or newer if needed, and double-click `LAUNCH-MEMESPACE.cmd`. The launcher downloads the exact v2.5.0 release and installs dependencies on first launch. Internet is required during setup; no Docker installation is needed.
+
+The **GitHub Packages** page contains the separate Docker container edition. GitHub's Container Registry does not offer an ordinary Windows ZIP download; the link above points to the official **Releases → Assets** download instead.
+
 ## Quick start
 
 ### Windows
