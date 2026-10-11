@@ -99,6 +99,13 @@
       "when": 1791770000000,
       "tag": "0013_social_notifications",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1791774000000,
+      "tag": "0014_creator_profiles",
+      "breakpoints": true
     }
   ]
 }
