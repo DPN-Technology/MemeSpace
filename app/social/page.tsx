@@ -7,7 +7,7 @@ import {IdentityCenter,type IdentityAccount} from '../identity-center';
 export default function SocialPage(){
  const [identityOpen,setIdentityOpen]=useState(false);
  const [account,setAccount]=useState<IdentityAccount|null>(null);
- useEffect(()=>{let alive=true;fetch('/api/auth/session',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(data=>{if(alive&&data)setAccount(data.account||null)}).catch(()=>{});return()=>{alive=false}},[]);
+ useEffect(()=>{let alive=true;fetch('/api/auth/session',{cache:'no-store'}).then(r=>r.ok?r.json() as Promise<{account:IdentityAccount|null}>:null).then(data=>{if(alive&&data)setAccount(data.account||null)}).catch(()=>{});return()=>{alive=false}},[]);
  return <div style={{background:'#030807',minHeight:'100svh',padding:'clamp(12px,2vw,35px)'}}>
   <div style={{maxWidth:1720,margin:'0 auto'}}>
    <nav aria-label="Return navigation" style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,marginBottom:15}}>

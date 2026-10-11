@@ -20,7 +20,7 @@ async function social<T>(params:Record<string,string>={},payload?:unknown,method
  const query=new URLSearchParams(params);
  const url='/api/social'+(query.size?'?'+query.toString():'');
  const response=await fetch(url,payload===undefined?{cache:'no-store'}:{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),cache:'no-store'});
- const data=await response.json();
+ const data=await response.json() as T & {error?:string};
  if(!response.ok)throw Error(data.error||'The community could not complete this request.');
  return data as T;
 }
@@ -132,7 +132,7 @@ export function SocialNetwork({openIdentity}:{openIdentity:()=>void}){
   if(ok){if(replyTo)setReply('');else{setDraft('');changeView('all');}setSuccess('Published to MemeSpace.');}
  }
  async function toggle(actionName:'react'|'bookmark',post:Post){await action({action:actionName,postId:post.id,enabled:actionName==='react'?!post.reacted:!post.saved})}
- async function toggleFollow(member:{userId:string;following:boolean}){await action({action:'follow',userId:member.userId,enabled:!member.following})}
+ async function toggleFollow(member:{userId:string;following:number|boolean}){await action({action:'follow',userId:member.userId,enabled:!member.following})}
  function startEdit(post:Post){setEditId(post.id);setEditValue(post.body)}
  async function saveEdit(){if(!editId)return;const ok=await action({id:editId,text:editValue},'PATCH');if(ok){setEditId(null);setEditValue('');setSuccess('Your post was updated.')}}
  async function removePost(post:Post){if(!window.confirm('Remove this post and its replies?'))return;const ok=await action({id:post.id},'DELETE',!!selectedId&&(post.id===selectedId||post.replyTo===null));if(ok)setSuccess('Your post was removed.')}
