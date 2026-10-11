@@ -125,7 +125,7 @@ test('deletion requires ownership confirmations and removes only the target acco
   assert.equal(db.prepare('SELECT COUNT(*) n FROM social_media WHERE user_id=?').get(one.userId).n,0);
   assert.equal(db.prepare('SELECT COUNT(*) n FROM social_communities WHERE owner_id=?').get(one.userId).n,0);
   assert.equal(db.prepare('SELECT COUNT(*) n FROM social_community_members WHERE community_id=?').get('owned-group').n,0);
-  assert.equal(db.prepare('SELECT community_id FROM social_posts WHERE id=?').get('other-social').community_id,null,'member keeps their content after the owner's account closes');
+  assert.equal(db.prepare('SELECT community_id FROM social_posts WHERE id=?').get('other-social').community_id,null,"member keeps their content after the owner account closes");
   assert.equal(db.prepare('SELECT COUNT(*) n FROM social_reactions WHERE post_id=?').get('owned-social').n,0);
   assert.equal(db.prepare('SELECT COUNT(*) n FROM social_bookmarks WHERE post_id=?').get('owned-social').n,0);
   assert.equal(db.prepare('SELECT COUNT(*) n FROM social_reports WHERE post_id=?').get('owned-social').n,0);
