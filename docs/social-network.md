@@ -29,6 +29,13 @@ Use pnpm test:social-api (requires installed dependencies) for the HTTP integrat
 - Mutes filter the muted member from a viewer's feed and activity, while other members can still read their content.
 - The additive relationship migration stores these preferences. Account export includes block and mute relationships, and account deletion removes both outgoing and incoming records. Tests cover these security and lifecycle rules.
 
+## Quote posts and hashtag discovery (social content phase)
+
+- Quote another visible post with your own commentary. The preview follows existing block, mute, deleted/suspended account and moderation visibility checks; inaccessible quoted content is not revealed.
+- Create and edit operations transactionally maintain indexed normalized hashtags. The feed accepts a strict hashtag filter, and a real trending-tags endpoint ranks tags on visible published posts.
+- Quoted source deletion does not delete the quoting member's own post. Instead, the shared source preview becomes unavailable. Quote references and personal hashtags are included in account exports, while deletion removes the account's hashtag records.
+- Hashtag indexing starts with new or edited posts in this migration; older posts remain full-text searchable but need a backfill before appearing in hashtag trends.
+
 ## Next direction (not implemented in this draft)
 
 Public profile pages with custom handles and avatars; media uploads and image moderation; hashtag indexing, mentions and reshares; block/mute/privacy settings; integrated Control Center social moderation queue; public scale and real-time notifications.

@@ -57,6 +57,13 @@
       "when": 1791690000000,
       "tag": "0007_social_relationships",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1791692800000,
+      "tag": "0008_social_content",
+      "breakpoints": true
     }
   ]
 }

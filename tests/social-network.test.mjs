@@ -81,12 +81,28 @@ test('social posts, discovery, reactions, follows, replies, search and moderatio
  assert.equal(blockedThread.status,404);
  await mutate(bob,{action:'block',userId:alice.account.userId,enabled:false});
  assert.equal((await read('/api/social?mode=feed',bob)).posts.length,1);
+ const quoted=await mutate(bob,{action:'create',text:'This is an inspired idea #MemeCreators #memespace',topic:'memes',quotePostId:created.id});
+ const quoteFeed=await read('/api/social?mode=feed&tag=memecreators',alice);
+ assert.equal(quoteFeed.posts.length,1);
+ assert.equal(quoteFeed.posts[0].quotePostId,created.id);
+ assert.equal(quoteFeed.posts[0].quote.body,feed.posts[0].body);
+ assert.ok(quoteFeed.posts[0].tags.includes('memecreators'));
+ const trending=await read('/api/social?mode=trends',alice);
+ assert.ok(trending.trends.some(t=>t.tag==='memecreators'&&t.posts===1));
+ await mutate(bob,{id:quoted.id,text:'Updated creator note #NewSignal'},'PATCH');
+ assert.equal((await read('/api/social?mode=feed&tag=memecreators',alice)).posts.length,0);
+ assert.equal((await read('/api/social?mode=feed&tag=newsignal',alice)).posts.length,1);
+ const invalidTag=await fetch(base+'/api/social?mode=feed&tag=bad%25');
+ assert.equal(invalidTag.status,400);
  await mutate(bob,{action:'report',postId:created.id,reason:'spam'});
  let db;const old=process.env.MEMESPACE_DATA_DIR;process.env.MEMESPACE_DATA_DIR=data;
  try{db=openDatabase(root);assert.equal(db.prepare('SELECT reason FROM social_reports WHERE post_id=?').get(created.id).reason,'spam');}
  finally{db?.close();if(old===undefined)delete process.env.MEMESPACE_DATA_DIR;else process.env.MEMESPACE_DATA_DIR=old}
  await mutate(alice,{id:created.id},'DELETE');
- assert.equal((await read('/api/social?mode=feed',bob)).posts.length,0);
+ const remaining=await read('/api/social?mode=feed',bob);
+ assert.equal(remaining.posts.length,1,'independent quote survives source removal');
+ assert.equal(remaining.posts[0].id,quoted.id);
+ assert.equal(remaining.posts[0].quote,null,'hidden source is not disclosed');
  const hidden=await fetch(base+'/api/social?mode=thread&id='+created.id);assert.equal(hidden.status,404);
  const invalid=await fetch(base+'/api/social?mode=feed&page=-1');assert.equal(invalid.status,400);
 });

@@ -6,10 +6,17 @@ export const runtime='nodejs';
 const topics=['general','memes','gaming','culture','web3'] as const;
 const validId=(v:unknown):v is string=>typeof v==='string'&&/^[a-zA-Z0-9_-]{1,100}$/.test(v);
 const noStore={'Cache-Control':'no-store'};
-type PostRow={id:string;user_id:string;body:string;topic:string;reply_to:string|null;created_at:number;edited_at:number;author:string;bio:string;reactions:number;replies:number;reacted:number;saved:number;following:number;followers:number};
+type PostRow={id:string;user_id:string;body:string;topic:string;reply_to:string|null;quote_post_id:string|null;created_at:number;edited_at:number;author:string;bio:string;reactions:number;replies:number;reacted:number;saved:number;following:number;followers:number};
+const tagPattern=/(?:^|[^a-zA-Z0-9_])#([a-zA-Z][a-zA-Z0-9_]{0,29})(?![a-zA-Z0-9_])/g;
+function tags(text:string){return [...new Set([...text.matchAll(tagPattern)].map(match=>match[1].toLowerCase()))].slice(0,10);}
+function indexTags(db:ReturnType<typeof rawDatabase>,id:string,text:string){
+ db.prepare('DELETE FROM social_hashtags WHERE post_id=?').run(id);
+ const add=db.prepare('INSERT OR IGNORE INTO social_hashtags(post_id,tag) VALUES(?,?)');
+ for(const tag of tags(text))add.run(id,tag);
+}
 function postQuery(userId:string,where:string,args:(string|number)[],limit=20,offset=0,order='p.created_at DESC,p.id DESC'){
  const db=rawDatabase();
- const sql="SELECT p.id,p.user_id,p.body,p.topic,p.reply_to,p.created_at,p.edited_at,"+
+ const sql="SELECT p.id,p.user_id,p.body,p.topic,p.reply_to,p.quote_post_id,p.created_at,p.edited_at,"+
  "COALESCE(pr.name,a.display_name,'Explorer') AS author,COALESCE(pr.bio,'') AS bio,"+
  "(SELECT COUNT(*) FROM social_reactions r WHERE r.post_id=p.id) AS reactions,"+
  "(SELECT COUNT(*) FROM social_posts child WHERE child.reply_to=p.id AND child.hidden_at=0) AS replies,"+
@@ -23,8 +30,17 @@ function postQuery(userId:string,where:string,args:(string|number)[],limit=20,of
  "AND NOT EXISTS(SELECT 1 FROM social_relationships sr WHERE sr.actor_id=p.user_id AND sr.target_id=? AND sr.kind='block') AND "+where+" ORDER BY "+order+" LIMIT ? OFFSET ?";
  return db.prepare(sql).all(userId,userId,userId,userId,userId,...args,limit,offset) as PostRow[];
 }
+function quotePreview(id:string,viewer:string){
+ if(!visible(id,viewer))return null;
+ const q=rawDatabase().prepare(
+  "SELECT p.id,p.user_id AS userId,p.body,COALESCE(pr.name,a.display_name,'Explorer') AS author "+
+  "FROM social_posts p JOIN accounts a ON a.user_id=p.user_id LEFT JOIN profiles pr ON pr.user_id=p.user_id WHERE p.id=?"
+ ).get(id) as {id:string;userId:string;body:string;author:string}|undefined;
+ return q||null;
+}
 function present(row:PostRow,userId:string){
  return {id:row.id,userId:row.user_id,body:row.body,topic:row.topic,replyTo:row.reply_to,
+  quotePostId:row.quote_post_id,quote:row.quote_post_id?quotePreview(row.quote_post_id,userId):null,tags:tags(row.body),
   createdAt:row.created_at,editedAt:row.edited_at,author:row.author,bio:row.bio,
   reactions:row.reactions,replies:row.replies,reacted:!!row.reacted,saved:!!row.saved,
   following:!!row.following,followers:row.followers,mine:row.user_id===userId};
@@ -42,6 +58,17 @@ export async function GET(request:Request){
   const user=await getChatGPTUser(),uid=user?.userId||'',query=new URL(request.url).searchParams;
   const mode=query.get('mode')||'feed',q=(query.get('q')||'').trim(),topic=query.get('topic')||'all';
   if(q.length>90||!['all',...topics].includes(topic))throw Error('INPUT');
+  if(mode==='trends'){
+   const trends=rawDatabase().prepare(
+    "SELECT h.tag,COUNT(*) AS posts FROM social_hashtags h "+
+    "JOIN social_posts p ON p.id=h.post_id AND p.hidden_at=0 AND p.reply_to IS NULL "+
+    "JOIN accounts a ON a.user_id=p.user_id AND a.deleted_at=0 AND a.suspended_at=0 "+
+    "WHERE NOT EXISTS(SELECT 1 FROM social_relationships sr WHERE sr.actor_id=? AND sr.target_id=p.user_id AND sr.kind IN ('block','mute')) "+
+    "AND NOT EXISTS(SELECT 1 FROM social_relationships sr WHERE sr.actor_id=p.user_id AND sr.target_id=? AND sr.kind='block') "+
+    "GROUP BY h.tag ORDER BY posts DESC,h.tag ASC LIMIT 8"
+   ).all(uid,uid);
+   return Response.json({trends},{headers:noStore});
+  }
   if(mode==='people'){
    const args:(string|number)[]=[uid,uid,uid,uid],filters=["a.deleted_at=0","a.suspended_at=0","a.user_id<>?"];
    if(q){filters.push("(instr(lower(COALESCE(p.name,a.display_name)),lower(?))>0 OR instr(lower(COALESCE(p.bio,'')),lower(?))>0)");args.push(q,q);}
@@ -100,10 +127,12 @@ export async function GET(request:Request){
    return Response.json({root:present(main,uid),replies:replies.map(p=>present(p,uid)),signedIn:!!user},{headers:noStore});
   }
   if(mode!=='feed')throw Error('INPUT');
-  const view=query.get('view')||'all',sort=query.get('sort')||'latest',target=query.get('user');
+  const view=query.get('view')||'all',sort=query.get('sort')||'latest',target=query.get('user'),tag=query.get('tag')||'';
   const page=Number(query.get('page')||0);
   if(!['all','following','mine','saved','profile'].includes(view)||!['latest','popular'].includes(sort)||!Number.isSafeInteger(page)||page<0||page>100)throw Error('INPUT');
+  if(tag&&!/^[a-z][a-z0-9_]{0,29}$/.test(tag))throw Error('INPUT');
   const conditions=['p.reply_to IS NULL'],args:(string|number)[]=[];
+  if(tag){conditions.push('EXISTS(SELECT 1 FROM social_hashtags h WHERE h.post_id=p.id AND h.tag=?)');args.push(tag);}
   if(topic!=='all'){conditions.push('p.topic=?');args.push(topic);}
   if(q){conditions.push("(instr(lower(p.body),lower(?))>0 OR instr(lower(COALESCE(pr.name,a.display_name)),lower(?))>0)");args.push(q,q);}
   if(view==='following'){conditions.push('EXISTS(SELECT 1 FROM social_follows f WHERE f.following_id=p.user_id AND f.follower_id=?)');args.push(uid||'__guest__');}
@@ -125,16 +154,24 @@ export async function POST(request:Request){
   if(action==='create'){
    if(restricted())return readonlyResponse();
    if(typeof d.text!=='string'||d.text.trim().length<2||d.text.length>1200||!topics.includes(d.topic))throw Error('INPUT');
+   const quote=d.quotePostId;
    const parent=d.replyTo;
+   if(quote!==undefined&&(!validId(quote)||parent!==undefined))throw Error('INPUT');
+   if(quote&&!visible(quote,uid))return Response.json({error:'The quoted post is unavailable.'},{status:404,headers:noStore});
    if(parent!==undefined&&(!validId(parent)||!visible(parent,uid)))return Response.json({error:'This conversation is no longer available.'},{status:404,headers:noStore});
    const root=parent?visible(parent,uid):null;
    const replyTo=root?(root.reply_to||root.id):null;
    const topic=root?root.topic:d.topic;
    const postId=crypto.randomUUID();
-   const result=db.prepare(
-    "INSERT INTO social_posts(id,user_id,body,topic,reply_to,created_at) SELECT ?,?,?,?,?,? WHERE (SELECT COUNT(*) FROM social_posts WHERE user_id=? AND created_at>?)<5"
-   ).run(postId,uid,d.text.trim(),topic,replyTo,now,uid,now-60000);
-   if(!result.changes)return Response.json({error:'You can publish up to five posts or replies per minute.'},{status:429,headers:noStore});
+   db.exec('BEGIN IMMEDIATE');
+   try{
+    const result=db.prepare(
+     "INSERT INTO social_posts(id,user_id,body,topic,reply_to,quote_post_id,created_at) SELECT ?,?,?,?,?,?,? WHERE (SELECT COUNT(*) FROM social_posts WHERE user_id=? AND created_at>?)<5"
+    ).run(postId,uid,d.text.trim(),topic,replyTo,quote||null,now,uid,now-60000);
+    if(!result.changes){db.exec('ROLLBACK');return Response.json({error:'You can publish up to five posts or replies per minute.'},{status:429,headers:noStore});}
+    indexTags(db,postId,d.text.trim());
+    db.exec('COMMIT');
+   }catch(e){try{db.exec('ROLLBACK')}catch{}throw e;}
    return Response.json({ok:true,id:postId},{status:201,headers:noStore});
   }
   if(action==='block'||action==='mute'){
@@ -182,8 +219,13 @@ export async function PATCH(request:Request){
   const uid=await identity(request),d=await body(request);
   if(restricted())return readonlyResponse();
   if(!validId(d.id)||typeof d.text!=='string'||d.text.trim().length<2||d.text.length>1200)throw Error('INPUT');
-  const result=rawDatabase().prepare('UPDATE social_posts SET body=?,edited_at=? WHERE id=? AND user_id=? AND hidden_at=0').run(d.text.trim(),Date.now(),d.id,uid);
-  return result.changes?Response.json({ok:true},{headers:noStore}):Response.json({error:'Post not found.'},{status:404,headers:noStore});
+  const db=rawDatabase();db.exec('BEGIN IMMEDIATE');
+  try{
+   const result=db.prepare('UPDATE social_posts SET body=?,edited_at=? WHERE id=? AND user_id=? AND hidden_at=0').run(d.text.trim(),Date.now(),d.id,uid);
+   if(!result.changes){db.exec('ROLLBACK');return Response.json({error:'Post not found.'},{status:404,headers:noStore});}
+   indexTags(db,d.id,d.text.trim());db.exec('COMMIT');
+   return Response.json({ok:true},{headers:noStore});
+  }catch(e){try{db.exec('ROLLBACK')}catch{}throw e;}
  }catch(e){return failure(e);}
 }
 export async function DELETE(request:Request){
