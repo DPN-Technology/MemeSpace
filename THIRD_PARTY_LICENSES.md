@@ -1,5 +1,7 @@
 # MemeSpace Third-Party Software & License Record
 
+> **License separation:** DPN Technology's [proprietary MemeSpace LICENSE](LICENSE) restricts DPN-owned code and material, not independent third-party code, open-source packages or Creative Commons assets. It does not revoke earlier valid MemeSpace MIT grants. Preserve required third-party attribution/license files when distributing authorized copies. See [historical MIT record](docs/licensing/HISTORICAL-MIT.md).
+
 MemeSpace application code authored for DPN Technology is distinct from third-party packages, assets, and vendored compatibility files. This file is an inventory aid; the authoritative license text for each dependency remains the license distributed by its copyright holder.
 
 ## Runtime and development packages
