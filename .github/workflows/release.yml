@@ -1,4 +1,5 @@
 name: Publish stable release
+# Existing release tags are never overwritten; a no-op must not publish packages.
 
 on:
   push:

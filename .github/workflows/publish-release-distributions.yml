@@ -153,6 +153,7 @@ jobs:
   container:
     name: Publish matching container under GitHub Packages
     needs: resolve
+    if: needs.resolve.outputs.publish == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 55
     permissions:
