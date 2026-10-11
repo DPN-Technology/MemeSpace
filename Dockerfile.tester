@@ -1,5 +1,5 @@
 # Published as the MemeSpace tester container through GitHub Container Registry.
-# Build context is pinned to the official v2.5.0 release tag by the workflow.
+# Build context is pinned to the exact published release commit by the automated distribution workflow.
 FROM node:24-bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends socat && rm -rf /var/lib/apt/lists/*
 WORKDIR /app

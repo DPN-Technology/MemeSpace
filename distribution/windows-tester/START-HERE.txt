@@ -1,13 +1,13 @@
-MEMESPACE v2.5.0 — WINDOWS TESTER EDITION
-DPN TECHNOLOGY | OFFICIAL VERSION 2.5.0
+MEMESPACE @@TAG@@ — WINDOWS TESTER EDITION
+DPN TECHNOLOGY | OFFICIAL VERSION @@VERSION@@
 
 QUICK START
-1. Download MemeSpace-v2.5.0-Windows-Tester.zip from:
-   https://github.com/DPN-Technology/MemeSpace/releases/tag/v2.5.0
+1. Download MemeSpace-@@TAG@@-Windows-Tester.zip from:
+   https://github.com/DPN-Technology/MemeSpace/releases/tag/@@TAG@@
 2. Extract the ZIP into a writable folder, such as Documents.
 3. Install Node.js 24 or newer from https://nodejs.org/ if you don't already have it.
 4. Double-click LAUNCH-MEMESPACE.cmd.
-5. The first launch automatically downloads the exact v2.5.0 source and
+5. The first launch automatically downloads the exact @@TAG@@ source and
    installs locked dependencies. Internet access is required for first setup.
 6. Your browser will open http://127.0.0.1:5173/ (refresh when the server is ready).
    Keep the launcher terminal open while testing.
@@ -22,9 +22,9 @@ NOTES
 - This is a convenient Windows launcher, not a standalone .exe or offline installer.
 - Windows 10/11, PowerShell, Node.js 24+, and internet on first launch are required.
 - The underlying application is pinned to release commit:
-  893d76448b53703c5423dc82f9b4a7f4ce875542
+  @@COMMIT@@
 - The app runs locally on your computer. It does not expose a public website.
-- Account databases stay in app-v2.5.0/data. Do not share personal data.
+- Account databases stay in app-@@TAG@@/data. Do not share personal data.
 - RESET-DOWNLOAD.cmd refuses to clear a folder containing local data.
 - To report bugs: https://github.com/DPN-Technology/MemeSpace/issues
 - GitHub Packages hosts a separate Docker container distribution.

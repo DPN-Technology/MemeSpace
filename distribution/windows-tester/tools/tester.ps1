@@ -5,9 +5,9 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $Root = Split-Path -Parent $PSScriptRoot
-$App = Join-Path $Root 'app-v2.5.0'
-$Archive = Join-Path $Root 'memespace-v2.5.0-source.zip'
-$SourceCommit = '893d76448b53703c5423dc82f9b4a7f4ce875542'
+$App = Join-Path $Root 'app-@@TAG@@'
+$Archive = Join-Path $Root 'memespace-@@TAG@@-source.zip'
+$SourceCommit = '@@COMMIT@@'
 $Download = "https://github.com/DPN-Technology/MemeSpace/archive/$SourceCommit.zip"
 
 function Abort([string]$Reason) {
@@ -32,11 +32,11 @@ function CheckNode {
 function PrepareSource {
   if (Test-Path (Join-Path $App 'package.json')) { return }
   if (Test-Path $App) {
-    Abort "The app-v2.5.0 folder already exists but is incomplete. Rename or move it before retrying. Do not delete any existing data."
+    Abort "The app-@@TAG@@ folder already exists but is incomplete. Rename or move it before retrying. Do not delete any existing data."
   }
 
   if (-not (Test-Path $Archive)) {
-    Write-Host 'Downloading the verified v2.5.0 release source from GitHub...'
+    Write-Host 'Downloading the verified @@TAG@@ release source from GitHub...'
     try {
       Invoke-WebRequest -Uri $Download -OutFile $Archive -UseBasicParsing -MaximumRedirection 5
     } catch {
@@ -44,7 +44,7 @@ function PrepareSource {
     }
   }
 
-  $Staging = Join-Path $Root '_extracting_v2.5.0'
+  $Staging = Join-Path $Root '_extracting_@@TAG@@'
   try {
     if (Test-Path $Staging) { Remove-Item -LiteralPath $Staging -Recurse -Force }
     New-Item -ItemType Directory -Path $Staging -Force | Out-Null
@@ -55,8 +55,8 @@ function PrepareSource {
     $ManifestPath = Join-Path $SourcePath 'package.json'
     if (-not (Test-Path $ManifestPath)) { throw 'package.json is missing from the archive.' }
     $Manifest = Get-Content -LiteralPath $ManifestPath -Raw | ConvertFrom-Json
-    if ($Manifest.version -ne '2.5.0' -or $Manifest.name -ne 'memespace-local') {
-      throw 'Downloaded source does not match the MemeSpace 2.5.0 manifest.'
+    if ($Manifest.name -ne 'memespace-local') {
+      throw 'Downloaded archive does not contain the expected MemeSpace application.'
     }
     Move-Item -LiteralPath $SourcePath -Destination $App
   } catch {
@@ -64,12 +64,12 @@ function PrepareSource {
   } finally {
     if (Test-Path $Staging) { Remove-Item -LiteralPath $Staging -Recurse -Force }
   }
-  Write-Host 'MemeSpace v2.5.0 downloaded and verified.' -ForegroundColor Green
+  Write-Host 'MemeSpace @@TAG@@ release source downloaded.' -ForegroundColor Green
 }
 
 if ($Action -eq 'reset') {
   if (Test-Path (Join-Path $App 'data')) {
-    Abort 'Local account/database files exist in app-v2.5.0/data. Keep them safe; the reset tool will not delete them.'
+    Abort 'Local account/database files exist in app-@@TAG@@/data. Keep them safe; the reset tool will not delete them.'
   }
   if (Test-Path $App) { Remove-Item -LiteralPath $App -Recurse -Force }
   if (Test-Path $Archive) { Remove-Item -LiteralPath $Archive -Force }

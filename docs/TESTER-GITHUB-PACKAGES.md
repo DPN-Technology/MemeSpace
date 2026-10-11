@@ -1,35 +1,38 @@
-# MemeSpace v2.5.0 — GitHub Packages tester distribution
+# MemeSpace tester distributions
 
-This publishes an OCI container to **GitHub Packages → Containers**, not to GitHub Releases.
-Image: `ghcr.io/dpn-technology/memespace-tester:2.5.0`.
-The build explicitly checks out the published `v2.5.0` tag, even if `main` is newer.
+**Every new published GitHub release** with a tag like `v2.6.0` triggers [Publish MemeSpace release distributions](../.github/workflows/publish-release-distributions.yml). Two jobs produce:
 
-## Publish
+- **Windows launcher ZIP** under the matching GitHub **Release → Assets** as `MemeSpace-v2.6.0-Windows-Tester.zip`.
+- **Versioned GitHub Packages container** `ghcr.io/dpn-technology/memespace-tester:2.6.0`.
 
-Merge this PR, then open **Actions → Publish MemeSpace Tester to GitHub Packages → Run workflow**.
-The original release already exists, so adding a new workflow does NOT retroactively run its release trigger.
-Wait for the workflow to finish successfully, then open the DPN Technology organization's **Packages** page.
-Do not tell testers a package exists until the publish run has succeeded.
+The workflow selects the **published release's tag and exact Git commit**. It creates a version-specific Windows launcher that downloads that commit, rather than the current `main` branch. The container is built from the same release commit. The ZIP is a bootstrap launcher that requires Node.js 24+ and network access for first-time setup; it is not an offline EXE.
 
-## Windows tester launch
+## How to publish
 
-1. Install and start Docker Desktop for Windows.
-2. If the package is private, authenticate using a GitHub token with **read:packages** and access to this package:
-   `echo YOUR_TOKEN | docker login ghcr.io -u YOUR_GITHUB_USER --password-stdin`
-   (avoid leaving real tokens in shared scripts, issue comments, or screenshots).
-3. From PowerShell run:
+1. Update the app and bump `package.json` version for the planned release.
+2. Publish a GitHub Release from the repository with tag `vX.Y.Z` pointing at the desired commit. Or run **Actions → Publish stable release**, which creates a release from the current package version.
+3. Wait for **Publish MemeSpace release distributions** to finish successfully.
+4. Give testers the **Releases → Assets** ZIP. Technical testers can use **Packages** for Docker.
 
-```powershell
+**Important:** GitHub workflows using `GITHUB_TOKEN` to create a Release do not cause a separate `release.published` workflow event. The distribution workflow also listens for successful completion of **Publish stable release** and verifies that the new release points at the same commit. No personal GitHub token is required.
+
+For a re-run, open the distribution workflow and choose **Run workflow** with an existing tag. It will replace only that release's matching ZIP asset and versioned container image.
+
+Security: packaging checks out only trusted templates on `main` and uses the release commit for app source. The container runs locally and does not expose a public website by default.
+
+## Windows tester
+
+1. Download the corresponding `MemeSpace-vX.Y.Z-Windows-Tester.zip` asset.
+2. Extract it and install Node.js 24+ if needed.
+3. Double-click `LAUNCH-MEMESPACE.cmd`; keep the terminal open.
+4. The local web app opens at http://127.0.0.1:5173.
+5. Optionally run `LAUNCH-CONTROL-CENTER.cmd` for separate administrative testing.
+
+## Docker tester
+
+```sh
 docker volume create memespace-tester-data
-docker run --rm --name memespace-tester -p 127.0.0.1:5173:5175 -v memespace-tester-data:/app/data ghcr.io/dpn-technology/memespace-tester:2.5.0
+docker run --rm --name memespace-tester -p 127.0.0.1:5173:5175 -v memespace-tester-data:/app/data ghcr.io/dpn-technology/memespace-tester:2.6.0
 ```
 
-Visit http://localhost:5173 after startup. Use Ctrl+C to stop. Data survives container restarts.
-This is a local-only tester image. The container includes a loopback-to-container port proxy so the original app can keep its local binding. Validate the image on Windows before giving it to testers.
-
-## Scope and cautions
-
-This is the public/member site; the Control Center is separate and not auto-exposed.
-Keep it offline from the public internet. Avoid distributing real member/admin databases.
-A GHCR container appears under GitHub Packages; a ZIP attached to a release does not.
-Publishing through the workflow must be verified before the image can be described as available.
+Replace `2.6.0` with the version you want. For private images, testers must have read access and authenticate to GHCR. The Control Center remains separate. Do not share real member databases, staff credentials, or recovery codes.
