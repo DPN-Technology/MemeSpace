@@ -1,0 +1,12 @@
+# Published as the MemeSpace tester container through GitHub Container Registry.
+# Build context is pinned to the official v2.5.0 release tag by the workflow.
+FROM node:24-bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends socat && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 MEMESPACE_PORT=5173 MEMESPACE_LOCAL_MODE=1
+COPY . .
+RUN npm exec --yes --package=pnpm@11.25.0 -- pnpm install --frozen-lockfile --prod=false \
+    && node scripts/local.mjs build
+EXPOSE 5175
+VOLUME ["/app/data"]
+CMD ["sh", "-c", "socat TCP-LISTEN:5175,bind=0.0.0.0,fork,reuseaddr TCP:127.0.0.1:5173 & exec node scripts/local.mjs serve"]

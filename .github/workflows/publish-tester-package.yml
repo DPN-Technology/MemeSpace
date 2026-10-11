@@ -1,0 +1,67 @@
+name: Publish MemeSpace Tester to GitHub Packages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - Dockerfile.tester
+      - .github/workflows/publish-tester-package.yml
+  workflow_dispatch:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: memespace-tester-package
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'DPN-Technology/MemeSpace' && (github.event_name != 'release' || github.event.release.tag_name == 'v2.5.0')
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - name: Check out package definition from main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Check out exact v2.5.0 application source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: v2.5.0
+          path: release-src
+          persist-credentials: false
+
+      - name: Verify release source and package definition
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f Dockerfile.tester
+          test -f release-src/package.json
+          grep -q '"version": "2.5.0"' release-src/package.json
+
+      - name: Build exact release container
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build \
+            --file Dockerfile.tester \
+            --label "org.opencontainers.image.source=https://github.com/DPN-Technology/MemeSpace" \
+            --label "org.opencontainers.image.version=2.5.0" \
+            --label "org.opencontainers.image.title=MemeSpace Tester" \
+            --tag ghcr.io/dpn-technology/memespace-tester:2.5.0 \
+            release-src
+
+      - name: Publish container to GitHub Packages
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker push ghcr.io/dpn-technology/memespace-tester:2.5.0
