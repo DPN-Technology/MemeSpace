@@ -1,21 +1,187 @@
-MIT License
+MEMESPACE — DPN TECHNOLOGY PROPRIETARY SOFTWARE LICENSE
+ALL RIGHTS RESERVED — NO PUBLIC LICENSE GRANTED
+Version 1.0 | Effective October 11, 2026
 
-Copyright (c) 2026 Diesel
+Copyright © 2026 DPN Technology, for original works and contributions whose
+rights are owned by DPN Technology. All rights reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+IMPORTANT: THIS IS NOT AN OPEN-SOURCE LICENSE. IT DOES NOT GIVE ANY PERSON
+PERMISSION TO USE, RUN, COPY, MODIFY, DISTRIBUTE, HOST, OR COMMERCIALIZE
+MEMESPACE. A PUBLIC REPOSITORY, DOWNLOAD LINK, DEMONSTRATION, OR RELEASE ASSET
+DOES NOT BY ITSELF CONFER A SOFTWARE LICENSE.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+NOTICE ABOUT OLDER VERSIONS: MemeSpace was previously distributed under the
+MIT License with the copyright notice "Copyright (c) 2026 Diesel". Lawful rights
+already granted under that license for the material and versions to which it
+applied are not revoked or restricted by this later notice. See
+docs/licensing/HISTORICAL-MIT.md. This notice governs DPN-owned rights in the
+current and subsequent versions to the extent DPN may lawfully license them.
+Third-party works remain under their own licenses.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+1. DEFINITIONS
+
+"Owner" means DPN Technology in respect of the software, documentation,
+branding, graphics, original code, and other materials it lawfully owns or is
+authorized to license.
+
+"MemeSpace" or "Software" means the MemeSpace application, Meme Mind interface,
+community and creator features, wallet integrations, trading and token
+features, games, management interfaces, APIs, source code, compiled software,
+updates, designs, documentation, and DPN-owned artwork supplied with the
+applicable release, excluding Third-Party Materials as defined below.
+
+"Authorized License" means a distinct, explicit written permission issued by
+Owner through an authorized representative, describing the licensee, version
+or scope, permitted use, users/deployments, restrictions, and duration.
+
+"Third-Party Materials" means any packages, open-source components, textures,
+geometry, media, or other content owned by others and included, referenced,
+or depended upon by the Software.
+
+2. RESERVATION OF ALL RIGHTS; NO DEFAULT GRANT
+
+Except where an Authorized License, a pre-existing valid license, or applicable
+law expressly permits an act, Owner grants NO rights or licenses, express,
+implied, by estoppel, or otherwise, to any DPN-owned part of MemeSpace.
+All rights not expressly granted are reserved.
+
+Merely viewing code on a repository host, downloading release artifacts,
+obtaining a copy from another person, or receiving access to a demonstration
+does not give permission to run or deploy the Software. Any limited display
+or forking permissions arising solely under the repository hosting service's
+terms are governed by those terms and do not constitute a general MemeSpace
+usage, deployment, or redistribution license.
+
+3. PRIOR WRITTEN AUTHORIZATION REQUIRED
+
+Unless an existing enforceable right or statutory exception applies, prior
+express written authorization from Owner is required before a person or entity:
+
+(a) installs, executes, accesses for operational use, hosts, deploys, or
+    provides the Software, whether locally, on a private network, or online;
+(b) copies, reproduces, mirrors, publishes, transfers, or redistributes
+    Software source code, executables, builds, or derived material;
+(c) modifies, adapts, translates, integrates, creates derivative works of,
+    or incorporates DPN-owned Software into another product;
+(d) sublicenses, rents, leases, sells, monetizes, commercially exploits,
+    or offers the Software as software-as-a-service, a managed service,
+    a website, a platform, or a hosted API;
+(e) distributes demo, preview, evaluation, tester, or modified builds to
+    third parties, or provides access to such builds;
+(f) uses DPN-owned artwork, logos, interface designs, or trade dress in a
+    way requiring copyright or trademark authorization.
+
+Permission for one purpose does not imply permission for another purpose.
+No unpaid, personal, educational, nonprofit, or internal-business exemption
+is granted by this document.
+
+4. WRITTEN GRANTS; SCOPE AND CONDITIONS
+
+An Authorized License should identify the licensee and any permitted
+affiliates, authorized release(s), license term, deployment environments,
+permitted users/seats, allowed copying and modifications, sublicensing
+limits, fees (if any), support commitments (if any), and restrictions.
+Only permission from an authorized DPN Technology representative is valid;
+casual chat, a GitHub invitation, repository visibility, or access to a
+download alone does not expand a signed license.
+
+Unless expressly stated in an Authorized License, no sublicensing or transfer
+of licensed rights is permitted. Access by contractors and hosting providers
+must be separately authorized where a license does not already cover them.
+
+5. RESTRICTIONS ON AUTHORIZED USERS
+
+Subject to mandatory applicable law and the terms of an Authorized License,
+authorized licensees must not exceed licensed scope, share access beyond
+authorized users, remove or falsify copyright/proprietary notices,
+misrepresent DPN affiliation, bypass contractual license enforcement,
+or use Owner's confidential credentials or restricted services without
+authorization. No reverse-engineering prohibition in this section limits
+any non-waivable right provided by applicable law.
+
+6. OWNERSHIP; INTELLECTUAL PROPERTY; BRANDING
+
+This document is a restriction and rights notice, not a transfer of title.
+Owner retains its rights in DPN-owned MemeSpace code, documentation, designs,
+brands, names, graphics, and associated intellectual property. "MemeSpace",
+"DPN", "DPN Technology", and related marks and branding may be protected by
+trademark or other applicable law; no trademark license is granted here.
+
+Ownership of materials created by other contributors is not assumed.
+Any separate copyright assignment or contribution terms govern such
+materials. An entity's name appearing in the copyright line alone does not
+substitute for legally effective title or assignment records.
+
+7. THIRD-PARTY MATERIALS; LICENSE HIERARCHY
+
+This proprietary notice applies only to material that Owner may legally
+restrict. It does not change or override third-party, permissive,
+copyleft, Creative Commons, or other applicable licenses. Any separately
+licensed files or dependencies remain governed by their respective notices.
+
+Consult THIRD_PARTY_LICENSES.md and accompanying license/attribution files,
+including public/geometry, vendor/, build/, and installed packages.
+Recipient obligations under those licenses still apply. In case of conflict
+regarding Third-Party Materials, their applicable license controls.
+
+8. HISTORICAL MIT GRANTS; NON-RETROACTIVITY
+
+Earlier MemeSpace repository revisions and releases contained an MIT License
+bearing "Copyright (c) 2026 Diesel." Persons who legitimately received
+material under that MIT License may retain whatever rights that license
+validly granted them for that material and versions, including rights
+which may not be withdrawn by a subsequent relicensing decision.
+
+No statement in this license falsely represents that such historical rights
+were canceled, or that earlier MIT-licensee copies became proprietary merely
+because the repository's LICENSE file changed. DPN-owned new contributions
+and modifications may be offered on different terms to the extent lawful.
+See docs/licensing/HISTORICAL-MIT.md for the historical record.
+
+9. TERMINATION AND REMEDIES
+
+An Authorized License is subject to the termination provisions expressly
+specified in that license. In the absence of such terms, material use outside
+the granted scope may constitute an infringement or breach, as applicable,
+and Owner may pursue remedies available under relevant law. Neither this
+notice nor a repository notice automatically disables an installed copy or
+revokes pre-existing rights.
+
+Upon a valid termination, a licensee must cease activities dependent on the
+terminated grant and comply with the agreement's return/deletion obligations,
+subject to rights that survive termination and mandatory applicable law.
+
+10. NO WARRANTY; LIMITATION OF LIABILITY
+
+TO THE FULLEST EXTENT PERMITTED BY APPLICABLE LAW, THE DPN-OWNED SOFTWARE AND
+MATERIALS ARE PROVIDED "AS IS" AND "AS AVAILABLE", WITHOUT WARRANTIES OF ANY
+KIND, EXPRESS OR IMPLIED, INCLUDING MERCHANTABILITY, FITNESS FOR A PARTICULAR
+PURPOSE, TITLE, NON-INFRINGEMENT, OR UNINTERRUPTED OPERATION. AN AUTHORIZED
+LICENSE MAY EXPRESSLY PROVIDE DIFFERENT WARRANTIES.
+
+TO THE FULLEST EXTENT PERMITTED BY APPLICABLE LAW, OWNER WILL NOT BE LIABLE
+FOR INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, CONSEQUENTIAL, OR PUNITIVE
+DAMAGES ARISING FROM THE SOFTWARE, EXCEPT WHERE SUCH EXCLUSIONS ARE
+PROHIBITED BY APPLICABLE LAW OR SUPERSEDED BY A SEPARATE WRITTEN AGREEMENT.
+NOTHING HERE EXCLUDES LIABILITY THAT CANNOT LAWFULLY BE EXCLUDED.
+
+11. REQUESTING PERMISSION
+
+Request licensing or evaluation rights through an official, verified DPN
+Technology contact channel. Describe the intended users, platform/version,
+local versus hosted deployment, commercial or nonprofit purpose, expected
+scale, and desired term. Do not post confidential information, passwords,
+private keys, or payment details in public issue comments.
+
+Only an explicit written grant from an authorized DPN Technology
+representative can authorize additional rights. No response means that no
+new permission has been granted.
+
+12. GENERAL
+
+If part of this notice is unenforceable, the remaining provisions apply to
+the fullest extent allowed by law. Nothing here overrides mandatory
+statutory rights or earlier valid licenses. This file is not legal advice
+or a substitute for an individually negotiated license agreement.
+
+END OF MEMESPACE PROPRIETARY RIGHTS NOTICE
