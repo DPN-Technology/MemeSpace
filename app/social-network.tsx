@@ -2,17 +2,20 @@
 
 import {useCallback,useEffect,useState} from 'react';
 import Link from 'next/link';
-import {Activity,ArrowLeft,ArrowRight,Bell,Bookmark,Check,Compass,Flame,Heart,Hash,MessageCircle,Plus,RefreshCw,Search,Send,ShieldAlert,Sparkles,Users,UserRound,PenLine,Trash2,X,UserRoundX,VolumeX,Volume2,CalendarDays} from 'lucide-react';
+import {Activity,ArrowLeft,ArrowRight,Bell,Bookmark,Check,Compass,Flame,Heart,Hash,MessageCircle,Plus,RefreshCw,Search,Send,ShieldAlert,Sparkles,Users,UserRound,PenLine,Trash2,X,Repeat2,UserRoundX,VolumeX,Volume2,CalendarDays} from 'lucide-react';
 import './social-network.css';
 
 type Topic='general'|'memes'|'gaming'|'culture'|'web3';
 type FeedView='all'|'following'|'mine'|'saved'|'profile';
 type Section='feed'|'people'|'activity';
-type Post={id:string;userId:string;body:string;topic:Topic;replyTo:string|null;createdAt:number;editedAt:number;author:string;bio:string;reactions:number;replies:number;reacted:boolean;saved:boolean;following:boolean;followers:number;mine:boolean};
+type Quote={id:string;userId:string;author:string;body:string};
+type ReportReason='spam'|'harassment'|'scam'|'privacy'|'other';
+type Post={id:string;userId:string;body:string;topic:Topic;replyTo:string|null;quotePostId:string|null;quote:Quote|null;tags:string[];createdAt:number;editedAt:number;author:string;bio:string;reactions:number;replies:number;reacted:boolean;saved:boolean;following:boolean;followers:number;mine:boolean};
 type Member={userId:string;name:string;bio:string;posts:number;followers:number;following:number;blocked:number;muted:number};
 type Profile={userId:string;name:string;bio:string;joinedAt:number;posts:number;followers:number;followingCount:number;following:boolean;blocked:boolean;muted:boolean;mine:boolean};
 type Notice={kind:'reaction'|'reply'|'follow';userId:string;author:string;postId:string|null;createdAt:number};
 type FeedResult={posts:Post[];hasMore:boolean;stats:{posts:number;members:number;following:number};signedIn:boolean;readOnly:boolean};
+type Trend={tag:string;posts:number};
 const topicLabels:Record<Topic,string>={general:'The Commons',memes:'Meme Culture',gaming:'Gaming',culture:'Internet Culture',web3:'Web3'};
 const topicList=Object.keys(topicLabels) as Topic[];
 const initialStats={posts:0,members:0,following:0};
@@ -35,9 +38,13 @@ function timeSince(timestamp:number){
 function Avatar({name,size='normal'}:{name:string;size?:'normal'|'large'}){
  return <span className={'social-avatar '+(size==='large'?'social-avatar-large':'')} aria-hidden="true">{name.trim().slice(0,2).toUpperCase()||'MS'}</span>;
 }
-function PostCard({post,onAction,onThread,onProfile,onEdit,onDelete,onReport,editing,editValue,setEditValue,saveEdit,cancelEdit,busy}:{
+function RichCopy({value,onTag}:{value:string;onTag:(tag:string)=>void}){
+ return <>{value.split(/(#[a-zA-Z][a-zA-Z0-9_]{0,29})/g).map((part,i)=>part.startsWith('#')&&/^#[a-zA-Z][a-zA-Z0-9_]{0,29}$/.test(part)?
+ <button key={i} type="button" className="social-hashtag-link" onClick={()=>onTag(part.slice(1).toLowerCase())}>{part}</button>:part)}</>;
+}
+function PostCard({post,onAction,onThread,onProfile,onEdit,onDelete,onReport,onQuote,onTag,editing,editValue,setEditValue,saveEdit,cancelEdit,busy}:{
  post:Post;onAction:(action:'react'|'bookmark',post:Post)=>void;onThread:(id:string)=>void;onProfile:(id:string)=>void;
- onEdit:(post:Post)=>void;onDelete:(post:Post)=>void;onReport:(post:Post)=>void;editing:boolean;editValue:string;setEditValue:(v:string)=>void;
+ onEdit:(post:Post)=>void;onDelete:(post:Post)=>void;onReport:(post:Post)=>void;onQuote:(post:Post)=>void;onTag:(tag:string)=>void;editing:boolean;editValue:string;setEditValue:(v:string)=>void;
  saveEdit:()=>void;cancelEdit:()=>void;busy:boolean;
 }){
  return <article className="social-post" data-social-post-id={post.id}>
@@ -47,10 +54,12 @@ function PostCard({post,onAction,onThread,onProfile,onEdit,onDelete,onReport,edi
     {post.mine?<div className="social-post-menu"><button aria-label="Edit post" onClick={()=>onEdit(post)}><PenLine/></button><button aria-label="Delete post" onClick={()=>onDelete(post)}><Trash2/></button></div>:<button className="social-icon-action" title="Report post" aria-label="Report post" onClick={()=>onReport(post)}><ShieldAlert/></button>}
    </div>
   </div>
-  {editing?<div className="social-edit"><textarea aria-label="Edit post text" maxLength={1200} rows={4} value={editValue} onChange={e=>setEditValue(e.target.value)}/><div><button disabled={busy||editValue.trim().length<2} className="social-primary" onClick={saveEdit}><Check/> Save changes</button><button className="social-muted-btn" onClick={cancelEdit}>Cancel</button></div></div>:<p className="social-post-copy">{post.body}</p>}
+  {editing?<div className="social-edit"><textarea aria-label="Edit post text" maxLength={1200} rows={4} value={editValue} onChange={e=>setEditValue(e.target.value)}/><div><button disabled={busy||editValue.trim().length<2} className="social-primary" onClick={saveEdit}><Check/> Save changes</button><button className="social-muted-btn" onClick={cancelEdit}>Cancel</button></div></div>:<p className="social-post-copy"><RichCopy value={post.body} onTag={onTag}/></p>}
+  {post.quotePostId&&<div className="social-quote-card">{post.quote?<button type="button" onClick={()=>onThread(post.quotePostId!)} aria-label={'Open quoted post by '+post.quote.author}><span><Repeat2/> QUOTED SIGNAL · {post.quote.author}</span><p>{post.quote.body}</p><small>Open original discussion <ArrowRight/></small></button>:<div className="social-quote-unavailable"><ShieldAlert/> Original post unavailable or restricted</div>}</div>}
   <div className="social-post-actions">
    <button aria-label={post.reacted?'Unlike post':'Like post'} aria-pressed={post.reacted} className={post.reacted?'selected':''} disabled={busy} onClick={()=>onAction('react',post)}><Heart fill={post.reacted?'currentColor':'none'}/><span>{post.reactions}</span></button>
    <button aria-label="View replies" onClick={()=>onThread(post.replyTo||post.id)}><MessageCircle/><span>{post.replies}</span></button>
+   <button aria-label="Quote this post" disabled={busy} onClick={()=>onQuote(post)}><Repeat2/><span>Quote</span></button>
    <button aria-label={post.saved?'Unsave post':'Save post'} aria-pressed={post.saved} className={post.saved?'selected':''} disabled={busy} onClick={()=>onAction('bookmark',post)}><Bookmark fill={post.saved?'currentColor':'none'}/><span>{post.saved?'Saved':'Save'}</span></button>
    <button className="social-last-action" onClick={()=>onThread(post.replyTo||post.id)}>Join discussion <ArrowRight/></button>
   </div>
@@ -70,12 +79,17 @@ export function SocialNetwork({openIdentity}:{openIdentity:()=>void}){
  const [page,setPage]=useState(0);
  const [posts,setPosts]=useState<Post[]>([]);
  const [stats,setStats]=useState(initialStats);
+ const [trends,setTrends]=useState<Trend[]>([]);
+ const [tag,setTag]=useState('');
  const [hasMore,setHasMore]=useState(false);
  const [people,setPeople]=useState<Member[]>([]);
  const [activity,setActivity]=useState<Notice[]>([]);
  const [selectedId,setSelectedId]=useState<string|null>(null);
  const [thread,setThread]=useState<{root:Post;replies:Post[]}|null>(null);
  const [draft,setDraft]=useState('');
+ const [quoteTarget,setQuoteTarget]=useState<Post|null>(null);
+ const [reportTarget,setReportTarget]=useState<Post|null>(null);
+ const [reportReason,setReportReason]=useState<ReportReason>('spam');
  const [reply,setReply]=useState('');
  const [signedIn,setSignedIn]=useState(false);
  const [readOnly,setReadOnly]=useState(false);
@@ -88,15 +102,20 @@ export function SocialNetwork({openIdentity}:{openIdentity:()=>void}){
  const [refreshId,setRefreshId]=useState(0);
  const refresh=useCallback(()=>setRefreshId(x=>x+1),[]);
  const changeView=(next:FeedView,id='')=>{setSection('feed');setSelectedId(null);setView(next);setProfileId(id);setProfile(null);setPage(0);};
- const chooseTopic=(next:Topic|'all')=>{setTopic(next);setPage(0);setSelectedId(null);setSection('feed');};
+ const chooseTopic=(next:Topic|'all')=>{setTopic(next);setTag('');setPage(0);setSelectedId(null);setSection('feed');};
+ const chooseTag=(next:string)=>{setTag(next);setQuery('');setSearchInput('');setTopic('all');setPage(0);setSelectedId(null);setView('all');setSection('feed');};
  useEffect(()=>{
   let cancelled=false;
   setLoading(true);setError('');
-  const params={mode:'feed',view,topic,sort,q:query,page:String(page),...(view==='profile'?{user:profileId}:{})};
+  const params={mode:'feed',view,topic,sort,q:query,page:String(page),...(tag?{tag}:{}),...(view==='profile'?{user:profileId}:{})};
   social<FeedResult>(params).then(data=>{if(cancelled)return;setPosts(data.posts);setHasMore(data.hasMore);setStats(data.stats);setSignedIn(data.signedIn);setReadOnly(data.readOnly)})
    .catch((e:Error)=>{if(!cancelled)setError(e.message)}).finally(()=>{if(!cancelled)setLoading(false)});
   return()=>{cancelled=true};
- },[view,topic,sort,page,query,profileId,refreshId]);
+ },[view,topic,sort,page,query,tag,profileId,refreshId]);
+ useEffect(()=>{let cancelled=false;
+  social<{trends:Trend[]}>({mode:'trends'}).then(data=>{if(!cancelled)setTrends(data.trends)}).catch(()=>{if(!cancelled)setTrends([])});
+  return()=>{cancelled=true};
+ },[refreshId]);
  useEffect(()=>{
   if(section!=='people')return;let cancelled=false;
   social<{people:Member[]}>({mode:'people',q:query}).then(data=>{if(!cancelled)setPeople(data.people)}).catch((e:Error)=>{if(!cancelled)setError(e.message)});
@@ -137,8 +156,8 @@ export function SocialNetwork({openIdentity}:{openIdentity:()=>void}){
   if(!join())return;
   const text=replyTo?reply:draft;
   if(text.trim().length<2)return;
-  const ok=await action({action:'create',text,topic:composeTopic,...(replyTo?{replyTo}:{})});
-  if(ok){if(replyTo)setReply('');else{setDraft('');changeView('all');}setSuccess('Published to MemeSpace.');}
+  const ok=await action({action:'create',text,topic:composeTopic,...(replyTo?{replyTo}:quoteTarget?{quotePostId:quoteTarget.id}:{})});
+  if(ok){if(replyTo)setReply('');else{setDraft('');setQuoteTarget(null);changeView('all');setTag('');setQuery('');setSearchInput('');}setSuccess('Published to MemeSpace.');}
  }
  async function toggle(actionName:'react'|'bookmark',post:Post){await action({action:actionName,postId:post.id,enabled:actionName==='react'?!post.reacted:!post.saved})}
  async function toggleFollow(member:{userId:string;following:number|boolean}){await action({action:'follow',userId:member.userId,enabled:!member.following})}
@@ -150,8 +169,10 @@ export function SocialNetwork({openIdentity}:{openIdentity:()=>void}){
  function startEdit(post:Post){setEditId(post.id);setEditValue(post.body)}
  async function saveEdit(){if(!editId)return;const ok=await action({id:editId,text:editValue},'PATCH');if(ok){setEditId(null);setEditValue('');setSuccess('Your post was updated.')}}
  async function removePost(post:Post){if(!window.confirm('Remove this post and its replies?'))return;const ok=await action({id:post.id},'DELETE',!!selectedId&&(post.id===selectedId||post.replyTo===null));if(ok)setSuccess('Your post was removed.')}
- async function reportPost(post:Post){if(!join())return;if(!window.confirm('Report this post for moderator review?'))return;const ok=await action({action:'report',postId:post.id,reason:'other'});if(ok)setSuccess('Report sent to the moderation queue.')}
- const postHandlers={onAction:toggle,onThread:(id:string)=>{setSelectedId(id);setThread(null);},onProfile:(id:string)=>changeView('profile',id),onEdit:startEdit,onDelete:removePost,onReport:reportPost,editValue,setEditValue,saveEdit,cancelEdit:()=>setEditId(null),busy};
+ function reportPost(post:Post){if(!join())return;setReportTarget(post);setReportReason('spam');}
+ async function sendReport(){if(!reportTarget)return;const ok=await action({action:'report',postId:reportTarget.id,reason:reportReason});if(ok){setReportTarget(null);setSuccess('Report sent to the moderation queue.');}}
+ function quotePost(post:Post){if(!join())return;setQuoteTarget(post);setSelectedId(null);setSection('feed');setView('all');setQuery('');setSearchInput('');setTag('');setTopic('all');setPage(0);setComposeTopic(post.topic);}
+ const postHandlers={onAction:toggle,onThread:(id:string)=>{setSelectedId(id);setThread(null);},onProfile:(id:string)=>changeView('profile',id),onEdit:startEdit,onDelete:removePost,onReport:reportPost,onQuote:quotePost,onTag:chooseTag,editValue,setEditValue,saveEdit,cancelEdit:()=>setEditId(null),busy};
  const postCard=(post:Post)=><PostCard key={post.id} post={post} {...postHandlers} editing={editId===post.id}/>;
  const navigation:[FeedView,string,typeof Compass][]=[
   ['all','For everyone',Compass],['following','Following',Users],['mine','Your posts',UserRound],['saved','Saved posts',Bookmark]
@@ -178,11 +199,13 @@ export function SocialNetwork({openIdentity}:{openIdentity:()=>void}){
    <main className="social-main">
     <div className="social-feed-header">
      <div><p className="social-kicker">{section==='feed'?'THE COMMUNITY STREAM':section==='people'?'CONNECTION DIRECTORY':'YOUR COMMUNITY SIGNALS'}</p><h2>{section==='people'?'Discover creators':section==='activity'?'Your activity':view==='following'?'People you follow':view==='mine'?'Your posts':view==='saved'?'Saved for later':view==='profile'?'Member timeline':'The Feed'}</h2></div>
-     <button className="social-new-btn" onClick={()=>{setSection('feed');changeView('all');document.querySelector<HTMLTextAreaElement>('.social-composer textarea')?.focus()}}><Plus/> New post</button>
+     <button className="social-new-btn" onClick={()=>{setSection('feed');changeView('all');setTag('');setQuery('');setSearchInput('');document.querySelector<HTMLTextAreaElement>('.social-composer textarea')?.focus()}}><Plus/> New post</button>
     </div>
-    <form className="social-search" onSubmit={e=>{e.preventDefault();setQuery(searchInput.trim());setPage(0)}}><Search/><input aria-label="Search the social network" placeholder="Search posts, topics and people…" value={searchInput} onChange={e=>setSearchInput(e.target.value)}/><button type="submit">Search <ArrowRight/></button>{query&&<button type="button" aria-label="Clear search" className="social-search-clear" onClick={()=>{setSearchInput('');setQuery('');setPage(0)}}><X/></button>}</form>
+    <form className="social-search" onSubmit={e=>{e.preventDefault();setTag('');setQuery(searchInput.trim());setPage(0)}}><Search/><input aria-label="Search the social network" placeholder="Search posts, topics and people…" value={searchInput} onChange={e=>setSearchInput(e.target.value)}/><button type="submit">Search <ArrowRight/></button>{query&&<button type="button" aria-label="Clear search" className="social-search-clear" onClick={()=>{setSearchInput('');setQuery('');setPage(0)}}><X/></button>}</form>
     {error&&<div role="alert" className="social-alert social-error">{error}<button onClick={()=>setError('')} aria-label="Dismiss error"><X/></button></div>}
     {success&&<div role="status" className="social-alert social-success">{success}<button onClick={()=>setSuccess('')} aria-label="Dismiss message"><X/></button></div>}
+    {reportTarget&&<section className="social-report-panel" aria-label="Report a community post"><div><ShieldAlert/><strong>Report a post</strong><button onClick={()=>setReportTarget(null)} aria-label="Close reporting form"><X/></button></div><p>Choose the most accurate reason. A moderator will review the post.</p><label htmlFor="social-report-reason">Reason</label><select id="social-report-reason" value={reportReason} onChange={e=>setReportReason(e.target.value as ReportReason)}><option value="spam">Spam</option><option value="harassment">Harassment or bullying</option><option value="scam">Scam or impersonation</option><option value="privacy">Exposed private information</option><option value="other">Other violation</option></select><button className="social-primary" disabled={busy} onClick={sendReport}>Submit report</button></section>}
+    {tag&&section==='feed'&&<div className="social-tag-filter"><Hash/> Browsing #{tag} <button onClick={()=>{setTag('');setPage(0)}}><X/> Clear tag</button></div>
     {selectedId?<section className="social-thread" aria-label="Post discussion">
      <button className="social-return" onClick={()=>{setSelectedId(null);setThread(null)}}><ArrowLeft/> Back to feed</button>
      <h3>Conversation thread</h3>
@@ -190,7 +213,7 @@ export function SocialNetwork({openIdentity}:{openIdentity:()=>void}){
       <div className="social-reply-compose"><strong>Join the discussion</strong><textarea aria-label="Write a reply" value={reply} maxLength={1200} onChange={e=>setReply(e.target.value)} placeholder="Add your perspective…"/><button className="social-primary" disabled={busy||readOnly||reply.trim().length<2} onClick={()=>publish(selectedId)}><Send/> Post reply</button>{!signedIn&&<button className="social-signin" onClick={openIdentity}>Sign in to reply</button>}</div>
      </>:<p className="social-empty">Opening conversation…</p>}</section>:
     section==='feed'?<>
-     {view==='all'&&page===0&&!query&&<section className="social-composer" aria-label="Create a social post"><div className="social-composer-top"><Avatar name="YOU"/><div><strong>What&apos;s happening in your universe?</strong><p>Memes, gaming, internet culture — share your perspective.</p></div></div><textarea aria-label="Write a post" value={draft} onChange={e=>setDraft(e.target.value)} placeholder={signedIn?'Start a conversation…':'Sign in to publish your first post…'} maxLength={1200} rows={3} disabled={readOnly}/><div className="social-composer-actions"><label>Post to <select aria-label="Post topic" value={composeTopic} onChange={e=>setComposeTopic(e.target.value as Topic)}>{topicList.map(t=><option key={t} value={t}>{topicLabels[t]}</option>)}</select></label><span>{draft.length}/1200</span>{signedIn?<button className="social-primary" disabled={busy||readOnly||draft.trim().length<2} onClick={()=>publish()}><Send/> Publish post</button>:<button className="social-primary" onClick={openIdentity}><UserRound/> Sign in to post</button>}</div>{readOnly&&<p className="social-readonly">Community posts are temporarily read-only.</p>}</section>}
+     {view==='all'&&page===0&&!query&&!tag&&<section className="social-composer" aria-label="Create a social post"><div className="social-composer-top"><Avatar name="YOU"/><div><strong>What&apos;s happening in your universe?</strong><p>Memes, gaming, internet culture — share your perspective.</p></div></div>{quoteTarget&&<div className="social-compose-quote"><div><Repeat2/> Quoting {quoteTarget.author} <button onClick={()=>setQuoteTarget(null)} aria-label="Remove quote"><X/></button></div><p>{quoteTarget.body}</p></div>}<textarea aria-label="Write a post" value={draft} onChange={e=>setDraft(e.target.value)} placeholder={signedIn?'Start a conversation…':'Sign in to publish your first post…'} maxLength={1200} rows={3} disabled={readOnly}/><div className="social-composer-actions"><label>Post to <select aria-label="Post topic" value={composeTopic} onChange={e=>setComposeTopic(e.target.value as Topic)}>{topicList.map(t=><option key={t} value={t}>{topicLabels[t]}</option>)}</select></label><span>{draft.length}/1200</span>{signedIn?<button className="social-primary" disabled={busy||readOnly||draft.trim().length<2} onClick={()=>publish()}><Send/> Publish post</button>:<button className="social-primary" onClick={openIdentity}><UserRound/> Sign in to post</button>}</div>{readOnly&&<p className="social-readonly">Community posts are temporarily read-only.</p>}</section>}
      {view==='profile'&&<section className="social-profile-card" aria-label="Member profile">
       {profile?<><div className="social-profile-banner"><span>MEMESPACE // CREATOR NETWORK</span><Sparkles/></div>
        <div className="social-profile-body"><Avatar name={profile.name} size="large"/>
@@ -214,7 +237,7 @@ export function SocialNetwork({openIdentity}:{openIdentity:()=>void}){
    </main>
    <aside className="social-right" aria-label="Community overview">
     <section className="social-insights"><small>LIVE COMMUNITY SNAPSHOT</small><h3>Space is better <em>together.</em></h3><div className="social-number-row"><span><strong>{stats.posts}</strong>Posts</span><span><strong>{stats.members}</strong>Members</span><span><strong>{stats.following}</strong>Following</span></div><div className="social-progress"><span/></div><p>Community activity is based on stored posts, not an online-user counter.</p></section>
-    <section className="social-trending"><div><Flame/><strong>Explore the signal</strong></div>{topicList.map((t,i)=><button key={t} onClick={()=>chooseTopic(t)}><span><small>0{i+1} / CHANNEL</small><strong>#{t}</strong></span><ArrowRight/></button>)}</section>
+    <section className="social-trending"><div><Flame/><strong>Explore the signal</strong></div>{topicList.map((t,i)=><button key={t} onClick={()=>chooseTopic(t)}><span><small>0{i+1} / CHANNEL</small><strong>#{t}</strong></span><ArrowRight/></button>)}</section>{trends.length>0&&<section className="social-trending social-hashtag-trends"><div><Hash/><strong>Trending hashtags</strong></div>{trends.map(t=><button key={t.tag} onClick={()=>chooseTag(t.tag)}><span><strong>#{t.tag}</strong><small>{t.posts} {t.posts===1?'post':'posts'}</small></span><ArrowRight/></button>)}</section>}
     <section className="social-guidelines"><ShieldAlert/><div><strong>Keep the signal clean.</strong><p>Respect creators. No spam, scams, harassment or private keys. Report harmful posts for review.</p></div></section>
     <Link className="social-back-link" href="/">Return to the Meme Mind <ArrowRight/></Link>
    </aside>
