@@ -2,6 +2,7 @@
 
 import {useEffect,useState} from 'react';
 import Link from 'next/link';
+import {CommunityModeration} from './social-community-moderation';
 import {ArrowLeft,ArrowRight,Ban,Check,Compass,Crown,LockKeyhole,Plus,ShieldCheck,Sparkles,Users,X} from 'lucide-react';
 
 export type Community={id:string;slug:string;name:string;description:string;ownerId:string;createdAt:number;updatedAt:number;members:number;posts:number|null;visibility:'public'|'private';requested:boolean;role:'owner'|'moderator'|'member'|null;banned:boolean};
@@ -118,6 +119,7 @@ export function SocialCommunities({selectedId,onOpen,onBack,onCommunityChange,on
     {editing&&community.role==='owner'&&<form className="sc-form" onSubmit={e=>{e.preventDefault();void update()}}><h4>Community settings</h4><label>Display name<input value={name} maxLength={64} minLength={3} required onChange={e=>setName(e.target.value)}/></label><label>Description<textarea value={description} maxLength={400} onChange={e=>setDescription(e.target.value)}/></label><label>Visibility<select value={visibility} onChange={e=>setVisibility(e.target.value as 'public'|'private')}><option value="public">Public</option><option value="private">Private · approval required</option></select></label><button type="submit" disabled={busy||name.trim().length<3} className="sc-primary"><Check/> Save settings</button></form>}
     {['owner','moderator'].includes(community.role||'')&&<section className="sc-request-queue"><h4><ShieldCheck/> Membership approval queue <span>{requests.length} pending</span></h4>{requests.length?requests.map(item=><div key={item.userId}><span><strong>{item.name}</strong><small>Requested {new Date(item.requestedAt).toLocaleDateString()}</small></span><button disabled={busy} onClick={()=>review(item,true)}><Check/> Approve</button><button disabled={busy} onClick={()=>review(item,false)}><X/> Deny</button></div>):<p>No pending membership requests.</p>}</section>}
     {community.visibility==='private'&&!community.role&&<div className="sc-post-gate"><LockKeyhole/> Community posts and members are visible only after approval.</div>}
+    <CommunityModeration communityId={community.id} role={community.role} signedIn={signedIn} onRefresh={onRefresh}/>
     <div className="sc-members"><div className="sc-members-title"><h4><Users/> Community members</h4><span>{community.members} members</span></div>
     {members.map(member=><div className="sc-member" key={member.userId}><span className="sc-member-avatar">{member.name.trim().slice(0,2).toUpperCase()}</span><span className="sc-member-info"><strong>{member.name}</strong><small>{member.role==='owner'?'Community founder':member.role==='moderator'?'Moderator':'Member'}</small></span>
      {community.role==='owner'&&member.role!=='owner'&&<button onClick={()=>transfer(member)} disabled={busy} className="sc-mod-action" title="Transfer community ownership"><Crown/> Transfer</button>}
