@@ -113,6 +113,8 @@ test('deletion requires ownership confirmations and removes only the target acco
   assert.equal(exported.socialPosts.length,1);
   assert.equal(exported.ownedCommunities.length,1);
   assert.equal(exported.communityMemberships.length,1);
+  assert.ok(Array.isArray(exported.communityRequests));
+  assert.ok(Array.isArray(exported.communityTransfers));
   assert.equal(exported.socialMedia.length,1);
   assert.equal(exported.socialMedia[0].mime,'image/png');
   assert.equal(exported.socialPosts[0].body,'Owner post');

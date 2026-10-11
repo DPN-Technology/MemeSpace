@@ -61,3 +61,11 @@ The Control Center Moderation queue includes reports from both chat and the new 
 Account export includes social posts, reactions, bookmarks, follows and reports. Account deletion transactionally removes the member's posts and social graph references, and hides other members' replies when their parent posts disappear, without deleting those members' owned replies.
 
 A dedicated social-post restoration UI, block/mute tools and richer reporting reasons remain future work.
+
+## Private creator spaces and ownership (phase 7)
+
+- New communities may be Public (instant membership) or Private (members-only posts and member roster). Existing communities remain public after the additive migration. Private community names and descriptions are discoverable so prospective members can request entry.
+- Private joins create pending requests; applicants can cancel, and owners/moderators can approve or deny. Approval inserts membership transactionally, requiring an active account and no community ban.
+- The social API filters private posts from global/followed/saved/author feeds, direct threads, quote previews, hashtag trends, community feeds, and activity notifications unless the viewer is an approved member. Binary image reads and source quote checks enforce the same policy.
+- Owners may change visibility and transfer ownership to an existing active member with the exact phrase TRANSFER OWNERSHIP. Ownership and role changes are transactional, with the previous owner retained as a moderator; transfer history records the change.
+- Account data export and deletion include pending requests and transfer records. This is locally persisted SQLite permissioning, not end-to-end encryption or a globally hosted network.
