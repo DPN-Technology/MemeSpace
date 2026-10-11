@@ -38,6 +38,7 @@ jobs:
       tag: ${{ steps.release.outputs.tag }}
       version: ${{ steps.release.outputs.version }}
       sha: ${{ steps.release.outputs.sha }}
+      publish: ${{ steps.release.outputs.publish }}
     steps:
       - name: Checkout trusted packaging definition
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -75,10 +76,11 @@ jobs:
           git fetch --no-tags --depth=1 origin "refs/tags/$TAG"
           SHA="$(git rev-parse 'FETCH_HEAD^{commit}')"
           if [[ "$GITHUB_EVENT_NAME" == workflow_run && "$SHA" != "$RELEASE_WORKFLOW_SHA" ]]; then
-            echo "::notice::The release workflow did not create a new release for commit $RELEASE_WORKFLOW_SHA."
-            echo "::error::Release tag $TAG does not match the release workflow commit. No distributions published."
-            exit 1
+            echo "::notice::The stable-release workflow did not publish a new tag for commit $RELEASE_WORKFLOW_SHA. Skipping package rebuild."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+          echo "publish=true" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
           echo "sha=$SHA" >> "$GITHUB_OUTPUT"
@@ -87,6 +89,7 @@ jobs:
   windows:
     name: Build and upload Windows tester ZIP
     needs: resolve
+    if: needs.resolve.outputs.publish == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 12
     permissions:
