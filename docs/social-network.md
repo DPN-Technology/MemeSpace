@@ -87,3 +87,11 @@ A dedicated social-post restoration UI, block/mute tools and richer reporting re
 - The client checks for updated counts and inbox items every 20 seconds while active. **This is near-live polling, not WebSockets, email, SMS, browser push or a background service worker.**
 - Notification creation and retrieval respect account status, blocking/muting and private-community post access. Leaving a private community removes visibility of linked post notifications. Account export includes owned handles, preferences and delivered notifications; deletion clears the member's identifiers and relevant references.
 - Mentions are emitted for initial post creation; edits do not retroactively create notifications. Handles are opt-in, and a nonexistent handle does not trigger an alert.
+
+## Creator profiles and profile media (identity phase)
+
+- Member timelines now include a creator identity page with editable display name, bio, one-line headline, optional location and website, interests, color accent (mint/violet/coral/amber), follower counts, profile link, and real uploaded avatar/banner.
+- Profile avatars (maximum 512 KiB) and banners (maximum 2 MiB) accept PNG/JPEG/GIF validated by signature and image dimensions (1–4096 pixels per side). No SVG/HTML, external image fetches or arbitrary content sniffing. Images are stored locally in SQLite, served with no-store/nosniff and bilateral block checks.
+- Only the logged-in profile owner can edit or remove profile media. Removing an image deletes the original stored binary. Public profiles and images are available to signed-out readers unless blocked; they are not private storage.
+- Creator metadata is included in account exports; image bytes are not included in exports, and closing an account deletes stored profile media. Existing post and social graphs are unchanged.
+- Existing creator handles are maintained in the notifications settings, with the one-change-per-seven-days rule. Hosted image CDNs, automated image moderation, profile verification badges and crop editing remain future work.

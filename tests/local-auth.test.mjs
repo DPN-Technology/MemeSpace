@@ -114,6 +114,7 @@ test('deletion requires ownership confirmations and removes only the target acco
   db.prepare('INSERT INTO social_handles(user_id,handle,updated_at) VALUES(?,?,?)').run(one.userId,'creator_one',now);
   db.prepare('INSERT INTO social_notification_prefs(user_id,social,mentions,communities,moderation,updated_at) VALUES(?,?,?,?,?,?)').run(one.userId,1,0,1,1,now);
   db.prepare('INSERT INTO social_notifications(id,recipient_id,actor_id,kind,post_id,community_id,message,created_at) VALUES(?,?,?,?,?,?,?,?)').run('notice-one',one.userId,two.userId,'follow',null,null,'',now);
+  db.prepare('INSERT INTO social_creator_profiles(user_id,headline,location,website,interests,accent,updated_at) VALUES(?,?,?,?,?,?,?)').run(one.userId,'Creator one','Michigan','https://example.com','art','violet',now);
   const exported=exportAccount(db,one.userId);
   assert.equal(exported.socialPosts.length,1);
   assert.equal(exported.ownedCommunities.length,1);
@@ -122,6 +123,7 @@ test('deletion requires ownership confirmations and removes only the target acco
   assert.ok(Array.isArray(exported.communityTransfers));
   assert.equal(exported.communityAppeals.length,1);
   assert.equal(exported.communityAuditActions.length,1);
+  assert.equal(exported.creatorProfile.headline,'Creator one');
   assert.equal(exported.socialHandle.handle,'creator_one');
   assert.equal(exported.socialNotificationPreferences.mentions,0);
   assert.equal(exported.socialNotifications.length,1);
@@ -138,6 +140,7 @@ test('deletion requires ownership confirmations and removes only the target acco
   assert.equal(db.prepare('SELECT COUNT(*) n FROM social_posts WHERE user_id=?').get(one.userId).n,0);
   assert.equal(db.prepare('SELECT COUNT(*) n FROM social_media WHERE user_id=?').get(one.userId).n,0);
   assert.equal(db.prepare('SELECT COUNT(*) n FROM social_notifications WHERE recipient_id=?').get(one.userId).n,0);
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM social_creator_profiles WHERE user_id=?').get(one.userId).n,0);
   assert.equal(db.prepare('SELECT COUNT(*) n FROM social_handles WHERE user_id=?').get(one.userId).n,0);
   assert.equal(db.prepare('SELECT COUNT(*) n FROM social_notification_prefs WHERE user_id=?').get(one.userId).n,0);
   assert.equal(db.prepare('SELECT COUNT(*) n FROM social_communities WHERE owner_id=?').get(one.userId).n,0);

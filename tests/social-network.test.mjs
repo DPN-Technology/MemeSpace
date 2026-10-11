@@ -320,4 +320,51 @@ test('social posts, discovery, reactions, follows, replies, search and moderatio
  assert.ok(unreadOnly.notifications.every(n=>n.readAt===0));
  const invalidPage=await fetch(base+'/api/social/notifications?mode=list&page=-2',{headers:{Cookie:eve.cookie}});
  assert.equal(invalidPage.status,400);
+ // Creator identity: editable profile details, real images, owner-only changes and image revocation.
+ const privateDraft=await read('/api/social/creator?id='+dave.account.userId,eve);
+ assert.equal(privateDraft.profile.name,'Dave Artist');
+ assert.equal(privateDraft.profile.hasAvatar,false);
+ assert.equal(privateDraft.profile.handle,'dave_creator');
+ const profileUpdate={name:'Dave Creative',bio:'Full-time meme illustrator',headline:'Memes meet imagination',location:'Michigan',website:'https://example.com/portfolio',interests:'Memes, gaming and digital art',accent:'violet'};
+ async function editCreator(actor,body){
+  const response=await fetch(base+'/api/social/creator',{method:'PATCH',headers:{Origin:base,'Content-Type':'application/json',Cookie:actor.cookie},body:JSON.stringify(body)});
+  return {status:response.status,data:await response.json()};
+ }
+ assert.equal((await editCreator(null,profileUpdate)).status,401);
+ assert.equal((await editCreator(dave,{...profileUpdate,website:'javascript:alert(1)'})).status,400);
+ assert.equal((await editCreator(dave,{...profileUpdate,accent:'not-an-accent'})).status,400);
+ const updated=await editCreator(dave,profileUpdate);
+ assert.equal(updated.status,200,JSON.stringify(updated.data));
+ const daveCard=await read('/api/social/creator?id='+dave.account.userId,eve);
+ assert.equal(daveCard.profile.headline,'Memes meet imagination');
+ assert.equal(daveCard.profile.accent,'violet');
+ assert.equal(daveCard.profile.website,'https://example.com/portfolio');
+ assert.equal((await read('/api/social?mode=profile&id='+dave.account.userId,eve)).profile.name,'Dave Creative');
+ async function uploadCreator(actor,kind,bytes=png,mime='image/png'){
+  const form=new FormData();form.append('kind',kind);form.append('image',new Blob([bytes],{type:mime}),'creator.png');
+  const response=await fetch(base+'/api/social/creator/media',{method:'POST',headers:{Origin:base,...(actor?.cookie?{Cookie:actor.cookie}:{})},body:form});
+  return {status:response.status,data:await response.json()};
+ }
+ assert.equal((await uploadCreator(null,'avatar')).status,401);
+ assert.equal((await uploadCreator(dave,'avatar',Buffer.from('not an image'),'image/png')).status,400);
+ assert.equal((await uploadCreator(dave,'avatar')).status,201);
+ assert.equal((await uploadCreator(dave,'banner')).status,201);
+ assert.equal((await read('/api/social/creator?id='+dave.account.userId,eve)).profile.hasBanner,true);
+ const avatarUrl='/api/social/creator/media/'+dave.account.userId+'?kind=avatar';
+ const bannerUrl='/api/social/creator/media/'+dave.account.userId+'?kind=banner';
+ const imageResponse=await fetch(base+avatarUrl,{headers:{Cookie:eve.cookie}});
+ assert.equal(imageResponse.status,200);
+ assert.equal(imageResponse.headers.get('content-type'),'image/png');
+ assert.equal(imageResponse.headers.get('x-content-type-options'),'nosniff');
+ assert.equal(imageResponse.headers.get('cache-control'),'private, no-store');
+ assert.deepEqual(Buffer.from(await imageResponse.arrayBuffer()),png);
+ assert.equal((await fetch(base+bannerUrl)).status,200,'Public creator banners are visible to guests');
+ assert.equal((await fetch(base+'/api/social/creator/media/not-an-account?kind=avatar')).status,404);
+ const removedBanner=await fetch(base+'/api/social/creator/media',{method:'DELETE',headers:{Origin:base,'Content-Type':'application/json',Cookie:dave.cookie},body:JSON.stringify({kind:'banner'})});
+ assert.equal(removedBanner.status,200);
+ assert.equal((await fetch(base+bannerUrl)).status,404);
+ await mutate(dave,{action:'block',userId:eve.account.userId,enabled:true});
+ assert.equal((await fetch(base+avatarUrl,{headers:{Cookie:eve.cookie}})).status,404,'Block prevents direct avatar delivery');
+ await mutate(dave,{action:'block',userId:eve.account.userId,enabled:false});
+ assert.equal((await fetch(base+avatarUrl,{headers:{Cookie:eve.cookie}})).status,200);
 });
