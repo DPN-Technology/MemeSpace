@@ -2,6 +2,7 @@ import {rawDatabase} from '@/db/raw';
 import {getChatGPTUser} from '@/app/chatgpt-auth';
 import {identity,body,failure} from '../../../common';
 import {communityMembership} from '@/lib/social-community.mjs';
+import {createNotice} from '@/lib/social-notifications.mjs';
 
 export const runtime='nodejs';
 const headers={'Cache-Control':'no-store'};
@@ -62,6 +63,8 @@ export async function POST(request:Request){
    try{
     db.prepare('INSERT INTO social_community_appeals(id,community_id,user_id,target_kind,target_id,reason,created_at) VALUES(?,?,?,?,?,?,?)').run(id,c.id,uid,kind,target,d.reason.trim(),now);
     log(db,c.id,uid,'appeal_submitted',id,kind,now);
+    const moderators=db.prepare("SELECT user_id FROM social_community_members WHERE community_id=? AND role IN ('owner','moderator') LIMIT 25").all(c.id) as {user_id:string}[];
+    for(const member of moderators)createNotice(db,{recipientId:member.user_id,actorId:uid,kind:'appeal_review',communityId:c.id,message:'A member submitted an appeal.',now});
     db.exec('COMMIT');
    }catch(e){try{db.exec('ROLLBACK')}catch{}throw e;}
    return Response.json({ok:true,id},{status:201,headers});
@@ -78,6 +81,7 @@ export async function POST(request:Request){
     db.prepare('DELETE FROM social_community_removed_posts WHERE community_id=? AND post_id=?').run(c.id,d.postId);
     db.prepare("UPDATE social_community_appeals SET status='approved',reviewer_id=?,resolution_note=?,reviewed_at=? WHERE community_id=? AND target_kind='post' AND target_id=? AND status='open'").run(uid,d.note.trim()||'Post restored',now,c.id,d.postId);
     log(db,c.id,uid,'post_restored',d.postId,d.note.trim(),now);
+    createNotice(db,{recipientId:post.authorId,actorId:uid,kind:'post_restored',communityId:c.id,message:'Your community post was restored.',now});
     db.exec('COMMIT');
    }catch(e){try{db.exec('ROLLBACK')}catch{}throw e;}
    return Response.json({ok:true},{headers});
@@ -106,6 +110,7 @@ export async function POST(request:Request){
     }
     db.prepare("UPDATE social_community_appeals SET status=?,reviewer_id=?,resolution_note=?,reviewed_at=? WHERE id=? AND status='open'").run(d.decision==='approve'?'approved':'denied',uid,d.note.trim(),now,appeal.id);
     log(db,c.id,uid,d.decision==='approve'?'appeal_approved':'appeal_denied',appeal.id,d.note.trim(),now);
+    createNotice(db,{recipientId:appeal.user_id,actorId:uid,kind:'appeal_review',communityId:c.id,message:d.decision==='approve'?'Your community appeal was approved.':'Your community appeal was denied.',now});
     db.exec('COMMIT');
    }catch(e){try{db.exec('ROLLBACK')}catch{}throw e;}
    return Response.json({ok:true},{headers});
@@ -120,7 +125,7 @@ export async function POST(request:Request){
    try{
     if(d.decision==='remove'){
      const inserted=db.prepare('INSERT OR IGNORE INTO social_community_removed_posts(community_id,post_id,actor_id,reason,created_at) VALUES(?,?,?,?,?)').run(c.id,d.postId,uid,d.note.trim()||'Community report',now);
-     if(inserted.changes)log(db,c.id,uid,'post_removed',d.postId,d.note.trim(),now);
+     if(inserted.changes){log(db,c.id,uid,'post_removed',d.postId,d.note.trim(),now);createNotice(db,{recipientId:report.authorId,actorId:uid,kind:'post_removed',communityId:c.id,message:'Your community post was removed following a report.',now});}
     }
     db.prepare('UPDATE social_reports SET status=?,reviewed_at=?,reviewed_by=?,resolution_note=? WHERE post_id=? AND user_id=? AND status=\'open\'').run(d.decision==='dismiss'?'dismissed':'resolved',now,uid,d.note.trim(),d.postId,d.reporterId);
     log(db,c.id,uid,d.decision==='dismiss'?'report_dismissed':'report_resolved',d.postId,d.note.trim(),now);

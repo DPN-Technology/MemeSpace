@@ -2,6 +2,7 @@ import {rawDatabase} from '@/db/raw';
 import {identity,failure} from '../../common';
 import {MAX_FORM_BYTES,verifySocialImage} from '@/lib/social-media.mjs';
 import {communityWritable,communityVisiblePostFilter} from '@/lib/social-community.mjs';
+import {notifyPost} from '@/lib/social-notifications.mjs';
 
 export const runtime='nodejs';
 const noStore={'Cache-Control':'no-store'};
@@ -53,6 +54,7 @@ export async function POST(request:Request){
     .run(postId,uid,verified.mime,bytes,verified.byteSize,verified.width,verified.height,now);
    const tags=[...new Set([...caption.matchAll(/(?:^|[^a-zA-Z0-9_])#([a-zA-Z][a-zA-Z0-9_]{0,29})(?![a-zA-Z0-9_])/g)].map(m=>m[1].toLowerCase()))].slice(0,10);
    for(const tag of tags)db.prepare('INSERT OR IGNORE INTO social_hashtags(post_id,tag) VALUES(?,?)').run(postId,tag);
+   notifyPost(db,uid,postId,caption,replyTo,resolvedCommunity,now);
    db.exec('COMMIT');
    return Response.json({ok:true,id:postId},{status:201,headers:noStore});
   }catch(e){try{db.exec('ROLLBACK')}catch{}throw e;}

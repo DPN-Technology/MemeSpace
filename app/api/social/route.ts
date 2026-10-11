@@ -2,6 +2,7 @@ import {rawDatabase} from '@/db/raw';
 import {getChatGPTUser} from '@/app/chatgpt-auth';
 import {identity,body,failure} from '../common';
 import {communityWritable,communityVisiblePostFilter} from '@/lib/social-community.mjs';
+import {createNotice,notifyPost} from '@/lib/social-notifications.mjs';
 
 export const runtime='nodejs';
 const topics=['general','memes','gaming','culture','web3'] as const;
@@ -182,6 +183,7 @@ export async function POST(request:Request){
     ).run(postId,uid,d.text.trim(),topic,replyTo,quote||null,resolvedCommunity,now,uid,now-60000);
     if(!result.changes){db.exec('ROLLBACK');return Response.json({error:'You can publish up to five posts or replies per minute.'},{status:429,headers:noStore});}
     indexTags(db,postId,d.text.trim());
+    notifyPost(db,uid,postId,d.text.trim(),replyTo,resolvedCommunity,now);
     db.exec('COMMIT');
    }catch(e){try{db.exec('ROLLBACK')}catch{}throw e;}
    return Response.json({ok:true,id:postId},{status:201,headers:noStore});
@@ -206,16 +208,31 @@ export async function POST(request:Request){
    if(!target)return Response.json({error:'This member is unavailable.'},{status:404,headers:noStore});
    if(d.enabled&&db.prepare("SELECT 1 FROM social_relationships WHERE kind='block' AND ((actor_id=? AND target_id=?) OR (actor_id=? AND target_id=?))").get(uid,d.userId,d.userId,uid))
     return Response.json({error:'You cannot follow a blocked member.'},{status:403,headers:noStore});
-   if(d.enabled)db.prepare('INSERT OR IGNORE INTO social_follows(follower_id,following_id,created_at) VALUES(?,?,?)').run(uid,d.userId,now);
-   else db.prepare('DELETE FROM social_follows WHERE follower_id=? AND following_id=?').run(uid,d.userId);
+   if(d.enabled){
+    db.exec('BEGIN IMMEDIATE');
+    try{
+     const saved=db.prepare('INSERT OR IGNORE INTO social_follows(follower_id,following_id,created_at) VALUES(?,?,?)').run(uid,d.userId,now);
+     if(saved.changes)createNotice(db,{recipientId:d.userId,actorId:uid,kind:'follow',now});
+     db.exec('COMMIT');
+    }catch(e){try{db.exec('ROLLBACK')}catch{}throw e;}
+   }else db.prepare('DELETE FROM social_follows WHERE follower_id=? AND following_id=?').run(uid,d.userId);
    return Response.json({ok:true},{headers:noStore});
   }
   if(!validId(d.postId)||typeof d.enabled!=='boolean'&&action!=='report')throw Error('INPUT');
   if(!visible(d.postId,uid))return Response.json({error:'This post is unavailable.'},{status:404,headers:noStore});
   if(action==='react'||action==='bookmark'){
    const table=action==='react'?'social_reactions':'social_bookmarks';
-   if(d.enabled)db.prepare('INSERT OR IGNORE INTO '+table+'(user_id,post_id,created_at) VALUES(?,?,?)').run(uid,d.postId,now);
-   else db.prepare('DELETE FROM '+table+' WHERE user_id=? AND post_id=?').run(uid,d.postId);
+   if(d.enabled){
+    db.exec('BEGIN IMMEDIATE');
+    try{
+     const inserted=db.prepare('INSERT OR IGNORE INTO '+table+'(user_id,post_id,created_at) VALUES(?,?,?)').run(uid,d.postId,now);
+     if(action==='react'&&inserted.changes){
+      const post=db.prepare('SELECT user_id AS userId,community_id AS communityId FROM social_posts WHERE id=?').get(d.postId) as {userId:string;communityId:string|null};
+      createNotice(db,{recipientId:post.userId,actorId:uid,kind:'reaction',postId:d.postId,communityId:post.communityId,now});
+     }
+     db.exec('COMMIT');
+    }catch(e){try{db.exec('ROLLBACK')}catch{}throw e;}
+   }else db.prepare('DELETE FROM '+table+' WHERE user_id=? AND post_id=?').run(uid,d.postId);
    return Response.json({ok:true},{headers:noStore});
   }
   if(action==='report'){

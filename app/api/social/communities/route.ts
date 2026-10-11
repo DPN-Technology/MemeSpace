@@ -2,6 +2,7 @@ import {rawDatabase} from '@/db/raw';
 import {getChatGPTUser} from '@/app/chatgpt-auth';
 import {identity,body,failure} from '../../common';
 import {communitySlug,communityMembership} from '@/lib/social-community.mjs';
+import {createNotice} from '@/lib/social-notifications.mjs';
 
 export const runtime='nodejs';
 const noStore={'Cache-Control':'no-store'};
@@ -101,9 +102,17 @@ export async function POST(request:Request){
     try{
      db.prepare("INSERT OR IGNORE INTO social_community_members(community_id,user_id,role,joined_at) VALUES(?,?,'member',?)").run(c.id,d.userId,now);
      db.prepare('DELETE FROM social_community_requests WHERE community_id=? AND user_id=?').run(c.id,d.userId);
+     createNotice(db,{recipientId:d.userId,actorId:uid,kind:'join_review',communityId:c.id,message:'Your join request was approved.',now});
      db.exec('COMMIT');
     }catch(e){try{db.exec('ROLLBACK')}catch{}throw e;}
-   }else db.prepare('DELETE FROM social_community_requests WHERE community_id=? AND user_id=?').run(c.id,d.userId);
+   }else{
+    db.exec('BEGIN IMMEDIATE');
+    try{
+     db.prepare('DELETE FROM social_community_requests WHERE community_id=? AND user_id=?').run(c.id,d.userId);
+     createNotice(db,{recipientId:d.userId,actorId:uid,kind:'join_review',communityId:c.id,message:'Your join request was declined.',now});
+     db.exec('COMMIT');
+    }catch(e){try{db.exec('ROLLBACK')}catch{}throw e;}
+   }
    return Response.json({ok:true},{headers:noStore});
   }
   if(d.action==='transfer'){
@@ -137,13 +146,14 @@ export async function POST(request:Request){
      db.prepare('DELETE FROM social_community_members WHERE community_id=? AND user_id=?').run(c.id,d.userId);
      db.prepare('DELETE FROM social_community_requests WHERE community_id=? AND user_id=?').run(c.id,d.userId);
      audit(db,c.id,uid,'member_banned',d.userId,d.reason.trim(),now);
+     createNotice(db,{recipientId:d.userId,actorId:uid,kind:'ban',communityId:c.id,message:'Community membership restricted.',now});
      db.exec('COMMIT');
     }catch(e){try{db.exec('ROLLBACK')}catch{}throw e;}
    }else{
     db.exec('BEGIN IMMEDIATE');
     try{
      const change=db.prepare('DELETE FROM social_community_bans WHERE community_id=? AND user_id=?').run(c.id,d.userId);
-     if(change.changes)audit(db,c.id,uid,'member_unbanned',d.userId,'Ban lifted',now);
+     if(change.changes){audit(db,c.id,uid,'member_unbanned',d.userId,'Ban lifted',now);createNotice(db,{recipientId:d.userId,actorId:uid,kind:'unban',communityId:c.id,message:'Your community ban was lifted.',now});}
      db.exec('COMMIT');
     }catch(e){try{db.exec('ROLLBACK')}catch{}throw e;}
    }
@@ -157,7 +167,7 @@ export async function POST(request:Request){
    db.exec('BEGIN IMMEDIATE');
    try{
     const inserted=db.prepare('INSERT OR IGNORE INTO social_community_removed_posts(community_id,post_id,actor_id,reason,created_at) VALUES(?,?,?,?,?)').run(c.id,d.postId,uid,d.reason.trim(),now);
-    if(inserted.changes)audit(db,c.id,uid,'post_removed',d.postId,d.reason.trim(),now);
+    if(inserted.changes){audit(db,c.id,uid,'post_removed',d.postId,d.reason.trim(),now);createNotice(db,{recipientId:post.user_id,actorId:uid,kind:'post_removed',communityId:c.id,message:'Your post was removed from a community.',now});}
     db.exec('COMMIT');
    }catch(e){try{db.exec('ROLLBACK')}catch{}throw e;}
    return Response.json({ok:true},{headers:noStore});
