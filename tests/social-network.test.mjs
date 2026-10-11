@@ -215,4 +215,56 @@ test('social posts, discovery, reactions, follows, replies, search and moderatio
  assert.equal((await read('/api/social/communities?id='+pid,charlie)).community.role,'moderator');
  assert.equal((await communityCall(charlie,{communityId:pid,name:'Not permitted change',description:'No longer owner',visibility:'public'},'PATCH')).status,403);
  assert.equal((await communityCall(alice,{communityId:pid,name:'Private Makers HQ',description:'Approved creator work',visibility:'private'},'PATCH')).status,200);
+ // Trust Center: moderators can review reported posts, reverse community decisions and review appeals.
+ async function modRead(actor,id,mode='dashboard'){
+  const result=await fetch(base+'/api/social/communities/moderation?communityId='+id+'&mode='+mode,{headers:actor?.cookie?{Cookie:actor.cookie}:{}});
+  return {status:result.status,data:await result.json()};
+ }
+ async function modAction(actor,payload){
+  const result=await fetch(base+'/api/social/communities/moderation',{method:'POST',headers:{Origin:base,'Content-Type':'application/json',Cookie:actor.cookie},body:JSON.stringify({communityId:cid,...payload})});
+  return {status:result.status,data:await result.json()};
+ }
+ assert.equal((await modRead(null,cid)).status,401);
+ assert.equal((await modRead(charlie,cid)).status,403,'members cannot view the moderator case queue');
+ assert.equal((await modRead(alice,cid)).status,200);
+ const authorCases=await modRead(charlie,cid,'mine');
+ assert.equal(authorCases.status,200);
+ assert.ok(authorCases.data.removed.some(p=>p.postId===groupMedia.id),'removed content visible to its author for appeal');
+ await mutate(charlie,{action:'report',postId:shared.id,reason:'spam'});
+ const reportQueue=await modRead(alice,cid);
+ assert.ok(reportQueue.data.reports.some(x=>x.postId===shared.id&&x.reason==='spam'));
+ assert.equal((await modAction(charlie,{action:'review_report',postId:shared.id,reporterId:charlie.account.userId,decision:'remove',note:'Spam'})).status,403);
+ assert.equal((await modAction(alice,{action:'review_report',postId:shared.id,reporterId:charlie.account.userId,decision:'remove',note:'Community spam'})).status,200);
+ assert.equal((await read('/api/social?mode=feed&community='+cid,charlie)).posts.some(p=>p.id===shared.id),false);
+ assert.equal((await modAction(alice,{action:'restore_post',postId:shared.id,note:'Removed in error'})).status,200);
+ assert.ok((await read('/api/social?mode=feed&community='+cid,charlie)).posts.some(p=>p.id===shared.id));
+ assert.equal((await modAction(alice,{action:'restore_post',postId:shared.id,note:'Duplicate restoration'})).status,404);
+ const postAppeal=await modAction(charlie,{action:'appeal',targetKind:'post',targetId:groupMedia.id,reason:'The community image followed all of our rules.'});
+ assert.equal(postAppeal.status,201,JSON.stringify(postAppeal.data));
+ assert.equal((await modAction(charlie,{action:'appeal',targetKind:'post',targetId:groupMedia.id,reason:'Please reconsider this removal.'})).status,409);
+ assert.ok((await modRead(alice,cid)).data.appeals.some(a=>a.id===postAppeal.data.id&&a.status==='open'));
+ assert.equal((await modAction(charlie,{action:'resolve_appeal',appealId:postAppeal.data.id,decision:'approve',note:'Reviewed'})).status,403);
+ assert.equal((await modAction(alice,{action:'resolve_appeal',appealId:postAppeal.data.id,decision:'approve',note:'The image was within the guidelines.'})).status,200);
+ assert.equal((await fetch(base+'/api/social/media/'+groupMedia.id)).status,200,'approved appeal restores protected image');
+ assert.equal((await modAction(alice,{action:'resolve_appeal',appealId:postAppeal.data.id,decision:'deny',note:'Again'})).status,404);
+ assert.ok((await modRead(charlie,cid,'mine')).data.appeals.some(a=>a.id===postAppeal.data.id&&a.status==='approved'));
+ assert.equal((await communityCall(alice,{action:'ban',communityId:cid,userId:charlie.account.userId,reason:'Temporary misconduct'})).status,200);
+ const banAppeal=await modAction(charlie,{action:'appeal',targetKind:'ban',targetId:'self',reason:'I would like to request a review of my community ban.'});
+ assert.equal(banAppeal.status,201,JSON.stringify(banAppeal.data));
+ assert.equal((await modRead(charlie,cid,'mine')).data.banned,true);
+ assert.equal((await modAction(alice,{action:'resolve_appeal',appealId:banAppeal.data.id,decision:'deny',note:'Not sufficient'})).status,200);
+ assert.equal((await modRead(charlie,cid,'mine')).data.banned,true,'denied appeal does not lift ban');
+ const banAppeal2=await modAction(charlie,{action:'appeal',targetKind:'ban',reason:'I have addressed the behavior and request reinstatement.'});
+ assert.equal(banAppeal2.status,201,JSON.stringify(banAppeal2.data));
+ assert.equal((await modAction(alice,{action:'resolve_appeal',appealId:banAppeal2.data.id,decision:'approve',note:'Reinstatement approved'})).status,200);
+ assert.equal((await modRead(charlie,cid,'mine')).data.banned,false);
+ assert.equal((await read('/api/social/communities?id='+cid,charlie)).community.role,null,'ban reversal does not silently restore membership');
+ const auditHistory=(await modRead(alice,cid)).data.history;
+ assert.ok(auditHistory.some(x=>x.action==='post_removed'));
+ assert.ok(auditHistory.some(x=>x.action==='post_restored'));
+ assert.ok(auditHistory.some(x=>x.action==='appeal_submitted'));
+ assert.ok(auditHistory.some(x=>x.action==='appeal_approved'));
+ assert.ok(auditHistory.some(x=>x.action==='appeal_denied'));
+ assert.ok(auditHistory.some(x=>x.action==='report_resolved'));
+ assert.equal((await modRead(charlie,pid)).status,200,'old owner retains moderator role after transfer');
 });
