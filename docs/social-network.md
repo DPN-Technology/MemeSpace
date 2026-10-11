@@ -41,7 +41,7 @@ Use pnpm test:social-api (requires installed dependencies) for the HTTP integrat
 - Attach PNG, JPEG or GIF images to feed posts (including image-only posts) and quote posts. Images are persisted in the same local SQLite instance, not fetched from external third-party URLs.
 - The upload route requires an authenticated same-origin session and Content-Length bounds. Files must match an allowed magic signature and embedded dimensions of 1–4096 pixels, be no larger than 2 MiB, and stay within a per-account 100-image cap.
 - Binary reads recheck post moderation, account status, block/mute relationships and parent visibility. Responses set a fixed verified image MIME, no content sniffing and no caching.
-- A failed image upload does not create a post. Account exports include image metadata; account deletion removes stored image bytes. Image file metadata may be present in uploads; remove private EXIF information before publishing. Images are not automatically resized.
+- A failed image upload does not create a post. Deleting your own image post purges its binary bytes; deleting an account removes every image that account uploaded. Account exports include image metadata, not binary image contents. Image file metadata may be present in uploads; remove private EXIF information before publishing. Images are not automatically resized.
 - Unsupported: SVG, videos, WebP, a global hosting/CDN layer, automatic image screening, and animations larger than the per-file limit.
 
 ## Next direction (not implemented in this draft)

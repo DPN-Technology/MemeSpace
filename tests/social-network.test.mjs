@@ -119,4 +119,7 @@ test('social posts, discovery, reactions, follows, replies, search and moderatio
  await mutate(bob,{action:'block',userId:alice.account.userId,enabled:false});
  await mutate(alice,{id:uploadData.id},'DELETE');
  assert.equal((await fetch(base+mediaPost.posts[0].mediaUrl)).status,404);
+ let mediaDb;const prevDir=process.env.MEMESPACE_DATA_DIR;process.env.MEMESPACE_DATA_DIR=data;
+ try{mediaDb=openDatabase(root);assert.equal(mediaDb.prepare('SELECT COUNT(*) AS n FROM social_media WHERE post_id=?').get(uploadData.id).n,0,'removed image bytes are purged');}
+ finally{mediaDb?.close();if(prevDir===undefined)delete process.env.MEMESPACE_DATA_DIR;else process.env.MEMESPACE_DATA_DIR=prevDir}
 });

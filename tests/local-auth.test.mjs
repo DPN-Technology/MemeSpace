@@ -95,6 +95,7 @@ test('deletion requires ownership confirmations and removes only the target acco
   db.prepare('INSERT INTO messages(id,user_id,text,channel,reply_to,edited_at,created_at) VALUES(?,?,?,?,?,?,?)').run('m1',one.userId,'one','general',null,0,Date.now());
   db.prepare('INSERT INTO messages(id,user_id,text,channel,reply_to,edited_at,created_at) VALUES(?,?,?,?,?,?,?)').run('m2',two.userId,'two','general',null,0,Date.now());
   db.prepare('INSERT INTO social_posts(id,user_id,body,topic,created_at) VALUES(?,?,?,?,?)').run('owned-social',one.userId,'Owner post','general',Date.now());
+  db.prepare('INSERT INTO social_media(post_id,user_id,mime,content,byte_size,width,height,created_at) VALUES(?,?,?,?,?,?,?,?)').run('owned-social',one.userId,'image/png',Buffer.from([1,2,3]),3,1,1,Date.now());
   db.prepare('INSERT INTO social_posts(id,user_id,body,topic,reply_to,created_at) VALUES(?,?,?,?,?,?)').run('other-social',two.userId,'Other author reply','general','owned-social',Date.now());
   db.prepare('INSERT INTO social_reactions(user_id,post_id,created_at) VALUES(?,?,?)').run(two.userId,'owned-social',Date.now());
   db.prepare('INSERT INTO social_bookmarks(user_id,post_id,created_at) VALUES(?,?,?)').run(two.userId,'owned-social',Date.now());
@@ -103,6 +104,8 @@ test('deletion requires ownership confirmations and removes only the target acco
   db.prepare('INSERT INTO social_relationships(actor_id,target_id,kind,created_at) VALUES(?,?,?,?)').run(two.userId,one.userId,'mute',Date.now());
   const exported=exportAccount(db,one.userId);
   assert.equal(exported.socialPosts.length,1);
+  assert.equal(exported.socialMedia.length,1);
+  assert.equal(exported.socialMedia[0].mime,'image/png');
   assert.equal(exported.socialPosts[0].body,'Owner post');
   assert.equal(exported.socialFollows.length,1);
   assert.equal(exported.socialRelationships.length,1);
@@ -112,6 +115,7 @@ test('deletion requires ownership confirmations and removes only the target acco
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM messages WHERE user_id=?').get(one.userId).n,0);
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM messages WHERE user_id=?').get(two.userId).n,1);
   assert.equal(db.prepare('SELECT COUNT(*) n FROM social_posts WHERE user_id=?').get(one.userId).n,0);
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM social_media WHERE user_id=?').get(one.userId).n,0);
   assert.equal(db.prepare('SELECT COUNT(*) n FROM social_reactions WHERE post_id=?').get('owned-social').n,0);
   assert.equal(db.prepare('SELECT COUNT(*) n FROM social_bookmarks WHERE post_id=?').get('owned-social').n,0);
   assert.equal(db.prepare('SELECT COUNT(*) n FROM social_reports WHERE post_id=?').get('owned-social').n,0);

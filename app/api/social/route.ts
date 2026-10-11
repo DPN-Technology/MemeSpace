@@ -237,7 +237,14 @@ export async function DELETE(request:Request){
   const db=rawDatabase(),row=db.prepare('SELECT id FROM social_posts WHERE id=? AND user_id=? AND hidden_at=0').get(d.id,uid);
   if(!row)return Response.json({error:'Post not found.'},{status:404,headers:noStore});
   const now=Date.now();
-  db.prepare('UPDATE social_posts SET hidden_at=? WHERE (id=? OR reply_to=?) AND hidden_at=0').run(now,d.id,d.id);
+  db.exec('BEGIN IMMEDIATE');
+  try{
+   db.prepare('UPDATE social_posts SET hidden_at=? WHERE (id=? OR reply_to=?) AND hidden_at=0').run(now,d.id,d.id);
+   // Author-initiated removal purges their own binary content, not another member's replies.
+   db.prepare('DELETE FROM social_media WHERE post_id=? AND user_id=?').run(d.id,uid);
+   db.prepare('DELETE FROM social_hashtags WHERE post_id=?').run(d.id);
+   db.exec('COMMIT');
+  }catch(e){try{db.exec('ROLLBACK')}catch{}throw e;}
   return Response.json({ok:true},{headers:noStore});
  }catch(e){return failure(e);}
 }
