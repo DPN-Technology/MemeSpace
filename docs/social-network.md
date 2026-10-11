@@ -44,6 +44,12 @@ Use pnpm test:social-api (requires installed dependencies) for the HTTP integrat
 - A failed image upload does not create a post. Deleting your own image post purges its binary bytes; deleting an account removes every image that account uploaded. Account exports include image metadata, not binary image contents. Image file metadata may be present in uploads; remove private EXIF information before publishing. Images are not automatically resized.
 - Unsupported: SVG, videos, WebP, a global hosting/CDN layer, automatic image screening, and animations larger than the per-file limit.
 
+## Creator communities (community phase)
+- Public creator communities with unique URL slugs, details, join/leave membership, dedicated feeds, member roster, and creator-controlled information.
+- Owners can assign and demote moderators. Owners and moderators can ban members and remove community posts; moderators cannot ban moderators or remove owner content.
+- Joining is required to publish or reply inside a community, including image uploads; banned accounts cannot rejoin. Moderation records prevent removed posts and their media from being displayed.
+- Community data is stored locally; no private groups, ownership transfer, or externally hosted community network yet. When an owner closes an account, the community is disbanded without deleting other members' posts.
+
 ## Next direction (not implemented in this draft)
 
 Public profile pages with custom handles and avatars; media uploads and image moderation; hashtag indexing, mentions and reshares; block/mute/privacy settings; integrated Control Center social moderation queue; public scale and real-time notifications.
