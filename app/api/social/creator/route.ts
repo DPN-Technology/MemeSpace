@@ -13,7 +13,7 @@ function record(db:ReturnType<typeof rawDatabase>,id:string,viewer:string){
   "COALESCE(cp.interests,'') AS interests,COALESCE(cp.accent,'mint') AS accent,cp.avatar_mime IS NOT NULL AS hasAvatar,cp.banner_mime IS NOT NULL AS hasBanner "+
   "FROM accounts a LEFT JOIN profiles pr ON pr.user_id=a.user_id LEFT JOIN social_handles h ON h.user_id=a.user_id LEFT JOIN social_creator_profiles cp ON cp.user_id=a.user_id "+
   "WHERE a.user_id=? AND a.deleted_at=0 AND a.suspended_at=0 AND NOT EXISTS(SELECT 1 FROM social_relationships sr WHERE sr.actor_id=a.user_id AND sr.target_id=? AND sr.kind='block')").get(id,viewer);
- return row;
+ return row?{...row,hasAvatar:!!(row as {hasAvatar:number}).hasAvatar,hasBanner:!!(row as {hasBanner:number}).hasBanner}:null;
 }
 export async function GET(request:Request){
  try{
