@@ -21,11 +21,11 @@ Do not tell testers a package exists until the publish run has succeeded.
 
 ```powershell
 docker volume create memespace-tester-data
-docker run --rm --name memespace-tester -p 127.0.0.1:5173:5173 -v memespace-tester-data:/app/data ghcr.io/dpn-technology/memespace-tester:2.5.0
+docker run --rm --name memespace-tester -p 127.0.0.1:5173:5175 -v memespace-tester-data:/app/data ghcr.io/dpn-technology/memespace-tester:2.5.0
 ```
 
 Visit http://localhost:5173 after startup. Use Ctrl+C to stop. Data survives container restarts.
-This is a local-only tester image. The app binds to loopback inside the container; if Docker port publishing does not forward to the loopback-bound app, the image will need a tested container-specific host binding before distribution.
+This is a local-only tester image. The container includes a loopback-to-container port proxy so the original app can keep its local binding. Validate the image on Windows before giving it to testers.
 
 ## Scope and cautions
 
