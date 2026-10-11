@@ -36,13 +36,6 @@
       "when": 1790000000000,
       "tag": "0004_neon_arcade",
       "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "6",
-      "when": 1791680000000,
-      "tag": "0005_social_network",
-      "breakpoints": true
     }
   ]
 }
