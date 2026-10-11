@@ -28,9 +28,9 @@ export async function POST(request:Request){
   if(!verified)return Response.json({error:'Use a valid PNG, JPEG or GIF up to 2 MB and 4096 pixels per side.'},{status:400,headers:noStore});
   function canSee(id:string){
    return db.prepare("SELECT p.id,p.reply_to,p.topic,p.community_id FROM social_posts p JOIN accounts a ON a.user_id=p.user_id "+
-    "WHERE p.id=? AND p.hidden_at=0 AND a.deleted_at=0 AND a.suspended_at=0 AND "+communityVisiblePostFilter('p')+" "+
+    "WHERE p.id=? AND p.hidden_at=0 AND a.deleted_at=0 AND a.suspended_at=0 AND "+communityVisiblePostFilter('p',true)+" "+
     "AND NOT EXISTS(SELECT 1 FROM social_relationships r WHERE r.actor_id=? AND r.target_id=p.user_id AND r.kind IN ('block','mute')) "+
-    "AND NOT EXISTS(SELECT 1 FROM social_relationships r WHERE r.actor_id=p.user_id AND r.target_id=? AND r.kind='block')").get(id,uid,uid) as {id:string;reply_to:string|null;topic:string;community_id:string|null}|undefined;
+    "AND NOT EXISTS(SELECT 1 FROM social_relationships r WHERE r.actor_id=p.user_id AND r.target_id=? AND r.kind='block')").get(id,uid,uid,uid) as {id:string;reply_to:string|null;topic:string;community_id:string|null}|undefined;
   }
   const parent=reply?canSee(reply):null;
   if(reply&&!parent)return Response.json({error:'Conversation unavailable.'},{status:404,headers:noStore});

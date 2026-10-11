@@ -27,10 +27,10 @@ function postQuery(userId:string,where:string,args:(string|number)[],limit=20,of
  "(SELECT COUNT(*) FROM social_follows f WHERE f.following_id=p.user_id) AS followers,"+
  "EXISTS(SELECT 1 FROM social_media media WHERE media.post_id=p.id) AS has_media "+
  "FROM social_posts p JOIN accounts a ON a.user_id=p.user_id AND a.deleted_at=0 AND a.suspended_at=0 "+
- "LEFT JOIN profiles pr ON pr.user_id=p.user_id WHERE p.hidden_at=0 AND "+communityVisiblePostFilter('p')+" "+
+ "LEFT JOIN profiles pr ON pr.user_id=p.user_id WHERE p.hidden_at=0 AND "+communityVisiblePostFilter('p',true)+" "+
  "AND NOT EXISTS(SELECT 1 FROM social_relationships sr WHERE sr.actor_id=? AND sr.target_id=p.user_id AND sr.kind IN ('block','mute')) "+
  "AND NOT EXISTS(SELECT 1 FROM social_relationships sr WHERE sr.actor_id=p.user_id AND sr.target_id=? AND sr.kind='block') AND "+where+" ORDER BY "+order+" LIMIT ? OFFSET ?";
- return db.prepare(sql).all(userId,userId,userId,userId,userId,...args,limit,offset) as PostRow[];
+ return db.prepare(sql).all(userId,userId,userId,userId,userId,userId,...args,limit,offset) as PostRow[];
 }
 function quotePreview(id:string,viewer:string){
  if(!visible(id,viewer))return null;
@@ -49,9 +49,9 @@ function present(row:PostRow,userId:string){
   following:!!row.following,followers:row.followers,mine:row.user_id===userId};
 }
 function visible(id:string,viewer=''){
- return rawDatabase().prepare("SELECT p.id,p.user_id,p.reply_to,p.topic,p.community_id FROM social_posts p JOIN accounts a ON a.user_id=p.user_id WHERE p.id=? AND p.hidden_at=0 AND a.deleted_at=0 AND a.suspended_at=0 AND "+communityVisiblePostFilter('p')+" "+
+ return rawDatabase().prepare("SELECT p.id,p.user_id,p.reply_to,p.topic,p.community_id FROM social_posts p JOIN accounts a ON a.user_id=p.user_id WHERE p.id=? AND p.hidden_at=0 AND a.deleted_at=0 AND a.suspended_at=0 AND "+communityVisiblePostFilter('p',true)+" "+
  "AND NOT EXISTS(SELECT 1 FROM social_relationships sr WHERE sr.actor_id=? AND sr.target_id=p.user_id AND sr.kind IN ('block','mute')) "+
- "AND NOT EXISTS(SELECT 1 FROM social_relationships sr WHERE sr.actor_id=p.user_id AND sr.target_id=? AND sr.kind='block')").get(id,viewer,viewer) as {id:string;user_id:string;reply_to:string|null;topic:string;community_id:string|null}|undefined;
+ "AND NOT EXISTS(SELECT 1 FROM social_relationships sr WHERE sr.actor_id=p.user_id AND sr.target_id=? AND sr.kind='block')").get(id,viewer,viewer,viewer) as {id:string;user_id:string;reply_to:string|null;topic:string;community_id:string|null}|undefined;
 }
 function restricted(){return rawDatabase().prepare("SELECT value FROM platform_settings WHERE key='chat_readonly'").get()?.value==='true';}
 function readonlyResponse(){return Response.json({error:'Community posting is temporarily paused.'},{status:403,headers:noStore});}
@@ -66,10 +66,10 @@ export async function GET(request:Request){
     "SELECT h.tag,COUNT(*) AS posts FROM social_hashtags h "+
     "JOIN social_posts p ON p.id=h.post_id AND p.hidden_at=0 AND p.reply_to IS NULL "+
     "JOIN accounts a ON a.user_id=p.user_id AND a.deleted_at=0 AND a.suspended_at=0 "+
-    "WHERE "+communityVisiblePostFilter('p')+" AND NOT EXISTS(SELECT 1 FROM social_relationships sr WHERE sr.actor_id=? AND sr.target_id=p.user_id AND sr.kind IN ('block','mute')) "+
+    "WHERE "+communityVisiblePostFilter('p',true)+" AND NOT EXISTS(SELECT 1 FROM social_relationships sr WHERE sr.actor_id=? AND sr.target_id=p.user_id AND sr.kind IN ('block','mute')) "+
     "AND NOT EXISTS(SELECT 1 FROM social_relationships sr WHERE sr.actor_id=p.user_id AND sr.target_id=? AND sr.kind='block') "+
     "GROUP BY h.tag ORDER BY posts DESC,h.tag ASC LIMIT 8"
-   ).all(uid,uid);
+   ).all(uid,uid,uid);
    return Response.json({trends},{headers:noStore});
   }
   if(mode==='people'){
@@ -77,7 +77,7 @@ export async function GET(request:Request){
    if(q){filters.push("(instr(lower(COALESCE(p.name,a.display_name)),lower(?))>0 OR instr(lower(COALESCE(p.bio,'')),lower(?))>0)");args.push(q,q);}
    const people=rawDatabase().prepare(
     "SELECT a.user_id AS userId,COALESCE(p.name,a.display_name) AS name,COALESCE(p.bio,'') AS bio,"+
-    "(SELECT COUNT(*) FROM social_posts s WHERE s.user_id=a.user_id AND s.hidden_at=0 AND s.reply_to IS NULL AND NOT EXISTS(SELECT 1 FROM social_community_removed_posts rm WHERE rm.post_id=s.id)) AS posts,"+
+    "(SELECT COUNT(*) FROM social_posts s WHERE s.user_id=a.user_id AND s.hidden_at=0 AND s.reply_to IS NULL AND NOT EXISTS(SELECT 1 FROM social_community_removed_posts rm WHERE rm.post_id=s.id) AND NOT EXISTS(SELECT 1 FROM social_communities c WHERE c.id=s.community_id AND c.visibility='private')) AS posts,"+
     "(SELECT COUNT(*) FROM social_follows f WHERE f.following_id=a.user_id) AS followers,"+
     "EXISTS(SELECT 1 FROM social_follows f WHERE f.following_id=a.user_id AND f.follower_id=?) AS following,"+
     "EXISTS(SELECT 1 FROM social_relationships sr WHERE sr.actor_id=? AND sr.target_id=a.user_id AND sr.kind='block') AS blocked,"+
@@ -92,7 +92,7 @@ export async function GET(request:Request){
    if(!validId(target))throw Error('INPUT');
    const profile=rawDatabase().prepare(
     "SELECT a.user_id AS userId,COALESCE(p.name,a.display_name) AS name,COALESCE(p.bio,'') AS bio,a.created_at AS joinedAt,"+
-    "(SELECT COUNT(*) FROM social_posts s WHERE s.user_id=a.user_id AND s.hidden_at=0 AND s.reply_to IS NULL AND NOT EXISTS(SELECT 1 FROM social_community_removed_posts rm WHERE rm.post_id=s.id)) AS posts,"+
+    "(SELECT COUNT(*) FROM social_posts s WHERE s.user_id=a.user_id AND s.hidden_at=0 AND s.reply_to IS NULL AND NOT EXISTS(SELECT 1 FROM social_community_removed_posts rm WHERE rm.post_id=s.id) AND NOT EXISTS(SELECT 1 FROM social_communities c WHERE c.id=s.community_id AND c.visibility='private')) AS posts,"+
     "(SELECT COUNT(*) FROM social_follows f WHERE f.following_id=a.user_id) AS followers,"+
     "(SELECT COUNT(*) FROM social_follows f WHERE f.follower_id=a.user_id) AS followingCount,"+
     "EXISTS(SELECT 1 FROM social_follows f WHERE f.following_id=a.user_id AND f.follower_id=?) AS following,"+
@@ -116,8 +116,10 @@ export async function GET(request:Request){
     "LEFT JOIN profiles pr ON pr.user_id=activity.actor_id "+
     "WHERE activity.owner_id=? AND activity.actor_id<>? "+
     "AND NOT EXISTS(SELECT 1 FROM social_relationships sr WHERE sr.actor_id=? AND sr.target_id=activity.actor_id AND sr.kind IN ('block','mute')) "+
-    "AND NOT EXISTS(SELECT 1 FROM social_relationships sr WHERE sr.actor_id=activity.actor_id AND sr.target_id=? AND sr.kind='block') ORDER BY activity.created_at DESC LIMIT 40"
-   ).all(uid,uid,uid,uid);
+    "AND NOT EXISTS(SELECT 1 FROM social_relationships sr WHERE sr.actor_id=activity.actor_id AND sr.target_id=? AND sr.kind='block') "+
+    "AND (activity.post_id IS NULL OR EXISTS(SELECT 1 FROM social_posts postcheck WHERE postcheck.id=activity.post_id AND "+communityVisiblePostFilter('postcheck',true)+")) "+
+    "ORDER BY activity.created_at DESC LIMIT 40"
+   ).all(uid,uid,uid,uid,uid);
    return Response.json({activity,signedIn:true},{headers:noStore});
   }
   if(mode==='thread'){
