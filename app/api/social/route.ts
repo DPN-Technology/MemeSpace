@@ -1,12 +1,13 @@
 import {rawDatabase} from '@/db/raw';
 import {getChatGPTUser} from '@/app/chatgpt-auth';
 import {identity,body,failure} from '../common';
+import {communityWritable,communityVisiblePostFilter} from '@/lib/social-community.mjs';
 
 export const runtime='nodejs';
 const topics=['general','memes','gaming','culture','web3'] as const;
 const validId=(v:unknown):v is string=>typeof v==='string'&&/^[a-zA-Z0-9_-]{1,100}$/.test(v);
 const noStore={'Cache-Control':'no-store'};
-type PostRow={id:string;user_id:string;body:string;topic:string;reply_to:string|null;quote_post_id:string|null;created_at:number;edited_at:number;author:string;bio:string;reactions:number;replies:number;reacted:number;saved:number;following:number;followers:number;has_media:number};
+type PostRow={id:string;user_id:string;body:string;topic:string;reply_to:string|null;quote_post_id:string|null;community_id:string|null;created_at:number;edited_at:number;author:string;bio:string;reactions:number;replies:number;reacted:number;saved:number;following:number;followers:number;has_media:number};
 const tagPattern=/(?:^|[^a-zA-Z0-9_])#([a-zA-Z][a-zA-Z0-9_]{0,29})(?![a-zA-Z0-9_])/g;
 function tags(text:string){return [...new Set([...text.matchAll(tagPattern)].map(match=>match[1].toLowerCase()))].slice(0,10);}
 function indexTags(db:ReturnType<typeof rawDatabase>,id:string,text:string){
@@ -16,7 +17,7 @@ function indexTags(db:ReturnType<typeof rawDatabase>,id:string,text:string){
 }
 function postQuery(userId:string,where:string,args:(string|number)[],limit=20,offset=0,order='p.created_at DESC,p.id DESC'){
  const db=rawDatabase();
- const sql="SELECT p.id,p.user_id,p.body,p.topic,p.reply_to,p.quote_post_id,p.created_at,p.edited_at,"+
+ const sql="SELECT p.id,p.user_id,p.body,p.topic,p.reply_to,p.quote_post_id,p.community_id,p.created_at,p.edited_at,"+
  "COALESCE(pr.name,a.display_name,'Explorer') AS author,COALESCE(pr.bio,'') AS bio,"+
  "(SELECT COUNT(*) FROM social_reactions r WHERE r.post_id=p.id) AS reactions,"+
  "(SELECT COUNT(*) FROM social_posts child WHERE child.reply_to=p.id AND child.hidden_at=0) AS replies,"+
@@ -26,7 +27,7 @@ function postQuery(userId:string,where:string,args:(string|number)[],limit=20,of
  "(SELECT COUNT(*) FROM social_follows f WHERE f.following_id=p.user_id) AS followers,"+
  "EXISTS(SELECT 1 FROM social_media media WHERE media.post_id=p.id) AS has_media "+
  "FROM social_posts p JOIN accounts a ON a.user_id=p.user_id AND a.deleted_at=0 AND a.suspended_at=0 "+
- "LEFT JOIN profiles pr ON pr.user_id=p.user_id WHERE p.hidden_at=0 "+
+ "LEFT JOIN profiles pr ON pr.user_id=p.user_id WHERE p.hidden_at=0 AND "+communityVisiblePostFilter('p')+" "+
  "AND NOT EXISTS(SELECT 1 FROM social_relationships sr WHERE sr.actor_id=? AND sr.target_id=p.user_id AND sr.kind IN ('block','mute')) "+
  "AND NOT EXISTS(SELECT 1 FROM social_relationships sr WHERE sr.actor_id=p.user_id AND sr.target_id=? AND sr.kind='block') AND "+where+" ORDER BY "+order+" LIMIT ? OFFSET ?";
  return db.prepare(sql).all(userId,userId,userId,userId,userId,...args,limit,offset) as PostRow[];
@@ -40,7 +41,7 @@ function quotePreview(id:string,viewer:string){
  return q||null;
 }
 function present(row:PostRow,userId:string){
- return {id:row.id,userId:row.user_id,body:row.body,topic:row.topic,replyTo:row.reply_to,
+ return {id:row.id,userId:row.user_id,body:row.body,topic:row.topic,replyTo:row.reply_to,communityId:row.community_id,
   quotePostId:row.quote_post_id,quote:row.quote_post_id?quotePreview(row.quote_post_id,userId):null,tags:tags(row.body),
   mediaUrl:row.has_media?'/api/social/media/'+row.id:null,
   createdAt:row.created_at,editedAt:row.edited_at,author:row.author,bio:row.bio,
@@ -48,9 +49,9 @@ function present(row:PostRow,userId:string){
   following:!!row.following,followers:row.followers,mine:row.user_id===userId};
 }
 function visible(id:string,viewer=''){
- return rawDatabase().prepare("SELECT p.id,p.user_id,p.reply_to,p.topic FROM social_posts p JOIN accounts a ON a.user_id=p.user_id WHERE p.id=? AND p.hidden_at=0 AND a.deleted_at=0 AND a.suspended_at=0 "+
+ return rawDatabase().prepare("SELECT p.id,p.user_id,p.reply_to,p.topic,p.community_id FROM social_posts p JOIN accounts a ON a.user_id=p.user_id WHERE p.id=? AND p.hidden_at=0 AND a.deleted_at=0 AND a.suspended_at=0 AND "+communityVisiblePostFilter('p')+" "+
  "AND NOT EXISTS(SELECT 1 FROM social_relationships sr WHERE sr.actor_id=? AND sr.target_id=p.user_id AND sr.kind IN ('block','mute')) "+
- "AND NOT EXISTS(SELECT 1 FROM social_relationships sr WHERE sr.actor_id=p.user_id AND sr.target_id=? AND sr.kind='block')").get(id,viewer,viewer) as {id:string;user_id:string;reply_to:string|null;topic:string}|undefined;
+ "AND NOT EXISTS(SELECT 1 FROM social_relationships sr WHERE sr.actor_id=p.user_id AND sr.target_id=? AND sr.kind='block')").get(id,viewer,viewer) as {id:string;user_id:string;reply_to:string|null;topic:string;community_id:string|null}|undefined;
 }
 function restricted(){return rawDatabase().prepare("SELECT value FROM platform_settings WHERE key='chat_readonly'").get()?.value==='true';}
 function readonlyResponse(){return Response.json({error:'Community posting is temporarily paused.'},{status:403,headers:noStore});}
@@ -129,11 +130,13 @@ export async function GET(request:Request){
    return Response.json({root:present(main,uid),replies:replies.map(p=>present(p,uid)),signedIn:!!user},{headers:noStore});
   }
   if(mode!=='feed')throw Error('INPUT');
-  const view=query.get('view')||'all',sort=query.get('sort')||'latest',target=query.get('user'),tag=query.get('tag')||'';
+  const view=query.get('view')||'all',sort=query.get('sort')||'latest',target=query.get('user'),tag=query.get('tag')||'',community=query.get('community')||'';
   const page=Number(query.get('page')||0);
   if(!['all','following','mine','saved','profile'].includes(view)||!['latest','popular'].includes(sort)||!Number.isSafeInteger(page)||page<0||page>100)throw Error('INPUT');
   if(tag&&!/^[a-z][a-z0-9_]{0,29}$/.test(tag))throw Error('INPUT');
+  if(community&&!validId(community))throw Error('INPUT');
   const conditions=['p.reply_to IS NULL'],args:(string|number)[]=[];
+  if(community){conditions.push('p.community_id=?');args.push(community);}
   if(tag){conditions.push('EXISTS(SELECT 1 FROM social_hashtags h WHERE h.post_id=p.id AND h.tag=?)');args.push(tag);}
   if(topic!=='all'){conditions.push('p.topic=?');args.push(topic);}
   if(q){conditions.push("(instr(lower(p.body),lower(?))>0 OR instr(lower(COALESCE(pr.name,a.display_name)),lower(?))>0)");args.push(q,q);}
@@ -158,18 +161,23 @@ export async function POST(request:Request){
    if(typeof d.text!=='string'||d.text.trim().length<2||d.text.length>1200||!topics.includes(d.topic))throw Error('INPUT');
    const quote=d.quotePostId;
    const parent=d.replyTo;
+   const communityId=d.communityId;
+   if(communityId!==undefined&&!validId(communityId))throw Error('INPUT');
    if(quote!==undefined&&(!validId(quote)||parent!==undefined))throw Error('INPUT');
    if(quote&&!visible(quote,uid))return Response.json({error:'The quoted post is unavailable.'},{status:404,headers:noStore});
    if(parent!==undefined&&(!validId(parent)||!visible(parent,uid)))return Response.json({error:'This conversation is no longer available.'},{status:404,headers:noStore});
    const root=parent?visible(parent,uid):null;
    const replyTo=root?(root.reply_to||root.id):null;
+   if(root&&communityId!==undefined&&communityId!==root.community_id)throw Error('INPUT');
+   const resolvedCommunity=root?root.community_id:(communityId||null);
+   if(resolvedCommunity&&!communityWritable(db,resolvedCommunity,uid))return Response.json({error:'Join this community before posting.'},{status:403,headers:noStore});
    const topic=root?root.topic:d.topic;
    const postId=crypto.randomUUID();
    db.exec('BEGIN IMMEDIATE');
    try{
     const result=db.prepare(
-     "INSERT INTO social_posts(id,user_id,body,topic,reply_to,quote_post_id,created_at) SELECT ?,?,?,?,?,?,? WHERE (SELECT COUNT(*) FROM social_posts WHERE user_id=? AND created_at>?)<5"
-    ).run(postId,uid,d.text.trim(),topic,replyTo,quote||null,now,uid,now-60000);
+     "INSERT INTO social_posts(id,user_id,body,topic,reply_to,quote_post_id,community_id,created_at) SELECT ?,?,?,?,?,?,?,? WHERE (SELECT COUNT(*) FROM social_posts WHERE user_id=? AND created_at>?)<5"
+    ).run(postId,uid,d.text.trim(),topic,replyTo,quote||null,resolvedCommunity,now,uid,now-60000);
     if(!result.changes){db.exec('ROLLBACK');return Response.json({error:'You can publish up to five posts or replies per minute.'},{status:429,headers:noStore});}
     indexTags(db,postId,d.text.trim());
     db.exec('COMMIT');
