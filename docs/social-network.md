@@ -22,6 +22,13 @@ The dedicated social network is available on /social and via the Social Network 
 Run pnpm lint, pnpm typecheck, pnpm test, pnpm build, pnpm security:gate.
 Use pnpm test:social-api (requires installed dependencies) for the HTTP integration test.
 
+## Member identity, blocking and muting
+
+- Public profile API serves actual member display name, biography, joined date, post count and social graph counts. The social interface adds a reusable profile panel and deep links.
+- Blocks enforce mutual feed and thread visibility, stop new follows and remove existing follows in either direction. Unblocking does not automatically recreate follows.
+- Mutes filter the muted member from a viewer's feed and activity, while other members can still read their content.
+- The additive relationship migration stores these preferences. Account export includes block and mute relationships, and account deletion removes both outgoing and incoming records. Tests cover these security and lifecycle rules.
+
 ## Next direction (not implemented in this draft)
 
 Public profile pages with custom handles and avatars; media uploads and image moderation; hashtag indexing, mentions and reshares; block/mute/privacy settings; integrated Control Center social moderation queue; public scale and real-time notifications.

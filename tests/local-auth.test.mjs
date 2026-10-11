@@ -100,10 +100,12 @@ test('deletion requires ownership confirmations and removes only the target acco
   db.prepare('INSERT INTO social_bookmarks(user_id,post_id,created_at) VALUES(?,?,?)').run(two.userId,'owned-social',Date.now());
   db.prepare('INSERT INTO social_follows(follower_id,following_id,created_at) VALUES(?,?,?)').run(two.userId,one.userId,Date.now());
   db.prepare('INSERT INTO social_reports(user_id,post_id,reason,created_at) VALUES(?,?,?,?)').run(two.userId,'owned-social','spam',Date.now());
+  db.prepare('INSERT INTO social_relationships(actor_id,target_id,kind,created_at) VALUES(?,?,?,?)').run(two.userId,one.userId,'mute',Date.now());
   const exported=exportAccount(db,one.userId);
   assert.equal(exported.socialPosts.length,1);
   assert.equal(exported.socialPosts[0].body,'Owner post');
   assert.equal(exported.socialFollows.length,1);
+  assert.equal(exported.socialRelationships.length,1);
   expectCode(()=>deleteAccount(db,one.userId,'wrong'),'CONFIRMATION');
   expectCode(()=>deleteAccount(db,one.userId,'DELETE MY ACCOUNT','','wrong-password'),'AUTH_INVALID');
   assert.equal(deleteAccount(db,one.userId,'DELETE MY ACCOUNT','','one-valid-password'),true);
@@ -114,6 +116,7 @@ test('deletion requires ownership confirmations and removes only the target acco
   assert.equal(db.prepare('SELECT COUNT(*) n FROM social_bookmarks WHERE post_id=?').get('owned-social').n,0);
   assert.equal(db.prepare('SELECT COUNT(*) n FROM social_reports WHERE post_id=?').get('owned-social').n,0);
   assert.equal(db.prepare('SELECT COUNT(*) n FROM social_follows WHERE following_id=?').get(one.userId).n,0);
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM social_relationships WHERE target_id=?').get(one.userId).n,0);
   assert.ok(db.prepare('SELECT hidden_at FROM social_posts WHERE id=?').get('other-social').hidden_at>0,'other authors retain records but orphaned replies are hidden');
   expectCode(()=>authenticateAccount(db,'one@localhost','one-valid-password'),'AUTH_INVALID');
  }finally{db?.close();rmSync(root,{recursive:true,force:true})}
