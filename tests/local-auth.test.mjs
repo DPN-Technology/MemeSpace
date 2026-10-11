@@ -109,12 +109,16 @@ test('deletion requires ownership confirmations and removes only the target acco
   db.prepare('UPDATE social_posts SET community_id=? WHERE id=?').run('owned-group','other-social');
   db.prepare('INSERT INTO social_posts(id,user_id,body,topic,community_id,created_at) VALUES(?,?,?,?,?,?)').run('removed-group-post',two.userId,'Removed by moderators','memes','owned-group',now);
   db.prepare('INSERT INTO social_community_removed_posts(community_id,post_id,actor_id,reason,created_at) VALUES(?,?,?,?,?)').run('owned-group','removed-group-post',one.userId,'Guideline violation',now);
+  db.prepare("INSERT INTO social_community_appeals(id,community_id,user_id,target_kind,target_id,reason,created_at) VALUES(?,?,?,?,?,?,?)").run('appeal-one','owned-group',one.userId,'ban',one.userId,'Review this case please',now);
+  db.prepare('INSERT INTO social_community_audit(id,community_id,actor_id,action,target_id,note,created_at) VALUES(?,?,?,?,?,?,?)').run('log-one','owned-group',one.userId,'post_removed','removed-group-post','Violation',now);
   const exported=exportAccount(db,one.userId);
   assert.equal(exported.socialPosts.length,1);
   assert.equal(exported.ownedCommunities.length,1);
   assert.equal(exported.communityMemberships.length,1);
   assert.ok(Array.isArray(exported.communityRequests));
   assert.ok(Array.isArray(exported.communityTransfers));
+  assert.equal(exported.communityAppeals.length,1);
+  assert.equal(exported.communityAuditActions.length,1);
   assert.equal(exported.socialMedia.length,1);
   assert.equal(exported.socialMedia[0].mime,'image/png');
   assert.equal(exported.socialPosts[0].body,'Owner post');
@@ -129,6 +133,8 @@ test('deletion requires ownership confirmations and removes only the target acco
   assert.equal(db.prepare('SELECT COUNT(*) n FROM social_media WHERE user_id=?').get(one.userId).n,0);
   assert.equal(db.prepare('SELECT COUNT(*) n FROM social_communities WHERE owner_id=?').get(one.userId).n,0);
   assert.equal(db.prepare('SELECT COUNT(*) n FROM social_community_members WHERE community_id=?').get('owned-group').n,0);
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM social_community_appeals WHERE user_id=?').get(one.userId).n,0);
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM social_community_audit WHERE actor_id=?').get(one.userId).n,0);
   assert.equal(db.prepare('SELECT community_id FROM social_posts WHERE id=?').get('other-social').community_id,null,"member keeps their content after the owner account closes");
   const removedGroupPost=db.prepare('SELECT hidden_at,community_id FROM social_posts WHERE id=?').get('removed-group-post');
   assert.ok(removedGroupPost.hidden_at>0,'moderated content stays hidden when the owner closes a community');
