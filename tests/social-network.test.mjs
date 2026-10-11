@@ -388,6 +388,8 @@ test('social posts, discovery, reactions, follows, replies, search and moderatio
  assert.equal((await discover(eve,'topic=memes')).creators.some(x=>x.userId===dave.account.userId),true);
  assert.equal((await discover(eve,'topic=gaming')).creators.some(x=>x.userId===dave.account.userId),false,'creator niche requires a public top-level post');
  assert.equal((await discover(eve,'filter=avatars')).creators.some(x=>x.userId===dave.account.userId),true);
+ // A previous block deliberately removed mutual follows; unblocking does not re-follow automatically.
+ await mutate(eve,{action:'follow',userId:dave.account.userId,enabled:true});
  assert.equal((await discover(eve,'filter=following')).creators.some(x=>x.userId===dave.account.userId),true);
  assert.equal((await discover(eve,'sort=popular')).creators.length>0,true);
  assert.equal((await discover(eve,'sort=active')).creators.length>0,true);
