@@ -1,0 +1,201 @@
+name: Publish MemeSpace release distributions
+
+on:
+  release:
+    types: [published]
+  workflow_run:
+    workflows: [Publish stable release]
+    types: [completed]
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-release-distributions.yml'
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Existing GitHub release tag to (re)publish, e.g. v2.6.0'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: memespace-distribution-${{ github.event.release.tag_name || inputs.release_tag || github.event.workflow_run.head_sha || github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    name: Resolve published release
+    if: >-
+      github.repository == 'DPN-Technology/MemeSpace' &&
+      (github.event_name != 'workflow_run' ||
+       (github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_branch == 'main' &&
+        github.event.workflow_run.head_repository.full_name == github.repository))
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      version: ${{ steps.release.outputs.version }}
+      sha: ${{ steps.release.outputs.sha }}
+    steps:
+      - name: Checkout trusted packaging definition
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Resolve an existing published release and exact commit
+        id: release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          REQUESTED_TAG: ${{ inputs.release_tag }}
+          RELEASE_WORKFLOW_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+          case "$GITHUB_EVENT_NAME" in
+            release) TAG="$RELEASE_TAG" ;;
+            workflow_dispatch) TAG="$REQUESTED_TAG" ;;
+            push) TAG="$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq '.tag_name')" ;;
+            workflow_run)
+              git fetch --no-tags --depth=1 origin "$RELEASE_WORKFLOW_SHA"
+              VERSION="$(git show FETCH_HEAD:package.json | node -e "let s='';process.stdin.on('data',c=>s+=c);process.stdin.on('end',()=>console.log(JSON.parse(s).version))")"
+              TAG="v$VERSION"
+              ;;
+            *) echo "Unsupported event: $GITHUB_EVENT_NAME"; exit 1 ;;
+          esac
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9][A-Za-z0-9.-]*)?$ ]]; then
+            echo "::error::Release tag must be semantic version, e.g. v2.6.0: $TAG"; exit 1
+          fi
+          IS_DRAFT="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq '.isDraft')"
+          if [[ "$IS_DRAFT" != false ]]; then
+            echo "::error::The release must be published, not a draft."; exit 1
+          fi
+          git fetch --no-tags --depth=1 origin "refs/tags/$TAG"
+          SHA="$(git rev-parse 'FETCH_HEAD^{commit}')"
+          if [[ "$GITHUB_EVENT_NAME" == workflow_run && "$SHA" != "$RELEASE_WORKFLOW_SHA" ]]; then
+            echo "::notice::The release workflow did not create a new release for commit $RELEASE_WORKFLOW_SHA."
+            echo "::error::Release tag $TAG does not match the release workflow commit. No distributions published."
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "Release target: $TAG @ $SHA"
+
+  windows:
+    name: Build and upload Windows tester ZIP
+    needs: resolve
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      contents: write
+    steps:
+      - name: Check out trusted Windows tester template
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Package launcher pinned to this release
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ needs.resolve.outputs.tag }}
+          RELEASE_VERSION: ${{ needs.resolve.outputs.version }}
+          RELEASE_SHA: ${{ needs.resolve.outputs.sha }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          from zipfile import ZipFile, ZIP_DEFLATED
+          root = Path('distribution/windows-tester')
+          required = [
+              'LAUNCH-MEMESPACE.cmd', 'LAUNCH-CONTROL-CENTER.cmd',
+              'RESET-DOWNLOAD.cmd', 'START-HERE.txt', 'tools/tester.ps1'
+          ]
+          for name in required:
+              if not (root / name).is_file():
+                  raise SystemExit('Missing tester file: ' + name)
+          tag, version, commit = [os.environ[k] for k in ('RELEASE_TAG', 'RELEASE_VERSION', 'RELEASE_SHA')]
+          replacements = {'@@TAG@@': tag, '@@VERSION@@': version, '@@COMMIT@@': commit}
+          filename = f'MemeSpace-{tag}-Windows-Tester.zip'
+          with ZipFile(filename, 'w', compression=ZIP_DEFLATED, compresslevel=9) as z:
+              for path in sorted(root.rglob('*')):
+                  if path.is_file():
+                      payload = path.read_bytes()
+                      if path.suffix.lower() in ('.txt', '.ps1'):
+                          source = payload.decode('utf-8')
+                          for marker, value in replacements.items():
+                              source = source.replace(marker, value)
+                          if '@@' in source:
+                              raise SystemExit(f'Unresolved template marker in {path}')
+                          payload = source.encode('utf-8')
+                      z.writestr(path.relative_to(root).as_posix(), payload)
+          print(f'Created: {filename}')
+          PY
+          sha256sum "MemeSpace-$RELEASE_TAG-Windows-Tester.zip"
+      - name: Attach verified asset to matching GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.resolve.outputs.tag }}
+        run: |
+          set -euo pipefail
+          FILE="MemeSpace-$RELEASE_TAG-Windows-Tester.zip"
+          gh release upload "$RELEASE_TAG" "$FILE" --repo "$GITHUB_REPOSITORY" --clobber
+          gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | grep -Fx "$FILE"
+          echo "Published: https://github.com/$GITHUB_REPOSITORY/releases/download/$RELEASE_TAG/$FILE"
+
+  container:
+    name: Publish matching container under GitHub Packages
+    needs: resolve
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Check out trusted container definition
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Check out exact released application code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+          path: release-src
+          persist-credentials: false
+      - name: Verify release source manifest
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ needs.resolve.outputs.version }}
+        run: |
+          set -euo pipefail
+          test -f Dockerfile.tester
+          test -f release-src/package.json
+          node -e "const p=require('./release-src/package.json'); if(p.name!=='memespace-local') process.exit(1); if(p.version!==process.env.RELEASE_VERSION) console.log('::warning::App package.json version does not match release tag. Package will retain tag version.');"
+      - name: Build release container
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ needs.resolve.outputs.version }}
+          RELEASE_SHA: ${{ needs.resolve.outputs.sha }}
+        run: |
+          set -euo pipefail
+          docker build --file Dockerfile.tester \
+            --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
+            --label "org.opencontainers.image.revision=$RELEASE_SHA" \
+            --label "org.opencontainers.image.version=$RELEASE_VERSION" \
+            --label "org.opencontainers.image.title=MemeSpace Tester" \
+            --tag "ghcr.io/dpn-technology/memespace-tester:$RELEASE_VERSION" release-src
+      - name: Push versioned GitHub Packages image
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ needs.resolve.outputs.version }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker push "ghcr.io/dpn-technology/memespace-tester:$RELEASE_VERSION"
+          echo "Published image: ghcr.io/dpn-technology/memespace-tester:$RELEASE_VERSION"
