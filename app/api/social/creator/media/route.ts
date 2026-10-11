@@ -1,5 +1,5 @@
 import {rawDatabase} from '@/db/raw';
-import {identity,failure} from '../../../common';
+import {identity,body,failure} from '../../../common';
 import {verifySocialImage,MAX_FORM_BYTES} from '@/lib/social-media.mjs';
 
 export const runtime='nodejs';
@@ -24,7 +24,7 @@ export async function POST(request:Request){
 }
 export async function DELETE(request:Request){
  try{
-  const uid=await identity(request),d=await request.json();
+  const uid=await identity(request),d=await body(request);
   if(!d||!['avatar','banner'].includes(d.kind))throw Error('INPUT');
   const kind=d.kind==='avatar'?'avatar':'banner',db=rawDatabase();
   db.prepare('UPDATE social_creator_profiles SET '+kind+'_mime=NULL,'+kind+'_content=NULL,updated_at=? WHERE user_id=?').run(Date.now(),uid);
