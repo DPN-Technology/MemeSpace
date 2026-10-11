@@ -327,7 +327,7 @@ test('social posts, discovery, reactions, follows, replies, search and moderatio
  assert.equal(privateDraft.profile.handle,'dave_creator');
  const profileUpdate={name:'Dave Creative',bio:'Full-time meme illustrator',headline:'Memes meet imagination',location:'Michigan',website:'https://example.com/portfolio',interests:'Memes, gaming and digital art',accent:'violet'};
  async function editCreator(actor,body){
-  const response=await fetch(base+'/api/social/creator',{method:'PATCH',headers:{Origin:base,'Content-Type':'application/json',Cookie:actor.cookie},body:JSON.stringify(body)});
+  const response=await fetch(base+'/api/social/creator',{method:'PATCH',headers:{Origin:base,'Content-Type':'application/json',...(actor?.cookie?{Cookie:actor.cookie}:{})},body:JSON.stringify(body)});
   return {status:response.status,data:await response.json()};
  }
  assert.equal((await editCreator(null,profileUpdate)).status,401);
