@@ -2,14 +2,15 @@
 
 import {useCallback,useEffect,useState} from 'react';
 import Link from 'next/link';
-import {Activity,ArrowLeft,ArrowRight,Bell,Bookmark,Check,Compass,Flame,Heart,Hash,MessageCircle,Plus,RefreshCw,Search,Send,ShieldAlert,Sparkles,Users,UserRound,PenLine,Trash2,X} from 'lucide-react';
+import {Activity,ArrowLeft,ArrowRight,Bell,Bookmark,Check,Compass,Flame,Heart,Hash,MessageCircle,Plus,RefreshCw,Search,Send,ShieldAlert,Sparkles,Users,UserRound,PenLine,Trash2,X,UserRoundX,VolumeX,Volume2,CalendarDays} from 'lucide-react';
 import './social-network.css';
 
 type Topic='general'|'memes'|'gaming'|'culture'|'web3';
 type FeedView='all'|'following'|'mine'|'saved'|'profile';
 type Section='feed'|'people'|'activity';
 type Post={id:string;userId:string;body:string;topic:Topic;replyTo:string|null;createdAt:number;editedAt:number;author:string;bio:string;reactions:number;replies:number;reacted:boolean;saved:boolean;following:boolean;followers:number;mine:boolean};
-type Member={userId:string;name:string;bio:string;posts:number;followers:number;following:number};
+type Member={userId:string;name:string;bio:string;posts:number;followers:number;following:number;blocked:number;muted:number};
+type Profile={userId:string;name:string;bio:string;joinedAt:number;posts:number;followers:number;followingCount:number;following:boolean;blocked:boolean;muted:boolean;mine:boolean};
 type Notice={kind:'reaction'|'reply'|'follow';userId:string;author:string;postId:string|null;createdAt:number};
 type FeedResult={posts:Post[];hasMore:boolean;stats:{posts:number;members:number;following:number};signedIn:boolean;readOnly:boolean};
 const topicLabels:Record<Topic,string>={general:'The Commons',memes:'Meme Culture',gaming:'Gaming',culture:'Internet Culture',web3:'Web3'};
@@ -60,6 +61,7 @@ export function SocialNetwork({openIdentity}:{openIdentity:()=>void}){
  const [section,setSection]=useState<Section>('feed');
  const [view,setView]=useState<FeedView>('all');
  const [profileId,setProfileId]=useState('');
+ const [profile,setProfile]=useState<Profile|null>(null);
  const [topic,setTopic]=useState<Topic|'all'>('all');
  const [composeTopic,setComposeTopic]=useState<Topic>('general');
  const [sort,setSort]=useState<'latest'|'popular'>('latest');
@@ -85,7 +87,7 @@ export function SocialNetwork({openIdentity}:{openIdentity:()=>void}){
  const [editValue,setEditValue]=useState('');
  const [refreshId,setRefreshId]=useState(0);
  const refresh=useCallback(()=>setRefreshId(x=>x+1),[]);
- const changeView=(next:FeedView,id='')=>{setSection('feed');setSelectedId(null);setView(next);setProfileId(id);setPage(0);};
+ const changeView=(next:FeedView,id='')=>{setSection('feed');setSelectedId(null);setView(next);setProfileId(id);setProfile(null);setPage(0);};
  const chooseTopic=(next:Topic|'all')=>{setTopic(next);setPage(0);setSelectedId(null);setSection('feed');};
  useEffect(()=>{
   let cancelled=false;
@@ -101,6 +103,12 @@ export function SocialNetwork({openIdentity}:{openIdentity:()=>void}){
   return()=>{cancelled=true};
  },[section,query,refreshId]);
  useEffect(()=>{
+  if(view!=='profile'||!profileId||section!=='feed')return;let cancelled=false;
+  social<{profile:Profile}>({mode:'profile',id:profileId}).then(data=>{if(!cancelled)setProfile(data.profile)})
+   .catch((e:Error)=>{if(!cancelled)setError(e.message)});
+  return()=>{cancelled=true};
+ },[view,profileId,section,refreshId]);
+ useEffect(()=>{
   if(section!=='activity')return;let cancelled=false;
   social<{activity:Notice[]}>({mode:'activity'}).then(data=>{if(!cancelled)setActivity(data.activity)}).catch((e:Error)=>{if(!cancelled)setError(e.message)});
   return()=>{cancelled=true};
@@ -115,6 +123,7 @@ export function SocialNetwork({openIdentity}:{openIdentity:()=>void}){
   const params=new URLSearchParams(location.search);
   const id=params.get('post');
   if(id&&/^[a-zA-Z0-9_-]{1,100}$/.test(id))setSelectedId(id);
+  else {const member=params.get('profile');if(member&&/^[a-zA-Z0-9_-]{1,100}$/.test(member)){setSection('feed');setView('profile');setProfileId(member);}}
  },[]);
  function join(){if(!signedIn){openIdentity();return false;}return true;}
  async function action(payload:unknown,method='POST',closeThread=false){
@@ -133,6 +142,11 @@ export function SocialNetwork({openIdentity}:{openIdentity:()=>void}){
  }
  async function toggle(actionName:'react'|'bookmark',post:Post){await action({action:actionName,postId:post.id,enabled:actionName==='react'?!post.reacted:!post.saved})}
  async function toggleFollow(member:{userId:string;following:number|boolean}){await action({action:'follow',userId:member.userId,enabled:!member.following})}
+ async function setRelationship(kind:'block'|'mute',member:Profile){
+  if(kind==='block'&&!member.blocked&&!window.confirm('Block '+member.name+'? You will unfollow each other, and their content will no longer appear for you.'))return;
+  const ok=await action({action:kind,userId:member.userId,enabled:kind==='block'?!member.blocked:!member.muted});
+  if(ok)setSuccess(kind==='block'?(member.blocked?'Member unblocked.':'Member blocked; mutual follows removed.'):(member.muted?'Member unmuted.':'Member muted from your feed.'));
+ }
  function startEdit(post:Post){setEditId(post.id);setEditValue(post.body)}
  async function saveEdit(){if(!editId)return;const ok=await action({id:editId,text:editValue},'PATCH');if(ok){setEditId(null);setEditValue('');setSuccess('Your post was updated.')}}
  async function removePost(post:Post){if(!window.confirm('Remove this post and its replies?'))return;const ok=await action({id:post.id},'DELETE',!!selectedId&&(post.id===selectedId||post.replyTo===null));if(ok)setSuccess('Your post was removed.')}
@@ -177,10 +191,25 @@ export function SocialNetwork({openIdentity}:{openIdentity:()=>void}){
      </>:<p className="social-empty">Opening conversation…</p>}</section>:
     section==='feed'?<>
      {view==='all'&&page===0&&!query&&<section className="social-composer" aria-label="Create a social post"><div className="social-composer-top"><Avatar name="YOU"/><div><strong>What&apos;s happening in your universe?</strong><p>Memes, gaming, internet culture — share your perspective.</p></div></div><textarea aria-label="Write a post" value={draft} onChange={e=>setDraft(e.target.value)} placeholder={signedIn?'Start a conversation…':'Sign in to publish your first post…'} maxLength={1200} rows={3} disabled={readOnly}/><div className="social-composer-actions"><label>Post to <select aria-label="Post topic" value={composeTopic} onChange={e=>setComposeTopic(e.target.value as Topic)}>{topicList.map(t=><option key={t} value={t}>{topicLabels[t]}</option>)}</select></label><span>{draft.length}/1200</span>{signedIn?<button className="social-primary" disabled={busy||readOnly||draft.trim().length<2} onClick={()=>publish()}><Send/> Publish post</button>:<button className="social-primary" onClick={openIdentity}><UserRound/> Sign in to post</button>}</div>{readOnly&&<p className="social-readonly">Community posts are temporarily read-only.</p>}</section>}
+     {view==='profile'&&<section className="social-profile-card" aria-label="Member profile">
+      {profile?<><div className="social-profile-banner"><span>MEMESPACE // CREATOR NETWORK</span><Sparkles/></div>
+       <div className="social-profile-body"><Avatar name={profile.name} size="large"/>
+        <div className="social-profile-info"><div className="social-profile-identity"><div><h3>{profile.name}</h3><small>@{profile.userId.slice(0,12)}</small></div><span className="social-profile-member"><CalendarDays/> Joined {new Date(profile.joinedAt).toLocaleDateString(undefined,{month:'short',year:'numeric'})}</span></div>
+         <p>{profile.bio||'This creator has not added a biography yet.'}</p>
+         <div className="social-profile-counts"><span><strong>{profile.posts}</strong> posts</span><span><strong>{profile.followers}</strong> followers</span><span><strong>{profile.followingCount}</strong> following</span></div>
+         <div className="social-profile-controls">
+          {!profile.mine&&<><button className="social-follow" disabled={busy||profile.blocked} onClick={()=>toggleFollow(profile)}>{profile.following?<Check/>:<Plus/>}{profile.following?'Following':'Follow'}</button>
+           <button className={profile.muted?'social-relationship selected':'social-relationship'} disabled={busy} onClick={()=>setRelationship('mute',profile)}>{profile.muted?<Volume2/>:<VolumeX/>}{profile.muted?'Unmute':'Mute'}</button>
+           <button className={profile.blocked?'social-relationship selected danger':'social-relationship danger'} disabled={busy} onClick={()=>setRelationship('block',profile)}><UserRoundX/>{profile.blocked?'Unblock':'Block'}</button></>}
+          <Link className="social-profile-permalink" href={'/social?profile='+encodeURIComponent(profile.userId)}>Open profile link <ArrowRight/></Link>
+         </div>
+         {profile.blocked&&<p className="social-profile-private">You blocked this member. Unblock them to view their posts and follow them.</p>}
+        </div></div></>:<p className="social-empty">Loading member profile…</p>}
+     </section>}
      <div className="social-timeline-bar"><div><Activity/> {view==='profile'?'MEMBER TIMELINE':topic==='all'?'ALL CONVERSATIONS':topicLabels[topic].toUpperCase()}</div><div><button className={sort==='latest'?'active':''} onClick={()=>{setSort('latest');setPage(0)}}>Latest</button><button className={sort==='popular'?'active':''} onClick={()=>{setSort('popular');setPage(0)}}><Flame/> Popular</button></div></div>
      {loading?<p className="social-empty">Loading the community stream…</p>:posts.length?posts.map(postCard):<div className="social-empty"><Sparkles/><h3>Make the first connection.</h3><p>No posts match this view yet. Try another topic or publish something new.</p></div>}
      <div className="social-pagination">{page>0&&<button onClick={()=>setPage(p=>Math.max(0,p-1))}><ArrowLeft/> Newer posts</button>}{hasMore&&<button onClick={()=>setPage(p=>p+1)}>Older posts <ArrowRight/></button>}</div>
-    </>:section==='people'?<section className="social-directory">{people.length?people.map(person=><article key={person.userId} className="social-person"><Avatar name={person.name} size="large"/><div><button className="social-person-name" onClick={()=>changeView('profile',person.userId)}>{person.name}</button><p>{person.bio||'Part of the MemeSpace community.'}</p><small>{person.posts} posts · {person.followers} followers</small></div><button className={person.following?'social-follow following':'social-follow'} disabled={busy} onClick={()=>toggleFollow(person)}>{person.following?<Check/>:<Plus/>}{person.following?'Following':'Follow'}</button></article>):<div className="social-empty"><Users/><h3>No members found.</h3><p>Search a different name or check back as the community grows.</p></div>}</section>:
+    </>:section==='people'?<section className="social-directory">{people.length?people.map(person=><article key={person.userId} className="social-person"><Avatar name={person.name} size="large"/><div><button className="social-person-name" onClick={()=>changeView('profile',person.userId)}>{person.name}</button><p>{person.bio||'Part of the MemeSpace community.'}</p><small>{person.posts} posts · {person.followers} followers{person.blocked?' · Blocked':person.muted?' · Muted':''}</small></div><button className={person.following?'social-follow following':'social-follow'} disabled={busy||!!person.blocked} onClick={()=>toggleFollow(person)}>{person.following?<Check/>:<Plus/>}{person.following?'Following':'Follow'}</button></article>):<div className="social-empty"><Users/><h3>No members found.</h3><p>Search a different name or check back as the community grows.</p></div>}</section>:
     <section className="social-notifications">{!signedIn?<div className="social-empty"><Bell/><h3>Your community, your signal.</h3><p>Sign in to see replies, follows and reactions.</p><button onClick={openIdentity} className="social-primary">Sign in</button></div>:activity.length?activity.map((item,i)=><button className="social-activity" key={item.kind+item.userId+item.createdAt+i} onClick={()=>item.postId?(setSelectedId(item.postId),setSection('feed')):changeView('profile',item.userId)}><Avatar name={item.author}/><span><strong>{item.author}</strong> {item.kind==='follow'?'followed you':item.kind==='reaction'?'liked your post':'replied to your post'}<small>{timeSince(item.createdAt)}</small></span><ArrowRight/></button>):<div className="social-empty"><Bell/><h3>All caught up.</h3><p>Your community activity will appear here.</p></div>}</section>}
    </main>
    <aside className="social-right" aria-label="Community overview">
