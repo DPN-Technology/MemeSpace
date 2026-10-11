@@ -111,6 +111,9 @@ test('deletion requires ownership confirmations and removes only the target acco
   db.prepare('INSERT INTO social_community_removed_posts(community_id,post_id,actor_id,reason,created_at) VALUES(?,?,?,?,?)').run('owned-group','removed-group-post',one.userId,'Guideline violation',now);
   db.prepare("INSERT INTO social_community_appeals(id,community_id,user_id,target_kind,target_id,reason,created_at) VALUES(?,?,?,?,?,?,?)").run('appeal-one','owned-group',one.userId,'ban',one.userId,'Review this case please',now);
   db.prepare('INSERT INTO social_community_audit(id,community_id,actor_id,action,target_id,note,created_at) VALUES(?,?,?,?,?,?,?)').run('log-one','owned-group',one.userId,'post_removed','removed-group-post','Violation',now);
+  db.prepare('INSERT INTO social_handles(user_id,handle,updated_at) VALUES(?,?,?)').run(one.userId,'creator_one',now);
+  db.prepare('INSERT INTO social_notification_prefs(user_id,social,mentions,communities,moderation,updated_at) VALUES(?,?,?,?,?,?)').run(one.userId,1,0,1,1,now);
+  db.prepare('INSERT INTO social_notifications(id,recipient_id,actor_id,kind,post_id,community_id,message,created_at) VALUES(?,?,?,?,?,?,?,?)').run('notice-one',one.userId,two.userId,'follow',null,null,'',now);
   const exported=exportAccount(db,one.userId);
   assert.equal(exported.socialPosts.length,1);
   assert.equal(exported.ownedCommunities.length,1);
@@ -119,6 +122,9 @@ test('deletion requires ownership confirmations and removes only the target acco
   assert.ok(Array.isArray(exported.communityTransfers));
   assert.equal(exported.communityAppeals.length,1);
   assert.equal(exported.communityAuditActions.length,1);
+  assert.equal(exported.socialHandle.handle,'creator_one');
+  assert.equal(exported.socialNotificationPreferences.mentions,0);
+  assert.equal(exported.socialNotifications.length,1);
   assert.equal(exported.socialMedia.length,1);
   assert.equal(exported.socialMedia[0].mime,'image/png');
   assert.equal(exported.socialPosts[0].body,'Owner post');
@@ -131,6 +137,9 @@ test('deletion requires ownership confirmations and removes only the target acco
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM messages WHERE user_id=?').get(two.userId).n,1);
   assert.equal(db.prepare('SELECT COUNT(*) n FROM social_posts WHERE user_id=?').get(one.userId).n,0);
   assert.equal(db.prepare('SELECT COUNT(*) n FROM social_media WHERE user_id=?').get(one.userId).n,0);
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM social_notifications WHERE recipient_id=?').get(one.userId).n,0);
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM social_handles WHERE user_id=?').get(one.userId).n,0);
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM social_notification_prefs WHERE user_id=?').get(one.userId).n,0);
   assert.equal(db.prepare('SELECT COUNT(*) n FROM social_communities WHERE owner_id=?').get(one.userId).n,0);
   assert.equal(db.prepare('SELECT COUNT(*) n FROM social_community_members WHERE community_id=?').get('owned-group').n,0);
   assert.equal(db.prepare('SELECT COUNT(*) n FROM social_community_appeals WHERE user_id=?').get(one.userId).n,0);

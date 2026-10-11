@@ -267,4 +267,57 @@ test('social posts, discovery, reactions, follows, replies, search and moderatio
  assert.ok(auditHistory.some(x=>x.action==='appeal_denied'));
  assert.ok(auditHistory.some(x=>x.action==='report_resolved'));
  assert.equal((await modRead(charlie,pid)).status,200,'old owner retains moderator role after transfer');
+ // Native Signal Inbox: unique handles, mentions, preferences, unread state and private content boundaries.
+ async function inbox(actor,params='mode=list'){
+  return read('/api/social/notifications?'+params,actor);
+ }
+ async function noticeChange(actor,payload){
+  const result=await fetch(base+'/api/social/notifications',{method:'PATCH',headers:{Origin:base,'Content-Type':'application/json',Cookie:actor.cookie},body:JSON.stringify(payload)});
+  return {status:result.status,data:await result.json()};
+ }
+ const dave=await register('social-dave@example.test','Dave Artist');
+ const eve=await register('social-eve@example.test','Eve Studio');
+ assert.equal((await fetch(base+'/api/social/notifications?mode=count')).status,401);
+ assert.equal((await noticeChange(dave,{action:'handle',handle:'dave_creator'})).status,200);
+ assert.equal((await noticeChange(eve,{action:'handle',handle:'eve_studio'})).status,200);
+ assert.equal((await noticeChange(dave,{action:'handle',handle:'eve_studio'})).status,429,'handle changes are rate-limited');
+ assert.equal((await noticeChange(eve,{action:'handle',handle:'dave_creator'})).status,429);
+ assert.equal((await read('/api/social/notifications?mode=resolve&handle=eve_studio',dave)).member.userId,eve.account.userId);
+ const mentioned=await mutate(dave,{action:'create',text:'Creator shoutout to @eve_studio for great designs #makers',topic:'memes'});
+ let eveInbox=await inbox(eve);
+ assert.ok(eveInbox.notifications.some(n=>n.kind==='mention'&&n.postId===mentioned.id));
+ const mentionNotice=eveInbox.notifications.find(n=>n.kind==='mention'&&n.postId===mentioned.id);
+ assert.ok(eveInbox.unread>0);
+ assert.equal((await noticeChange(dave,{action:'read',id:mentionNotice.id})).status,200);
+ assert.ok((await inbox(eve)).notifications.find(n=>n.id===mentionNotice.id).readAt===0,'cannot mark another member inbox');
+ assert.equal((await noticeChange(eve,{action:'read',id:mentionNotice.id})).status,200);
+ assert.ok((await inbox(eve)).notifications.find(n=>n.id===mentionNotice.id).readAt>0);
+ await mutate(eve,{action:'follow',userId:dave.account.userId,enabled:true});
+ await mutate(eve,{action:'react',postId:mentioned.id,enabled:true});
+ let daveInbox=await inbox(dave);
+ assert.ok(daveInbox.notifications.some(n=>n.kind==='follow'));
+ assert.ok(daveInbox.notifications.some(n=>n.kind==='reaction'&&n.postId===mentioned.id));
+ assert.equal((await noticeChange(dave,{action:'read_all'})).status,200);
+ assert.equal((await inbox(dave,'mode=count')).unread,0);
+ const prefs=await noticeChange(eve,{action:'preferences',preferences:{mentions:false}});
+ assert.equal(prefs.status,200);assert.equal(prefs.data.preferences.mentions,0);
+ const ignoredMention=await mutate(dave,{action:'create',text:'Second signal @eve_studio will be filtered by preferences',topic:'memes'});
+ assert.equal((await inbox(eve)).notifications.some(n=>n.postId===ignoredMention.id&&n.kind==='mention'),false);
+ assert.equal((await noticeChange(eve,{action:'preferences',preferences:{mentions:true}})).status,200);
+ assert.equal((await noticeChange(eve,{action:'preferences',preferences:{not_real:true}})).status,400);
+ // Private community mentions are not delivered to users without permission.
+ const privateShout=await mutate(charlie,{action:'create',text:'Private shoutout @dave_creator from inside a restricted circle',topic:'memes',communityId:pid});
+ assert.ok(privateShout.id);
+ assert.equal((await inbox(dave)).notifications.some(n=>n.postId===privateShout.id),false);
+ assert.equal((await communityCall(dave,{action:'join',communityId:pid})).status,200);
+ assert.equal((await communityCall(alice,{action:'approve',communityId:pid,userId:dave.account.userId})).status,200);
+ const privateShout2=await mutate(charlie,{action:'create',text:'Approved mention @dave_creator for the private studio',topic:'memes',communityId:pid});
+ assert.ok((await inbox(dave)).notifications.some(n=>n.kind==='mention'&&n.postId===privateShout2.id));
+ assert.equal((await communityCall(dave,{action:'leave',communityId:pid})).status,200);
+ assert.equal((await inbox(dave)).notifications.some(n=>n.postId===privateShout2.id),false,'private notice hidden after membership revoked');
+ assert.equal((await fetch(base+'/api/social/notifications?mode=resolve&handle=unknown_creator_99')).status,404);
+ const unreadOnly=await inbox(eve,'mode=list&filter=unread');
+ assert.ok(unreadOnly.notifications.every(n=>n.readAt===0));
+ const invalidPage=await fetch(base+'/api/social/notifications?mode=list&page=-2',{headers:{Cookie:eve.cookie}});
+ assert.equal(invalidPage.status,400);
 });

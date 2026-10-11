@@ -78,3 +78,12 @@ A dedicated social-post restoration UI, block/mute tools and richer reporting re
 - Approving a removed-post appeal restores visibility by deleting the community removal record. Approving a ban appeal removes the ban without silently reinstating membership. Denial preserves the decision. Direct restoration closes pending appeals about that removal. **Platform-hidden or deleted posts cannot be restored by community moderators.**
 - Decision history records actor, action, target, note and timestamp. Account export includes personal appeals and actions; account deletion purges affected member records and disbanded-community logs. Current history is limited to recent entries and is not a tamper-proof external audit service.
 - HTTP integration tests cover report review, unauthorized access, duplicate appeals, approval, denial, bans, media restoration, and audit events. These controls are local-instance functionality; no automated content scanning or cross-instance arbitration is implied.
+
+## MemeSpace Signal Inbox and creator mentions (notification phase)
+
+- Social reactions, replies, follows and posts mentioning an existing **@creator_handle** create persisted in-app inbox events. Uploaded image posts also accept mention tags in captions. A creator may claim a unique handle (3–24 lowercase characters, starting with a letter), with a seven-day cooldown before changing it.
+- Community membership reviews, bans, unbans, post removal/restoration and appeals also create in-app notifications for affected members. Members can choose categories independently: social, mentions, communities or moderation.
+- Each account has its own read/unread state, count endpoint, mark-one/all-read actions, filtered inbox, pagination and up to 300 recent stored events. Notification writes are grouped transactionally with their underlying actions.
+- The client checks for updated counts and inbox items every 20 seconds while active. **This is near-live polling, not WebSockets, email, SMS, browser push or a background service worker.**
+- Notification creation and retrieval respect account status, blocking/muting and private-community post access. Leaving a private community removes visibility of linked post notifications. Account export includes owned handles, preferences and delivered notifications; deletion clears the member's identifiers and relevant references.
+- Mentions are emitted for initial post creation; edits do not retroactively create notifications. Handles are opt-in, and a nonexistent handle does not trigger an alert.
