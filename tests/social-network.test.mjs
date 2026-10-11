@@ -346,7 +346,7 @@ test('social posts, discovery, reactions, follows, replies, search and moderatio
   return {status:response.status,data:await response.json()};
  }
  assert.equal((await uploadCreator(null,'avatar')).status,401);
- assert.equal((await uploadCreator(dave,'avatar',Buffer.from('not an image'),'image/png')).status,400);
+ assert.equal((await uploadCreator(dave,'avatar',Buffer.alloc(32,0),'image/png')).status,400);
  assert.equal((await uploadCreator(dave,'avatar')).status,201);
  assert.equal((await uploadCreator(dave,'banner')).status,201);
  assert.equal((await read('/api/social/creator?id='+dave.account.userId,eve)).profile.hasBanner,true);
