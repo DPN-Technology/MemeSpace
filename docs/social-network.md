@@ -95,3 +95,13 @@ A dedicated social-post restoration UI, block/mute tools and richer reporting re
 - Only the logged-in profile owner can edit or remove profile media. Removing an image deletes the original stored binary. Public profiles and images are available to signed-out readers unless blocked; they are not private storage.
 - Creator metadata is included in account exports; image bytes are not included in exports, and closing an account deletes stored profile media. Existing post and social graphs are unchanged.
 - Existing creator handles are maintained in the notifications settings, with the one-change-per-seven-days rule. Hosted image CDNs, automated image moderation, profile verification badges and crop editing remain future work.
+
+## Creator Discovery v2 (people phase)
+
+- The previous follower-only people listing is now a full public **Creator Discovery** interface featuring personalized cards, creator headlines, unique @handles, user-uploaded avatars, interests and optional location.
+- Search covers public name, creator handle, headline, interests and biography. The search field accepts @handles, and treats SQL wildcard characters as ordinary text.
+- Dedicated selectors filter by **content niche** (based on public top-level posts only), existing follows, mutual connections, or members with avatars. Users can sort by community signals, recent public activity, follower count or join date, with 12 results per page.
+- The “community signals” sort is a transparent, deterministic blend of followed-by-your-follows, follower counts, capped public post counts and avatar availability. It is not AI-generated, a paid placement or an endorsement.
+- The backend excludes deleted/suspended accounts, the legacy placeholder account, mutual blocks and creators muted by the current viewer. Private community posts and removed content never contribute to discovery metrics, search results or activity ordering.
+- Discovery is publicly readable; following requires member sign-in. No usernames are fabricated and no user emails are returned.
+- Server-side validation rejects unsupported filter, topic, sort or page arguments; integration tests cover search, public-only counts, relationship filters, real avatars and visibility boundaries.

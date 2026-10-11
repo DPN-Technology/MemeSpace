@@ -376,6 +376,9 @@ test('social posts, discovery, reactions, follows, replies, search and moderatio
  const daveDiscovery=guestCreators.creators.find(x=>x.userId===dave.account.userId);
  assert.equal(daveDiscovery.hasAvatar,true);
  assert.equal(daveDiscovery.handle,'dave_creator');
+ const charlieDiscover=(await discover(null,'q=Charlie')).creators.find(x=>x.userId===charlie.account.userId);
+ const charliePublic=(await read('/api/social?mode=feed&view=profile&user='+charlie.account.userId)).posts;
+ assert.equal(charlieDiscover.posts,charliePublic.length,'discovery does not count private community posts');
  assert.equal(typeof daveDiscovery.followers,'number');
  assert.equal(typeof daveDiscovery.posts,'number');
  assert.equal((await discover(eve,'q=%40dave_creator')).creators[0].userId,dave.account.userId);

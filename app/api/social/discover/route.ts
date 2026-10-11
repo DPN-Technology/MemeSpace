@@ -37,7 +37,7 @@ export async function GET(request:Request){
    "LEFT JOIN social_handles h ON h.user_id=a.user_id "+
    "LEFT JOIN social_creator_profiles cp ON cp.user_id=a.user_id "+
    "LEFT JOIN stats ON stats.user_id=a.user_id "+
-   "WHERE a.deleted_at=0 AND a.suspended_at=0 AND a.user_id<>? "+
+   "WHERE a.deleted_at=0 AND a.suspended_at=0 AND a.user_id<>'local_seedy' AND a.user_id<>? "+
    "AND NOT EXISTS(SELECT 1 FROM social_relationships sr WHERE "+
    "(sr.actor_id=? AND sr.target_id=a.user_id AND sr.kind IN ('block','mute')) OR "+
    "(sr.actor_id=a.user_id AND sr.target_id=? AND sr.kind='block'))) "+
