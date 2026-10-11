@@ -65,3 +65,15 @@
 .social-report-panel label{display:block;color:#d1bfdb;font:11px monospace;margin:12px 0 6px}
 .social-report-panel select{display:block;width:100%;background:#100f20;color:#e7d9f7;border:1px solid #6c5c83;border-radius:7px;padding:10px;margin-bottom:14px}
 .social-hashtag-trends{border-top:1px solid #5a4f71}
+
+/* Native local meme/image upload and secure rendering */
+.social-post-media{margin:0 16px 17px;border-radius:12px;background:#070e12;overflow:hidden;border:1px solid #334a44;display:flex;align-items:center;justify-content:center}
+.social-post-media img{display:block;width:100%;height:auto;max-height:560px;object-fit:contain}
+.social-compose-image{position:relative;margin:0 0 12px;padding:10px;border:1px solid #47745b;border-radius:12px;background:#0b1b16}
+.social-compose-image>img{width:100%;height:auto;max-height:260px;object-fit:contain;border-radius:8px}
+.social-compose-image>div{display:flex;align-items:center;gap:8px;font:11px monospace;color:#adceba;margin:9px 2px 2px;overflow-wrap:anywhere}
+.social-compose-image>div svg{width:14px;height:14px}
+.social-compose-image>div button{margin-left:auto;border:0;background:#293f33;color:#e5f9e9;border-radius:6px;padding:4px 6px}
+.social-image-file{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.social-attach-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 10px;border:1px solid #4f7560;border-radius:8px;background:#193024;color:#bbffcf;font:11px monospace}
+.social-attach-btn svg{width:15px;height:15px}

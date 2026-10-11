@@ -1,8 +1,9 @@
 'use client';
 
-import {useCallback,useEffect,useState} from 'react';
+import {useCallback,useEffect,useRef,useState} from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
-import {Activity,ArrowLeft,ArrowRight,Bell,Bookmark,Check,Compass,Flame,Heart,Hash,MessageCircle,Plus,RefreshCw,Search,Send,ShieldAlert,Sparkles,Users,UserRound,PenLine,Trash2,X,Repeat2,UserRoundX,VolumeX,Volume2,CalendarDays} from 'lucide-react';
+import {Activity,ArrowLeft,ArrowRight,Bell,Bookmark,Check,Compass,Flame,Heart,Hash,MessageCircle,Plus,RefreshCw,Search,Send,ShieldAlert,Sparkles,Users,UserRound,ImagePlus,PenLine,Trash2,X,Repeat2,UserRoundX,VolumeX,Volume2,CalendarDays} from 'lucide-react';
 import './social-network.css';
 
 type Topic='general'|'memes'|'gaming'|'culture'|'web3';
@@ -10,7 +11,7 @@ type FeedView='all'|'following'|'mine'|'saved'|'profile';
 type Section='feed'|'people'|'activity';
 type Quote={id:string;userId:string;author:string;body:string};
 type ReportReason='spam'|'harassment'|'scam'|'privacy'|'other';
-type Post={id:string;userId:string;body:string;topic:Topic;replyTo:string|null;quotePostId:string|null;quote:Quote|null;tags:string[];createdAt:number;editedAt:number;author:string;bio:string;reactions:number;replies:number;reacted:boolean;saved:boolean;following:boolean;followers:number;mine:boolean};
+type Post={id:string;userId:string;body:string;topic:Topic;replyTo:string|null;quotePostId:string|null;quote:Quote|null;tags:string[];mediaUrl:string|null;createdAt:number;editedAt:number;author:string;bio:string;reactions:number;replies:number;reacted:boolean;saved:boolean;following:boolean;followers:number;mine:boolean};
 type Member={userId:string;name:string;bio:string;posts:number;followers:number;following:number;blocked:number;muted:number};
 type Profile={userId:string;name:string;bio:string;joinedAt:number;posts:number;followers:number;followingCount:number;following:boolean;blocked:boolean;muted:boolean;mine:boolean};
 type Notice={kind:'reaction'|'reply'|'follow';userId:string;author:string;postId:string|null;createdAt:number};
@@ -20,10 +21,11 @@ const topicLabels:Record<Topic,string>={general:'The Commons',memes:'Meme Cultur
 const topicList=Object.keys(topicLabels) as Topic[];
 const initialStats={posts:0,members:0,following:0};
 
-async function social<T>(params:Record<string,string>={},payload?:unknown,method='POST'):Promise<T>{
+async function social<T>(params:Record<string,string>={},payload?:unknown,method='POST',endpoint='/api/social'):Promise<T>{
  const query=new URLSearchParams(params);
- const url='/api/social'+(query.size?'?'+query.toString():'');
- const response=await fetch(url,payload===undefined?{cache:'no-store'}:{method,headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),cache:'no-store'});
+ const url=endpoint+(query.size?'?'+query.toString():'');
+ const isForm=payload instanceof FormData;
+ const response=await fetch(url,payload===undefined?{cache:'no-store'}:{method,headers:isForm?undefined:{'Content-Type':'application/json'},body:isForm?payload:JSON.stringify(payload),cache:'no-store'});
  const data=await response.json() as T & {error?:string};
  if(!response.ok)throw Error(data.error||'The community could not complete this request.');
  return data as T;
@@ -55,6 +57,7 @@ function PostCard({post,onAction,onThread,onProfile,onEdit,onDelete,onReport,onQ
    </div>
   </div>
   {editing?<div className="social-edit"><textarea aria-label="Edit post text" maxLength={1200} rows={4} value={editValue} onChange={e=>setEditValue(e.target.value)}/><div><button disabled={busy||editValue.trim().length<2} className="social-primary" onClick={saveEdit}><Check/> Save changes</button><button className="social-muted-btn" onClick={cancelEdit}>Cancel</button></div></div>:<p className="social-post-copy"><RichCopy value={post.body} onTag={onTag}/></p>}
+  {post.mediaUrl&&<div className="social-post-media"><Image src={post.mediaUrl} alt={post.body?'Image attached to '+post.author+' post: '+post.body.slice(0,95):'Meme image posted by '+post.author} width={960} height={720} sizes="(max-width: 700px) 100vw, 640px" unoptimized/></div>}
   {post.quotePostId&&<div className="social-quote-card">{post.quote?<button type="button" onClick={()=>onThread(post.quotePostId!)} aria-label={'Open quoted post by '+post.quote.author}><span><Repeat2/> QUOTED SIGNAL · {post.quote.author}</span><p>{post.quote.body}</p><small>Open original discussion <ArrowRight/></small></button>:<div className="social-quote-unavailable"><ShieldAlert/> Original post unavailable or restricted</div>}</div>}
   <div className="social-post-actions">
    <button aria-label={post.reacted?'Unlike post':'Like post'} aria-pressed={post.reacted} className={post.reacted?'selected':''} disabled={busy} onClick={()=>onAction('react',post)}><Heart fill={post.reacted?'currentColor':'none'}/><span>{post.reactions}</span></button>
@@ -87,6 +90,9 @@ export function SocialNetwork({openIdentity}:{openIdentity:()=>void}){
  const [selectedId,setSelectedId]=useState<string|null>(null);
  const [thread,setThread]=useState<{root:Post;replies:Post[]}|null>(null);
  const [draft,setDraft]=useState('');
+ const [attachment,setAttachment]=useState<File|null>(null);
+ const [attachmentUrl,setAttachmentUrl]=useState('');
+ const imageInput=useRef<HTMLInputElement|null>(null);
  const [quoteTarget,setQuoteTarget]=useState<Post|null>(null);
  const [reportTarget,setReportTarget]=useState<Post|null>(null);
  const [reportReason,setReportReason]=useState<ReportReason>('spam');
@@ -101,6 +107,14 @@ export function SocialNetwork({openIdentity}:{openIdentity:()=>void}){
  const [editValue,setEditValue]=useState('');
  const [refreshId,setRefreshId]=useState(0);
  const refresh=useCallback(()=>setRefreshId(x=>x+1),[]);
+ useEffect(()=>()=>{if(attachmentUrl)URL.revokeObjectURL(attachmentUrl)},[attachmentUrl]);
+ function selectImage(file:File|null){
+  if(!file){setAttachment(null);setAttachmentUrl('');return}
+  if(!['image/png','image/jpeg','image/gif'].includes(file.type)||file.size>2*1024*1024||file.size<20){
+   setError('Choose a PNG, JPEG or GIF image up to 2 MB.');return;
+  }
+  setError('');setAttachment(file);setAttachmentUrl(URL.createObjectURL(file));
+ }
  const changeView=(next:FeedView,id='')=>{setSection('feed');setSelectedId(null);setView(next);setProfileId(id);setProfile(null);setPage(0);};
  const chooseTopic=(next:Topic|'all')=>{setTopic(next);setTag('');setPage(0);setSelectedId(null);setSection('feed');};
  const chooseTag=(next:string)=>{setTag(next);setQuery('');setSearchInput('');setTopic('all');setPage(0);setSelectedId(null);setView('all');setSection('feed');};
@@ -145,19 +159,24 @@ export function SocialNetwork({openIdentity}:{openIdentity:()=>void}){
   else {const member=params.get('profile');if(member&&/^[a-zA-Z0-9_-]{1,100}$/.test(member)){setSection('feed');setView('profile');setProfileId(member);}}
  },[]);
  function join(){if(!signedIn){openIdentity();return false;}return true;}
- async function action(payload:unknown,method='POST',closeThread=false){
+ async function action(payload:unknown,method='POST',closeThread=false,endpoint='/api/social'){
   if(!join())return;
   setBusy(true);setError('');setSuccess('');
-  try{await social({},payload,method);if(closeThread){setSelectedId(null);setThread(null);}refresh();return true}
+  try{await social({},payload,method,endpoint);if(closeThread){setSelectedId(null);setThread(null);}refresh();return true}
   catch(e){setError(e instanceof Error?e.message:'Action failed.');return false}
   finally{setBusy(false)}
  }
  async function publish(replyTo?:string){
   if(!join())return;
   const text=replyTo?reply:draft;
-  if(text.trim().length<2)return;
-  const ok=await action({action:'create',text,topic:composeTopic,...(replyTo?{replyTo}:quoteTarget?{quotePostId:quoteTarget.id}:{})});
-  if(ok){if(replyTo)setReply('');else{setDraft('');setQuoteTarget(null);changeView('all');setTag('');setQuery('');setSearchInput('');}setSuccess('Published to MemeSpace.');}
+  if(text.trim().length<2&&(!attachment||!!replyTo))return;
+  let ok:boolean|undefined;
+  if(attachment&&!replyTo){
+   const data=new FormData();data.append('image',attachment);data.append('text',text);data.append('topic',composeTopic);
+   if(quoteTarget)data.append('quotePostId',quoteTarget.id);
+   ok=await action(data,'POST',false,'/api/social/media');
+  }else ok=await action({action:'create',text,topic:composeTopic,...(replyTo?{replyTo}:quoteTarget?{quotePostId:quoteTarget.id}:{})});
+  if(ok){if(replyTo)setReply('');else{setDraft('');setQuoteTarget(null);selectImage(null);if(imageInput.current)imageInput.current.value='';changeView('all');setTag('');setQuery('');setSearchInput('');}setSuccess('Published to MemeSpace.');}
  }
  async function toggle(actionName:'react'|'bookmark',post:Post){await action({action:actionName,postId:post.id,enabled:actionName==='react'?!post.reacted:!post.saved})}
  async function toggleFollow(member:{userId:string;following:number|boolean}){await action({action:'follow',userId:member.userId,enabled:!member.following})}
@@ -213,7 +232,7 @@ export function SocialNetwork({openIdentity}:{openIdentity:()=>void}){
       <div className="social-reply-compose"><strong>Join the discussion</strong><textarea aria-label="Write a reply" value={reply} maxLength={1200} onChange={e=>setReply(e.target.value)} placeholder="Add your perspective…"/><button className="social-primary" disabled={busy||readOnly||reply.trim().length<2} onClick={()=>publish(selectedId)}><Send/> Post reply</button>{!signedIn&&<button className="social-signin" onClick={openIdentity}>Sign in to reply</button>}</div>
      </>:<p className="social-empty">Opening conversation…</p>}</section>:
     section==='feed'?<>
-     {view==='all'&&page===0&&!query&&!tag&&<section className="social-composer" aria-label="Create a social post"><div className="social-composer-top"><Avatar name="YOU"/><div><strong>What&apos;s happening in your universe?</strong><p>Memes, gaming, internet culture — share your perspective.</p></div></div>{quoteTarget&&<div className="social-compose-quote"><div><Repeat2/> Quoting {quoteTarget.author} <button onClick={()=>setQuoteTarget(null)} aria-label="Remove quote"><X/></button></div><p>{quoteTarget.body}</p></div>}<textarea aria-label="Write a post" value={draft} onChange={e=>setDraft(e.target.value)} placeholder={signedIn?'Start a conversation…':'Sign in to publish your first post…'} maxLength={1200} rows={3} disabled={readOnly}/><div className="social-composer-actions"><label>Post to <select aria-label="Post topic" value={composeTopic} onChange={e=>setComposeTopic(e.target.value as Topic)}>{topicList.map(t=><option key={t} value={t}>{topicLabels[t]}</option>)}</select></label><span>{draft.length}/1200</span>{signedIn?<button className="social-primary" disabled={busy||readOnly||draft.trim().length<2} onClick={()=>publish()}><Send/> Publish post</button>:<button className="social-primary" onClick={openIdentity}><UserRound/> Sign in to post</button>}</div>{readOnly&&<p className="social-readonly">Community posts are temporarily read-only.</p>}</section>}
+     {view==='all'&&page===0&&!query&&!tag&&<section className="social-composer" aria-label="Create a social post"><div className="social-composer-top"><Avatar name="YOU"/><div><strong>What&apos;s happening in your universe?</strong><p>Memes, gaming, internet culture — share your perspective.</p></div></div>{attachmentUrl&&<div className="social-compose-image"><Image src={attachmentUrl} alt="Image ready to attach" width={960} height={720} unoptimized/><div><ImagePlus/> {attachment?.name||'Image selected'} <button onClick={()=>{selectImage(null);if(imageInput.current)imageInput.current.value=''}} aria-label="Remove attached image"><X/></button></div></div>}{quoteTarget&&<div className="social-compose-quote"><div><Repeat2/> Quoting {quoteTarget.author} <button onClick={()=>setQuoteTarget(null)} aria-label="Remove quote"><X/></button></div><p>{quoteTarget.body}</p></div>}<textarea aria-label="Write a post" value={draft} onChange={e=>setDraft(e.target.value)} placeholder={signedIn?'Start a conversation…':'Sign in to publish your first post…'} maxLength={1200} rows={3} disabled={readOnly}/><div className="social-composer-actions"><label>Post to <select aria-label="Post topic" value={composeTopic} onChange={e=>setComposeTopic(e.target.value as Topic)}>{topicList.map(t=><option key={t} value={t}>{topicLabels[t]}</option>)}</select></label><input ref={imageInput} type="file" accept="image/png,image/jpeg,image/gif" aria-label="Attach a meme image" className="social-image-file" onChange={e=>selectImage(e.target.files?.[0]||null)} disabled={busy||readOnly||!signedIn}/><button className="social-attach-btn" disabled={busy||readOnly||!signedIn} onClick={()=>imageInput.current?.click()}><ImagePlus/> Attach image</button><span>{draft.length}/1200</span>{signedIn?<button className="social-primary" disabled={busy||readOnly||(draft.trim().length<2&&!attachment)} onClick={()=>publish()}><Send/> Publish post</button>:<button className="social-primary" onClick={openIdentity}><UserRound/> Sign in to post</button>}</div>{readOnly&&<p className="social-readonly">Community posts are temporarily read-only.</p>}</section>}
      {view==='profile'&&<section className="social-profile-card" aria-label="Member profile">
       {profile?<><div className="social-profile-banner"><span>MEMESPACE // CREATOR NETWORK</span><Sparkles/></div>
        <div className="social-profile-body"><Avatar name={profile.name} size="large"/>

@@ -6,7 +6,7 @@ export const runtime='nodejs';
 const topics=['general','memes','gaming','culture','web3'] as const;
 const validId=(v:unknown):v is string=>typeof v==='string'&&/^[a-zA-Z0-9_-]{1,100}$/.test(v);
 const noStore={'Cache-Control':'no-store'};
-type PostRow={id:string;user_id:string;body:string;topic:string;reply_to:string|null;quote_post_id:string|null;created_at:number;edited_at:number;author:string;bio:string;reactions:number;replies:number;reacted:number;saved:number;following:number;followers:number};
+type PostRow={id:string;user_id:string;body:string;topic:string;reply_to:string|null;quote_post_id:string|null;created_at:number;edited_at:number;author:string;bio:string;reactions:number;replies:number;reacted:number;saved:number;following:number;followers:number;has_media:number};
 const tagPattern=/(?:^|[^a-zA-Z0-9_])#([a-zA-Z][a-zA-Z0-9_]{0,29})(?![a-zA-Z0-9_])/g;
 function tags(text:string){return [...new Set([...text.matchAll(tagPattern)].map(match=>match[1].toLowerCase()))].slice(0,10);}
 function indexTags(db:ReturnType<typeof rawDatabase>,id:string,text:string){
@@ -23,7 +23,8 @@ function postQuery(userId:string,where:string,args:(string|number)[],limit=20,of
  "EXISTS(SELECT 1 FROM social_reactions r WHERE r.post_id=p.id AND r.user_id=?) AS reacted,"+
  "EXISTS(SELECT 1 FROM social_bookmarks b WHERE b.post_id=p.id AND b.user_id=?) AS saved,"+
  "EXISTS(SELECT 1 FROM social_follows f WHERE f.following_id=p.user_id AND f.follower_id=?) AS following,"+
- "(SELECT COUNT(*) FROM social_follows f WHERE f.following_id=p.user_id) AS followers "+
+ "(SELECT COUNT(*) FROM social_follows f WHERE f.following_id=p.user_id) AS followers,"+
+ "EXISTS(SELECT 1 FROM social_media media WHERE media.post_id=p.id) AS has_media "+
  "FROM social_posts p JOIN accounts a ON a.user_id=p.user_id AND a.deleted_at=0 AND a.suspended_at=0 "+
  "LEFT JOIN profiles pr ON pr.user_id=p.user_id WHERE p.hidden_at=0 "+
  "AND NOT EXISTS(SELECT 1 FROM social_relationships sr WHERE sr.actor_id=? AND sr.target_id=p.user_id AND sr.kind IN ('block','mute')) "+
@@ -41,6 +42,7 @@ function quotePreview(id:string,viewer:string){
 function present(row:PostRow,userId:string){
  return {id:row.id,userId:row.user_id,body:row.body,topic:row.topic,replyTo:row.reply_to,
   quotePostId:row.quote_post_id,quote:row.quote_post_id?quotePreview(row.quote_post_id,userId):null,tags:tags(row.body),
+  mediaUrl:row.has_media?'/api/social/media/'+row.id:null,
   createdAt:row.created_at,editedAt:row.edited_at,author:row.author,bio:row.bio,
   reactions:row.reactions,replies:row.replies,reacted:!!row.reacted,saved:!!row.saved,
   following:!!row.following,followers:row.followers,mine:row.user_id===userId};

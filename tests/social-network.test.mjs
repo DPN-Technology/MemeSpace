@@ -105,4 +105,18 @@ test('social posts, discovery, reactions, follows, replies, search and moderatio
  assert.equal(remaining.posts[0].quote,null,'hidden source is not disclosed');
  const hidden=await fetch(base+'/api/social?mode=thread&id='+created.id);assert.equal(hidden.status,404);
  const invalid=await fetch(base+'/api/social?mode=feed&page=-1');assert.equal(invalid.status,400);
+ // Native media posting is authenticated and the binary is hidden with the post.
+ const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO/+l40AAAAASUVORK5CYII=','base64');
+ function uploadForm(bytes,type){const data=new FormData();data.append('image',new Blob([bytes],{type}),'upload.png');data.append('text','An original MemeSpace image #memeart');data.append('topic','memes');return data;}
+ const forbiddenImage=await fetch(base+'/api/social/media',{method:'POST',body:uploadForm(png,'image/png')});assert.equal(forbiddenImage.status,401);
+ const badImage=await fetch(base+'/api/social/media',{method:'POST',headers:{Origin:base,Cookie:alice.cookie},body:uploadForm(Buffer.from('<svg><script>alert(1)</script></svg>'),'image/svg+xml')});assert.equal(badImage.status,400);
+ const uploaded=await fetch(base+'/api/social/media',{method:'POST',headers:{Origin:base,Cookie:alice.cookie},body:uploadForm(png,'image/png')});
+ const uploadData=await uploaded.json();assert.equal(uploaded.status,201,JSON.stringify(uploadData));
+ const mediaPost=await read('/api/social?mode=feed&tag=memeart',bob);assert.equal(mediaPost.posts[0].mediaUrl,'/api/social/media/'+uploadData.id);
+ const served=await fetch(base+mediaPost.posts[0].mediaUrl);assert.equal(served.status,200);assert.equal(served.headers.get('content-type'),'image/png');assert.deepEqual(Buffer.from(await served.arrayBuffer()),png);
+ await mutate(bob,{action:'block',userId:alice.account.userId,enabled:true});
+ const blockedImage=await fetch(base+mediaPost.posts[0].mediaUrl,{headers:{Cookie:bob.cookie}});assert.equal(blockedImage.status,404);
+ await mutate(bob,{action:'block',userId:alice.account.userId,enabled:false});
+ await mutate(alice,{id:uploadData.id},'DELETE');
+ assert.equal((await fetch(base+mediaPost.posts[0].mediaUrl)).status,404);
 });
