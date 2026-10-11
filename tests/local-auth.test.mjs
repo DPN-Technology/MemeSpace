@@ -107,6 +107,8 @@ test('deletion requires ownership confirmations and removes only the target acco
   db.prepare("INSERT INTO social_community_members(community_id,user_id,role,joined_at) VALUES(?,?,'owner',?)").run('owned-group',one.userId,now);
   db.prepare("INSERT INTO social_community_members(community_id,user_id,role,joined_at) VALUES(?,?,?,?)").run('owned-group',two.userId,'member',now);
   db.prepare('UPDATE social_posts SET community_id=? WHERE id=?').run('owned-group','other-social');
+  db.prepare('INSERT INTO social_posts(id,user_id,body,topic,community_id,created_at) VALUES(?,?,?,?,?,?)').run('removed-group-post',two.userId,'Removed by moderators','memes','owned-group',now);
+  db.prepare('INSERT INTO social_community_removed_posts(community_id,post_id,actor_id,reason,created_at) VALUES(?,?,?,?,?)').run('owned-group','removed-group-post',one.userId,'Guideline violation',now);
   const exported=exportAccount(db,one.userId);
   assert.equal(exported.socialPosts.length,1);
   assert.equal(exported.ownedCommunities.length,1);
@@ -126,6 +128,9 @@ test('deletion requires ownership confirmations and removes only the target acco
   assert.equal(db.prepare('SELECT COUNT(*) n FROM social_communities WHERE owner_id=?').get(one.userId).n,0);
   assert.equal(db.prepare('SELECT COUNT(*) n FROM social_community_members WHERE community_id=?').get('owned-group').n,0);
   assert.equal(db.prepare('SELECT community_id FROM social_posts WHERE id=?').get('other-social').community_id,null,"member keeps their content after the owner account closes");
+  const removedGroupPost=db.prepare('SELECT hidden_at,community_id FROM social_posts WHERE id=?').get('removed-group-post');
+  assert.ok(removedGroupPost.hidden_at>0,'moderated content stays hidden when the owner closes a community');
+  assert.equal(removedGroupPost.community_id,null);
   assert.equal(db.prepare('SELECT COUNT(*) n FROM social_reactions WHERE post_id=?').get('owned-social').n,0);
   assert.equal(db.prepare('SELECT COUNT(*) n FROM social_bookmarks WHERE post_id=?').get('owned-social').n,0);
   assert.equal(db.prepare('SELECT COUNT(*) n FROM social_reports WHERE post_id=?').get('owned-social').n,0);
