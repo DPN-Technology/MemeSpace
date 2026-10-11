@@ -1,0 +1,11 @@
+# Published as the MemeSpace tester container through GitHub Container Registry.
+# Build context is pinned to the official v2.5.0 release tag by the workflow.
+FROM node:24-bookworm-slim
+WORKDIR /app
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 MEMESPACE_PORT=5173 MEMESPACE_LOCAL_MODE=1
+COPY . .
+RUN npm exec --yes --package=pnpm@11.25.0 -- pnpm install --frozen-lockfile --prod=false \
+    && node scripts/local.mjs build
+EXPOSE 5173 5174
+VOLUME ["/app/data"]
+CMD ["node", "scripts/local.mjs", "serve"]
