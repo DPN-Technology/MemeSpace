@@ -1,6 +1,11 @@
 name: Publish MemeSpace Tester to GitHub Packages
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - Dockerfile.tester
+      - .github/workflows/publish-tester-package.yml
   workflow_dispatch:
   release:
     types: [published]
@@ -15,7 +20,7 @@ concurrency:
 
 jobs:
   publish:
-    if: github.repository == 'DPN-Technology/MemeSpace' && (github.event_name == 'workflow_dispatch' || github.event.release.tag_name == 'v2.5.0')
+    if: github.repository == 'DPN-Technology/MemeSpace' && (github.event_name != 'release' || github.event.release.tag_name == 'v2.5.0')
     runs-on: ubuntu-latest
     timeout-minutes: 50
     steps:
