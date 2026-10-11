@@ -22,6 +22,9 @@ function decorated(db:ReturnType<typeof rawDatabase>,c:NonNullable<ReturnType<ty
   requested:!!(uid&&db.prepare('SELECT 1 FROM social_community_requests WHERE community_id=? AND user_id=?').get(c.id,uid)),
   banned:!!db.prepare('SELECT 1 FROM social_community_bans WHERE community_id=? AND user_id=?').get(c.id,uid)};
 }
+function audit(db:ReturnType<typeof rawDatabase>,id:string,actor:string,action:string,target:string,note:string,now:number){
+ db.prepare('INSERT INTO social_community_audit(id,community_id,actor_id,action,target_id,note,created_at) VALUES(?,?,?,?,?,?,?)').run(crypto.randomUUID(),id,actor,action,target,note,now);
+}
 function reject(message:string,status=403){return Response.json({error:message},{status,headers:noStore});}
 export async function GET(request:Request){
  try{
@@ -133,9 +136,17 @@ export async function POST(request:Request){
      db.prepare('INSERT OR REPLACE INTO social_community_bans(community_id,user_id,actor_id,reason,created_at) VALUES(?,?,?,?,?)').run(c.id,d.userId,uid,d.reason.trim(),now);
      db.prepare('DELETE FROM social_community_members WHERE community_id=? AND user_id=?').run(c.id,d.userId);
      db.prepare('DELETE FROM social_community_requests WHERE community_id=? AND user_id=?').run(c.id,d.userId);
+     audit(db,c.id,uid,'member_banned',d.userId,d.reason.trim(),now);
      db.exec('COMMIT');
     }catch(e){try{db.exec('ROLLBACK')}catch{}throw e;}
-   }else db.prepare('DELETE FROM social_community_bans WHERE community_id=? AND user_id=?').run(c.id,d.userId);
+   }else{
+    db.exec('BEGIN IMMEDIATE');
+    try{
+     const change=db.prepare('DELETE FROM social_community_bans WHERE community_id=? AND user_id=?').run(c.id,d.userId);
+     if(change.changes)audit(db,c.id,uid,'member_unbanned',d.userId,'Ban lifted',now);
+     db.exec('COMMIT');
+    }catch(e){try{db.exec('ROLLBACK')}catch{}throw e;}
+   }
    return Response.json({ok:true},{headers:noStore});
   }
   if(d.action==='remove_post'){
@@ -143,7 +154,12 @@ export async function POST(request:Request){
    const post=db.prepare('SELECT user_id FROM social_posts WHERE id=? AND community_id=? AND hidden_at=0').get(d.postId,c.id) as {user_id:string}|undefined;
    if(!post)return reject('Post not found in this community.',404);
    if(mine!=='owner'&&post.user_id===c.ownerId)return reject('Moderators cannot remove an owner post.');
-   db.prepare('INSERT OR IGNORE INTO social_community_removed_posts(community_id,post_id,actor_id,reason,created_at) VALUES(?,?,?,?,?)').run(c.id,d.postId,uid,d.reason.trim(),now);
+   db.exec('BEGIN IMMEDIATE');
+   try{
+    const inserted=db.prepare('INSERT OR IGNORE INTO social_community_removed_posts(community_id,post_id,actor_id,reason,created_at) VALUES(?,?,?,?,?)').run(c.id,d.postId,uid,d.reason.trim(),now);
+    if(inserted.changes)audit(db,c.id,uid,'post_removed',d.postId,d.reason.trim(),now);
+    db.exec('COMMIT');
+   }catch(e){try{db.exec('ROLLBACK')}catch{}throw e;}
    return Response.json({ok:true},{headers:noStore});
   }
   return reject('Unsupported community action.',400);
