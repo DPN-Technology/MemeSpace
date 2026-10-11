@@ -367,4 +367,44 @@ test('social posts, discovery, reactions, follows, replies, search and moderatio
  assert.equal((await fetch(base+avatarUrl,{headers:{Cookie:eve.cookie}})).status,404,'Block prevents direct avatar delivery');
  await mutate(dave,{action:'block',userId:eve.account.userId,enabled:false});
  assert.equal((await fetch(base+avatarUrl,{headers:{Cookie:eve.cookie}})).status,200);
+ // Creator discovery v2: server-side niche filters, @handles, mutual networks and safety.
+ async function discover(actor,params=''){
+  return read('/api/social/discover'+(params?'?'+params:''),actor);
+ }
+ const guestCreators=await discover(null);
+ assert.ok(guestCreators.creators.some(x=>x.userId===dave.account.userId),'guests can browse public creator profiles');
+ const daveDiscovery=guestCreators.creators.find(x=>x.userId===dave.account.userId);
+ assert.equal(daveDiscovery.hasAvatar,true);
+ assert.equal(daveDiscovery.handle,'dave_creator');
+ assert.equal(typeof daveDiscovery.followers,'number');
+ assert.equal(typeof daveDiscovery.posts,'number');
+ assert.equal((await discover(eve,'q=%40dave_creator')).creators[0].userId,dave.account.userId);
+ assert.equal((await discover(eve,'q=imagination')).creators.some(x=>x.userId===dave.account.userId),true);
+ assert.equal((await discover(eve,'q=illustrator')).creators.some(x=>x.userId===dave.account.userId),true);
+ assert.equal((await discover(eve,'q=Michigan')).creators.some(x=>x.userId===dave.account.userId),false,'optional location is not a searchable field');
+ assert.equal((await discover(eve,'topic=memes')).creators.some(x=>x.userId===dave.account.userId),true);
+ assert.equal((await discover(eve,'topic=gaming')).creators.some(x=>x.userId===dave.account.userId),false,'creator niche requires a public top-level post');
+ assert.equal((await discover(eve,'filter=avatars')).creators.some(x=>x.userId===dave.account.userId),true);
+ assert.equal((await discover(eve,'filter=following')).creators.some(x=>x.userId===dave.account.userId),true);
+ assert.equal((await discover(eve,'sort=popular')).creators.length>0,true);
+ assert.equal((await discover(eve,'sort=active')).creators.length>0,true);
+ assert.equal((await discover(eve,'sort=new')).creators.length>0,true);
+ assert.equal((await discover(eve,'page=1')).creators.length,0,'discovery pagination is bounded');
+ await mutate(alice,{action:'follow',userId:eve.account.userId,enabled:true});
+ assert.ok((await discover(alice,'filter=mutuals')).creators.some(x=>x.userId===dave.account.userId&&x.mutuals>=1),
+  'a member followed by people I follow should have mutual recommendations');
+ const oldName=await discover(eve,'q=%25%25');
+ assert.equal(oldName.creators.length,0,'search treats percent characters literally');
+ await mutate(dave,{action:'block',userId:eve.account.userId,enabled:true});
+ assert.equal((await discover(eve)).creators.some(x=>x.userId===dave.account.userId),false,'reverse blocks exclude creator from directory');
+ assert.equal((await discover(dave)).creators.some(x=>x.userId===eve.account.userId),false,'outgoing blocks exclude creator from directory');
+ await mutate(dave,{action:'block',userId:eve.account.userId,enabled:false});
+ assert.equal((await discover(eve)).creators.some(x=>x.userId===dave.account.userId),true);
+ await mutate(eve,{action:'mute',userId:dave.account.userId,enabled:true});
+ assert.equal((await discover(eve)).creators.some(x=>x.userId===dave.account.userId),false,'muted creators stay out of recommendations');
+ await mutate(eve,{action:'mute',userId:dave.account.userId,enabled:false});
+ for(const params of ['topic=made-up','sort=malicious','filter=internal','page=-1','page=101']){
+  const response=await fetch(base+'/api/social/discover?'+params,{headers:{Cookie:eve.cookie}});
+  assert.equal(response.status,400,'invalid discover query '+params);
+ }
 });
