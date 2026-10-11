@@ -122,4 +122,44 @@ test('social posts, discovery, reactions, follows, replies, search and moderatio
  let mediaDb;const prevDir=process.env.MEMESPACE_DATA_DIR;process.env.MEMESPACE_DATA_DIR=data;
  try{mediaDb=openDatabase(root);assert.equal(mediaDb.prepare('SELECT COUNT(*) AS n FROM social_media WHERE post_id=?').get(uploadData.id).n,0,'removed image bytes are purged');}
  finally{mediaDb?.close();if(prevDir===undefined)delete process.env.MEMESPACE_DATA_DIR;else process.env.MEMESPACE_DATA_DIR=prevDir}
+ // Communities are real multi-member spaces: server-side permission gates, role grants and moderation.
+ async function communityCall(actor,payload,method='POST'){
+  const r=await fetch(base+'/api/social/communities',{method,headers:{Origin:base,'Content-Type':'application/json',Cookie:actor.cookie},body:JSON.stringify(payload)});
+  return {status:r.status,data:await r.json()};
+ }
+ const made=await communityCall(alice,{action:'create',slug:'meme-builders',name:'Meme Builders Guild',description:'A creator-powered workshop'});
+ assert.equal(made.status,201,JSON.stringify(made.data));
+ const cid=made.data.id;
+ assert.equal((await read('/api/social/communities?q=builders',bob)).communities.some(c=>c.id===cid),true);
+ assert.equal((await read('/api/social/communities?id='+cid,alice)).community.role,'owner');
+ const anonymousJoin=await fetch(base+'/api/social/communities',{method:'POST',headers:{Origin:base,'Content-Type':'application/json'},body:JSON.stringify({action:'join',communityId:cid})});
+ assert.equal(anonymousJoin.status,401);
+ const unauthorizedPost=await fetch(base+'/api/social',{method:'POST',headers:{Origin:base,'Content-Type':'application/json',Cookie:bob.cookie},body:JSON.stringify({action:'create',text:'Not a member yet',topic:'memes',communityId:cid})});
+ assert.equal(unauthorizedPost.status,403);
+ assert.equal((await communityCall(bob,{action:'join',communityId:cid})).status,200);
+ const shared=await mutate(bob,{action:'create',text:'Welcome to the guild #builders',topic:'memes',communityId:cid});
+ assert.ok((await read('/api/social?mode=feed&community='+cid,alice)).posts.some(p=>p.id===shared.id&&p.communityId===cid));
+ const charlie=await register('social-charlie@example.test','Charlie Member');
+ assert.equal((await communityCall(charlie,{action:'join',communityId:cid})).status,200);
+ const guildImage=new FormData();guildImage.append('image',new Blob([png],{type:'image/png'}),'guild.png');guildImage.append('text','Meme Guild art #guild');guildImage.append('topic','memes');guildImage.append('communityId',cid);
+ const mediaResp=await fetch(base+'/api/social/media',{method:'POST',headers:{Origin:base,Cookie:charlie.cookie},body:guildImage});
+ const groupMedia=await mediaResp.json();assert.equal(mediaResp.status,201,JSON.stringify(groupMedia));
+ const founder=await mutate(alice,{action:'create',text:'Founder announcement',topic:'memes',communityId:cid});
+ assert.equal((await communityCall(bob,{action:'role',communityId:cid,userId:charlie.account.userId,role:'moderator'})).status,403);
+ assert.equal((await communityCall(alice,{action:'role',communityId:cid,userId:bob.account.userId,role:'moderator'})).status,200);
+ assert.equal((await communityCall(bob,{action:'remove_post',communityId:cid,postId:founder.id,reason:'Unfair'})).status,403);
+ assert.equal((await communityCall(bob,{action:'remove_post',communityId:cid,postId:groupMedia.id,reason:'Off-topic media'})).status,200);
+ assert.equal((await fetch(base+'/api/social/media/'+groupMedia.id)).status,404);
+ assert.equal((await read('/api/social?mode=feed&community='+cid,alice)).posts.some(p=>p.id===groupMedia.id),false);
+ assert.equal((await communityCall(alice,{action:'ban',communityId:cid,userId:bob.account.userId,reason:'Repeated violations'})).status,200);
+ assert.equal((await read('/api/social/communities?id='+cid,bob)).community.banned,true);
+ assert.equal((await communityCall(bob,{action:'join',communityId:cid})).status,403);
+ const bannedPost=await fetch(base+'/api/social',{method:'POST',headers:{Origin:base,'Content-Type':'application/json',Cookie:bob.cookie},body:JSON.stringify({action:'create',text:'Banned content',topic:'memes',communityId:cid})});
+ assert.equal(bannedPost.status,403);
+ assert.equal((await communityCall(alice,{action:'unban',communityId:cid,userId:bob.account.userId})).status,200);
+ assert.equal((await communityCall(bob,{action:'join',communityId:cid})).status,200);
+ assert.equal((await communityCall(bob,{action:'leave',communityId:cid})).status,200);
+ assert.equal((await communityCall(alice,{action:'leave',communityId:cid})).status,403);
+ assert.equal((await communityCall(alice,{communityId:cid,name:'The Meme Builders Guild',description:'A refreshed creator space'},'PATCH')).status,200);
+ assert.equal((await read('/api/social/communities?id='+cid,alice)).community.name,'The Meme Builders Guild');
 });

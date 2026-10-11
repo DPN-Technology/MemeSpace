@@ -102,8 +102,15 @@ test('deletion requires ownership confirmations and removes only the target acco
   db.prepare('INSERT INTO social_follows(follower_id,following_id,created_at) VALUES(?,?,?)').run(two.userId,one.userId,Date.now());
   db.prepare('INSERT INTO social_reports(user_id,post_id,reason,created_at) VALUES(?,?,?,?)').run(two.userId,'owned-social','spam',Date.now());
   db.prepare('INSERT INTO social_relationships(actor_id,target_id,kind,created_at) VALUES(?,?,?,?)').run(two.userId,one.userId,'mute',Date.now());
+  const now=Date.now();
+  db.prepare('INSERT INTO social_communities(id,slug,name,description,owner_id,created_at,updated_at) VALUES(?,?,?,?,?,?,?)').run('owned-group','owner-guild','Owned Guild','Creator-owned community',one.userId,now,now);
+  db.prepare("INSERT INTO social_community_members(community_id,user_id,role,joined_at) VALUES(?,?,'owner',?)").run('owned-group',one.userId,now);
+  db.prepare("INSERT INTO social_community_members(community_id,user_id,role,joined_at) VALUES(?,?,?,?)").run('owned-group',two.userId,'member',now);
+  db.prepare('UPDATE social_posts SET community_id=? WHERE id=?').run('owned-group','other-social');
   const exported=exportAccount(db,one.userId);
   assert.equal(exported.socialPosts.length,1);
+  assert.equal(exported.ownedCommunities.length,1);
+  assert.equal(exported.communityMemberships.length,1);
   assert.equal(exported.socialMedia.length,1);
   assert.equal(exported.socialMedia[0].mime,'image/png');
   assert.equal(exported.socialPosts[0].body,'Owner post');
@@ -116,6 +123,9 @@ test('deletion requires ownership confirmations and removes only the target acco
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM messages WHERE user_id=?').get(two.userId).n,1);
   assert.equal(db.prepare('SELECT COUNT(*) n FROM social_posts WHERE user_id=?').get(one.userId).n,0);
   assert.equal(db.prepare('SELECT COUNT(*) n FROM social_media WHERE user_id=?').get(one.userId).n,0);
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM social_communities WHERE owner_id=?').get(one.userId).n,0);
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM social_community_members WHERE community_id=?').get('owned-group').n,0);
+  assert.equal(db.prepare('SELECT community_id FROM social_posts WHERE id=?').get('other-social').community_id,null,'member keeps their content after the owner's account closes');
   assert.equal(db.prepare('SELECT COUNT(*) n FROM social_reactions WHERE post_id=?').get('owned-social').n,0);
   assert.equal(db.prepare('SELECT COUNT(*) n FROM social_bookmarks WHERE post_id=?').get('owned-social').n,0);
   assert.equal(db.prepare('SELECT COUNT(*) n FROM social_reports WHERE post_id=?').get('owned-social').n,0);

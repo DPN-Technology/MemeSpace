@@ -20,7 +20,7 @@ function postQuery(userId:string,where:string,args:(string|number)[],limit=20,of
  const sql="SELECT p.id,p.user_id,p.body,p.topic,p.reply_to,p.quote_post_id,p.community_id,p.created_at,p.edited_at,"+
  "COALESCE(pr.name,a.display_name,'Explorer') AS author,COALESCE(pr.bio,'') AS bio,"+
  "(SELECT COUNT(*) FROM social_reactions r WHERE r.post_id=p.id) AS reactions,"+
- "(SELECT COUNT(*) FROM social_posts child WHERE child.reply_to=p.id AND child.hidden_at=0) AS replies,"+
+ "(SELECT COUNT(*) FROM social_posts child WHERE child.reply_to=p.id AND child.hidden_at=0 AND NOT EXISTS(SELECT 1 FROM social_community_removed_posts rm WHERE rm.post_id=child.id)) AS replies,"+
  "EXISTS(SELECT 1 FROM social_reactions r WHERE r.post_id=p.id AND r.user_id=?) AS reacted,"+
  "EXISTS(SELECT 1 FROM social_bookmarks b WHERE b.post_id=p.id AND b.user_id=?) AS saved,"+
  "EXISTS(SELECT 1 FROM social_follows f WHERE f.following_id=p.user_id AND f.follower_id=?) AS following,"+
@@ -66,7 +66,7 @@ export async function GET(request:Request){
     "SELECT h.tag,COUNT(*) AS posts FROM social_hashtags h "+
     "JOIN social_posts p ON p.id=h.post_id AND p.hidden_at=0 AND p.reply_to IS NULL "+
     "JOIN accounts a ON a.user_id=p.user_id AND a.deleted_at=0 AND a.suspended_at=0 "+
-    "WHERE NOT EXISTS(SELECT 1 FROM social_relationships sr WHERE sr.actor_id=? AND sr.target_id=p.user_id AND sr.kind IN ('block','mute')) "+
+    "WHERE "+communityVisiblePostFilter('p')+" AND NOT EXISTS(SELECT 1 FROM social_relationships sr WHERE sr.actor_id=? AND sr.target_id=p.user_id AND sr.kind IN ('block','mute')) "+
     "AND NOT EXISTS(SELECT 1 FROM social_relationships sr WHERE sr.actor_id=p.user_id AND sr.target_id=? AND sr.kind='block') "+
     "GROUP BY h.tag ORDER BY posts DESC,h.tag ASC LIMIT 8"
    ).all(uid,uid);
@@ -77,7 +77,7 @@ export async function GET(request:Request){
    if(q){filters.push("(instr(lower(COALESCE(p.name,a.display_name)),lower(?))>0 OR instr(lower(COALESCE(p.bio,'')),lower(?))>0)");args.push(q,q);}
    const people=rawDatabase().prepare(
     "SELECT a.user_id AS userId,COALESCE(p.name,a.display_name) AS name,COALESCE(p.bio,'') AS bio,"+
-    "(SELECT COUNT(*) FROM social_posts s WHERE s.user_id=a.user_id AND s.hidden_at=0 AND s.reply_to IS NULL) AS posts,"+
+    "(SELECT COUNT(*) FROM social_posts s WHERE s.user_id=a.user_id AND s.hidden_at=0 AND s.reply_to IS NULL AND NOT EXISTS(SELECT 1 FROM social_community_removed_posts rm WHERE rm.post_id=s.id)) AS posts,"+
     "(SELECT COUNT(*) FROM social_follows f WHERE f.following_id=a.user_id) AS followers,"+
     "EXISTS(SELECT 1 FROM social_follows f WHERE f.following_id=a.user_id AND f.follower_id=?) AS following,"+
     "EXISTS(SELECT 1 FROM social_relationships sr WHERE sr.actor_id=? AND sr.target_id=a.user_id AND sr.kind='block') AS blocked,"+
@@ -92,7 +92,7 @@ export async function GET(request:Request){
    if(!validId(target))throw Error('INPUT');
    const profile=rawDatabase().prepare(
     "SELECT a.user_id AS userId,COALESCE(p.name,a.display_name) AS name,COALESCE(p.bio,'') AS bio,a.created_at AS joinedAt,"+
-    "(SELECT COUNT(*) FROM social_posts s WHERE s.user_id=a.user_id AND s.hidden_at=0 AND s.reply_to IS NULL) AS posts,"+
+    "(SELECT COUNT(*) FROM social_posts s WHERE s.user_id=a.user_id AND s.hidden_at=0 AND s.reply_to IS NULL AND NOT EXISTS(SELECT 1 FROM social_community_removed_posts rm WHERE rm.post_id=s.id)) AS posts,"+
     "(SELECT COUNT(*) FROM social_follows f WHERE f.following_id=a.user_id) AS followers,"+
     "(SELECT COUNT(*) FROM social_follows f WHERE f.follower_id=a.user_id) AS followingCount,"+
     "EXISTS(SELECT 1 FROM social_follows f WHERE f.following_id=a.user_id AND f.follower_id=?) AS following,"+
@@ -147,7 +147,7 @@ export async function GET(request:Request){
   const order=sort==='popular'?'(SELECT COUNT(*) FROM social_reactions r WHERE r.post_id=p.id) DESC,p.created_at DESC,p.id DESC':'p.created_at DESC,p.id DESC';
   const rows=postQuery(uid,conditions.join(' AND '),args,21,page*20,order);
   const db=rawDatabase();
-  const stats={posts:Number(db.prepare("SELECT COUNT(*) AS count FROM social_posts WHERE hidden_at=0 AND reply_to IS NULL").get()?.count||0),
+  const stats={posts:Number(db.prepare("SELECT COUNT(*) AS count FROM social_posts p WHERE p.hidden_at=0 AND p.reply_to IS NULL AND "+communityVisiblePostFilter('p')).get()?.count||0),
    members:Number(db.prepare("SELECT COUNT(*) AS count FROM accounts WHERE deleted_at=0 AND suspended_at=0 AND user_id<>'local_seedy'").get()?.count||0),
    following:uid?Number(db.prepare('SELECT COUNT(*) AS count FROM social_follows WHERE follower_id=?').get(uid)?.count||0):0};
   return Response.json({posts:rows.slice(0,20).map(p=>present(p,uid)),hasMore:rows.length>20,stats,signedIn:!!user,readOnly:restricted()},{headers:noStore});

@@ -128,11 +128,11 @@ export function SocialNetwork({openIdentity}:{openIdentity:()=>void}){
  useEffect(()=>{
   let cancelled=false;
   setLoading(true);setError('');
-  const params={mode:'feed',view,topic,sort,q:query,page:String(page),...(communityId?{community:communityId}:{}),...(tag?{tag}:{}),...(view==='profile'?{user:profileId}:{})};
+  const params={mode:'feed',view,topic,sort,q:query,page:String(page),...(communityId?{community:communityInfo?.id||communityId}:{}),...(tag?{tag}:{}),...(view==='profile'?{user:profileId}:{})};
   social<FeedResult>(params).then(data=>{if(cancelled)return;setPosts(data.posts);setHasMore(data.hasMore);setStats(data.stats);setSignedIn(data.signedIn);setReadOnly(data.readOnly)})
    .catch((e:Error)=>{if(!cancelled)setError(e.message)}).finally(()=>{if(!cancelled)setLoading(false)});
   return()=>{cancelled=true};
- },[view,topic,sort,page,query,tag,profileId,communityId,refreshId]);
+ },[view,topic,sort,page,query,tag,profileId,communityId,communityInfo?.id,refreshId]);
  useEffect(()=>{let cancelled=false;
   social<{trends:Trend[]}>({mode:'trends'}).then(data=>{if(!cancelled)setTrends(data.trends)}).catch(()=>{if(!cancelled)setTrends([])});
   return()=>{cancelled=true};
@@ -183,9 +183,9 @@ export function SocialNetwork({openIdentity}:{openIdentity:()=>void}){
   if(attachment&&!replyTo){
    const data=new FormData();data.append('image',attachment);data.append('text',text);data.append('topic',composeTopic);
    if(quoteTarget)data.append('quotePostId',quoteTarget.id);
-   if(communityId)data.append('communityId',communityId);
+   if(communityId)data.append('communityId',communityInfo?.id||communityId);
    ok=await action(data,'POST',false,'/api/social/media');
-  }else ok=await action({action:'create',text,topic:composeTopic,...(replyTo?{replyTo}:{communityId:communityId||undefined,...(quoteTarget?{quotePostId:quoteTarget.id}:{})})});
+  }else ok=await action({action:'create',text,topic:composeTopic,...(replyTo?{replyTo}:{communityId:communityId?(communityInfo?.id||communityId):undefined,...(quoteTarget?{quotePostId:quoteTarget.id}:{})})});
   if(ok){if(replyTo)setReply('');else{setDraft('');setQuoteTarget(null);selectImage(null);if(imageInput.current)imageInput.current.value='';setSection('feed');setView('all');setPage(0);setTag('');setQuery('');setSearchInput('');}setSuccess('Published to MemeSpace.');}
  }
  async function toggle(actionName:'react'|'bookmark',post:Post){await action({action:actionName,postId:post.id,enabled:actionName==='react'?!post.reacted:!post.saved})}
