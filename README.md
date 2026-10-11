@@ -30,11 +30,11 @@
 
 ## Windows tester download
 
-**[Download MemeSpace v2.5.0 for Windows (.ZIP)](https://github.com/DPN-Technology/MemeSpace/releases/download/v2.5.0/MemeSpace-v2.5.0-Windows-Tester.zip)**
+**[Download the latest MemeSpace release for Windows](https://github.com/DPN-Technology/MemeSpace/releases/latest)** — open **Assets**, then select `MemeSpace-vX.Y.Z-Windows-Tester.zip` for that version.
 
-Extract the ZIP, install Node.js 24 or newer if needed, and double-click `LAUNCH-MEMESPACE.cmd`. The launcher downloads the exact v2.5.0 release and installs dependencies on first launch. Internet is required during setup; no Docker installation is needed.
+Every newly published release receives its own Windows launcher ZIP and a versioned Docker image in [GitHub Packages](https://github.com/orgs/DPN-Technology/packages), once the automated publishing jobs succeed. Extract the Windows ZIP, install Node.js 24 or newer if needed, and double-click `LAUNCH-MEMESPACE.cmd`. The launcher downloads the **specific release you selected** and installs dependencies on first launch. Internet is required during setup; Docker is not needed for Windows ZIP testers.
 
-The **GitHub Packages** page contains the separate Docker container edition. GitHub's Container Registry does not offer an ordinary Windows ZIP download; the link above points to the official **Releases → Assets** download instead.
+GitHub's container **Packages** page is for the Docker image; click **Releases → Assets** to download the Windows launcher as a file.
 
 ## Quick start
 
