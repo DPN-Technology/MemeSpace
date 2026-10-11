@@ -43,6 +43,13 @@
       "when": 1791680000000,
       "tag": "0005_social_network",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1791687900000,
+      "tag": "0006_social_moderation",
+      "breakpoints": true
     }
   ]
 }

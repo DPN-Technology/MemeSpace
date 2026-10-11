@@ -94,11 +94,27 @@ test('deletion requires ownership confirmations and removes only the target acco
   db=openDatabase(root);const one=createAccount(db,{identifier:'one@localhost',displayName:'One',password:'one-valid-password'});const two=createAccount(db,{identifier:'two@localhost',displayName:'Two',password:'two-valid-password'});
   db.prepare('INSERT INTO messages(id,user_id,text,channel,reply_to,edited_at,created_at) VALUES(?,?,?,?,?,?,?)').run('m1',one.userId,'one','general',null,0,Date.now());
   db.prepare('INSERT INTO messages(id,user_id,text,channel,reply_to,edited_at,created_at) VALUES(?,?,?,?,?,?,?)').run('m2',two.userId,'two','general',null,0,Date.now());
+  db.prepare('INSERT INTO social_posts(id,user_id,body,topic,created_at) VALUES(?,?,?,?,?)').run('owned-social',one.userId,'Owner post','general',Date.now());
+  db.prepare('INSERT INTO social_posts(id,user_id,body,topic,reply_to,created_at) VALUES(?,?,?,?,?,?)').run('other-social',two.userId,'Other author reply','general','owned-social',Date.now());
+  db.prepare('INSERT INTO social_reactions(user_id,post_id,created_at) VALUES(?,?,?)').run(two.userId,'owned-social',Date.now());
+  db.prepare('INSERT INTO social_bookmarks(user_id,post_id,created_at) VALUES(?,?,?)').run(two.userId,'owned-social',Date.now());
+  db.prepare('INSERT INTO social_follows(follower_id,following_id,created_at) VALUES(?,?,?)').run(two.userId,one.userId,Date.now());
+  db.prepare('INSERT INTO social_reports(user_id,post_id,reason,created_at) VALUES(?,?,?,?)').run(two.userId,'owned-social','spam',Date.now());
+  const exported=exportAccount(db,one.userId);
+  assert.equal(exported.socialPosts.length,1);
+  assert.equal(exported.socialPosts[0].body,'Owner post');
+  assert.equal(exported.socialFollows.length,1);
   expectCode(()=>deleteAccount(db,one.userId,'wrong'),'CONFIRMATION');
   expectCode(()=>deleteAccount(db,one.userId,'DELETE MY ACCOUNT','','wrong-password'),'AUTH_INVALID');
   assert.equal(deleteAccount(db,one.userId,'DELETE MY ACCOUNT','','one-valid-password'),true);
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM messages WHERE user_id=?').get(one.userId).n,0);
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM messages WHERE user_id=?').get(two.userId).n,1);
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM social_posts WHERE user_id=?').get(one.userId).n,0);
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM social_reactions WHERE post_id=?').get('owned-social').n,0);
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM social_bookmarks WHERE post_id=?').get('owned-social').n,0);
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM social_reports WHERE post_id=?').get('owned-social').n,0);
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM social_follows WHERE following_id=?').get(one.userId).n,0);
+  assert.ok(db.prepare('SELECT hidden_at FROM social_posts WHERE id=?').get('other-social').hidden_at>0,'other authors retain records but orphaned replies are hidden');
   expectCode(()=>authenticateAccount(db,'one@localhost','one-valid-password'),'AUTH_INVALID');
  }finally{db?.close();rmSync(root,{recursive:true,force:true})}
 });

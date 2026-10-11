@@ -73,6 +73,13 @@ test('moderation, announcements, live switches and verified backups use actual r
   ops.moderate(f.site,f.db,ctx,'r1',{action:'hide',reason:'Spam review confirmed'});assert.ok(f.site.prepare('SELECT hidden_at FROM messages WHERE id=?').get('m1').hidden_at);
   assert.equal(ops.reports(f.site,ctx,new URL('http://localhost?status=open')).total,0);
   ops.messageAction(f.site,f.db,ctx,'m1',{action:'restore',reason:'Appeal reviewed in full'});assert.equal(f.site.prepare('SELECT hidden_at FROM messages WHERE id=?').get('m1').hidden_at,0);
+  f.site.prepare('INSERT INTO social_posts(id,user_id,body,topic,created_at) VALUES(?,?,?,?,?)').run('sp1','local_seedy','Report this new social post','memes',Date.now());
+  f.site.prepare('INSERT INTO social_reports(user_id,post_id,reason,created_at) VALUES(?,?,?,?)').run('local_seedy','sp1','spam',Date.now());
+  assert.equal(ops.reports(f.site,ctx,new URL('http://localhost?status=open')).total,1,'social reports share the operator moderation queue');
+  ops.moderate(f.site,f.db,ctx,'social:sp1:local_seedy',{action:'hide',reason:'Social moderation approved'});
+  assert.ok(f.site.prepare('SELECT hidden_at FROM social_posts WHERE id=?').get('sp1').hidden_at);
+  assert.equal(f.site.prepare('SELECT status FROM social_reports WHERE post_id=?').get('sp1').status,'resolved');
+  assert.equal(ops.reports(f.site,ctx,new URL('http://localhost?status=open')).total,0);
   const news=ops.saveAnnouncement(f.site,f.db,ctx,{title:'Welcome',body:'Community update',tone:'info',status:'draft'});assert.equal(f.site.prepare("SELECT count(*) n FROM announcements WHERE status='published'").get().n,0);
   ops.saveAnnouncement(f.site,f.db,ctx,{title:'Welcome',body:'Now live',tone:'event',status:'published'},news.id);assert.equal(f.site.prepare("SELECT body FROM announcements WHERE status='published'").get().body,'Now live');
   ops.changeSettings(f.site,f.db,ctx,{registration_open:false,chat_readonly:true,reason:'Maintenance window'});assert.deepEqual(ops.settings(f.site),{registration_open:false,chat_readonly:true});

@@ -25,3 +25,11 @@ Use pnpm test:social-api (requires installed dependencies) for the HTTP integrat
 ## Next direction (not implemented in this draft)
 
 Public profile pages with custom handles and avatars; media uploads and image moderation; hashtag indexing, mentions and reshares; block/mute/privacy settings; integrated Control Center social moderation queue; public scale and real-time notifications.
+
+## Moderation and data lifecycle (second foundation)
+
+The Control Center Moderation queue includes reports from both chat and the new social feed. Authorized moderators can hide social posts and their direct replies, or resolve, dismiss and reopen reports; actions are audit logged. Social moderation decisions are stored independently from chat.
+
+Account export includes social posts, reactions, bookmarks, follows and reports. Account deletion transactionally removes the member's posts and social graph references, and hides other members' replies when their parent posts disappear, without deleting those members' owned replies.
+
+A dedicated social-post restoration UI, block/mute tools and richer reporting reasons remain future work.
