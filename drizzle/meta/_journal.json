@@ -85,6 +85,13 @@
       "when": 1791760000000,
       "tag": "0011_private_communities",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1791768800000,
+      "tag": "0012_community_moderation",
+      "breakpoints": true
     }
   ]
 }
