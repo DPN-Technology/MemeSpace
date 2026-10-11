@@ -8,6 +8,9 @@
 <p align="center"><strong>A digital mind. A community. An arcade worth coming back to.</strong></p>
 <p align="center">Explore an interactive binary head and brain, make and share memes, and play six arcade cabinets — with a separate Control Center behind the scenes.</p>
 
+> [!CAUTION]
+> **DPN TECHNOLOGY PROPRIETARY SOFTWARE — ALL RIGHTS RESERVED.** MemeSpace is **not open source** in this repository revision. Unless you have an existing enforceable license or statutory right, **prior written permission from DPN Technology is required to install, run, copy, modify, distribute, host, or commercially use DPN-owned MemeSpace**. Public code and tester releases are not authorization. Read [LICENSE](LICENSE), [historical MIT rights](docs/licensing/HISTORICAL-MIT.md), and [third-party licenses](THIRD_PARTY_LICENSES.md). Older MIT versions retain their original valid grants.
+
 <!-- DPN-LIVE-STATUS:START -->
 <p align="center">
   <a href="https://github.com/DPN-Technology/MemeSpace/actions/workflows/ci.yml"><img src="https://github.com/DPN-Technology/MemeSpace/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI on main"></a>
@@ -29,6 +32,9 @@
 > **Current source:** this README describes `main`, including the latest arcade improvements. For a downloaded version, follow its [release notes](https://github.com/DPN-Technology/MemeSpace/releases). The supported runtime is local Node.js 24+, Next.js and native SQLite.
 
 ## Windows tester download
+
+**Permission notice:** An available tester ZIP or container image is not authorization to use a proprietary MemeSpace release without DPN Technology's written permission. Historical MIT-licensed versions remain subject to their original grants. See [LICENSE](LICENSE).
+
 
 **[Download the latest MemeSpace release for Windows](https://github.com/DPN-Technology/MemeSpace/releases/latest)** — open **Assets**, then select `MemeSpace-vX.Y.Z-Windows-Tester.zip` for that version.
 
@@ -211,6 +217,8 @@ Browser arcade tests require a production build and Playwright Chromium; see [te
 | [Arcade upgrade design](docs/superpowers/specs/2026-10-07-memespace-arcade-v2-6-design.md) | Design context for the expanded pinball, pool and slots experiences. |
 | [Control Center design](docs/control-center-design.md) | Administrative architecture and operational responsibilities. |
 | [Identity foundation](docs/identity-foundation-design.md) | Member identity and legacy migration design. |
+| [DPN proprietary license](LICENSE) | Permission-required use, copying, modification, hosting and distribution. |
+| [Historical MIT license](docs/licensing/HISTORICAL-MIT.md) | Records prior rights that later licensing cannot revoke. |
 | [Security policy](SECURITY.md) | Security expectations and vulnerability reporting. |
 | [Third-party licenses](THIRD_PARTY_LICENSES.md) | Dependency and asset attribution; retain the geometry credits and license files. |
 | [Releases](https://github.com/DPN-Technology/MemeSpace/releases) · [Issues](https://github.com/DPN-Technology/MemeSpace/issues) | Version-specific downloads, release notes, reproducible bugs and feature requests. |
