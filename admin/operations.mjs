@@ -16,7 +16,7 @@ function publicMutation(site,security,ctx,action,id,details,fn){
 }
 export function overview(site,ctx){
   requirePermission(ctx,'overview.view');const n=(sql,...args)=>Number(site.prepare(sql).get(...args).n),now=Date.now(),since=now-24*3600000;
-  const counts={members:n("SELECT count(*) n FROM accounts WHERE deleted_at=0 AND password_hash NOT LIKE 'legacy_unset$%'"),newMembers:n("SELECT count(*) n FROM accounts WHERE deleted_at=0 AND created_at>? AND password_hash NOT LIKE 'legacy_unset$%'",since),activeSessions:n('SELECT count(DISTINCT user_id) n FROM sessions WHERE revoked_at=0 AND expires_at>? AND last_seen_at>?',now,now-5*60000),messages:n('SELECT count(*) n FROM messages WHERE hidden_at=0'),messagesToday:n('SELECT count(*) n FROM messages WHERE hidden_at=0 AND created_at>?',since),openReports:n("SELECT count(*) n FROM reports WHERE status='open'"),suspended:n('SELECT count(*) n FROM accounts WHERE suspended_at>0 AND deleted_at=0')};
+  const counts={members:n("SELECT count(*) n FROM accounts WHERE deleted_at=0 AND password_hash NOT LIKE 'legacy_unset$%'"),newMembers:n("SELECT count(*) n FROM accounts WHERE deleted_at=0 AND created_at>? AND password_hash NOT LIKE 'legacy_unset$%'",since),activeSessions:n('SELECT count(DISTINCT user_id) n FROM sessions WHERE revoked_at=0 AND expires_at>? AND last_seen_at>?',now,now-5*60000),messages:n('SELECT count(*) n FROM messages WHERE hidden_at=0'),messagesToday:n('SELECT count(*) n FROM messages WHERE hidden_at=0 AND created_at>?',since),openReports:n("SELECT (SELECT count(*) FROM reports WHERE status='open')+(SELECT count(*) FROM social_reports WHERE status='open') n"),suspended:n('SELECT count(*) n FROM accounts WHERE suspended_at>0 AND deleted_at=0')};
   const first=new Date(now-13*86400000);first.setUTCHours(0,0,0,0);
   const registrations=site.prepare("SELECT strftime('%Y-%m-%d',created_at/1000,'unixepoch') day,count(*) n FROM accounts WHERE deleted_at=0 AND created_at>=? AND password_hash NOT LIKE 'legacy_unset$%' GROUP BY day").all(first.getTime());
   const messages=site.prepare("SELECT strftime('%Y-%m-%d',created_at/1000,'unixepoch') day,count(*) n FROM messages WHERE created_at>=? GROUP BY day").all(first.getTime());
@@ -36,14 +36,62 @@ export function memberAction(site,security,ctx,id,input){
   return publicMutation(site,security,ctx,'user.'+action,id,{reason},()=>{if(action!=='revoke')site.prepare('UPDATE accounts SET suspended_at=?,suspension_reason=?,updated_at=? WHERE user_id=?').run(action==='suspend'?Date.now():0,action==='suspend'?reason:'',Date.now(),id);if(action!=='restore')site.prepare('UPDATE sessions SET revoked_at=? WHERE user_id=? AND revoked_at=0').run(Date.now(),id);return {ok:true}});
 }
 export function reports(site,ctx,url){
-  requirePermission(ctx,'chat.moderate');const status=url.searchParams.get('status')||'open';if(!['open','resolved','dismissed','all'].includes(status))fail(400,'Invalid report filter.');const where=status==='all'?'':' WHERE r.status=?',args=status==='all'?[]:[status];
-  const from=" FROM reports r LEFT JOIN messages m ON m.id=r.message_id LEFT JOIN accounts a ON a.user_id=m.user_id LEFT JOIN profiles p ON p.user_id=m.user_id LEFT JOIN accounts reporter ON reporter.user_id=r.user_id";
-  return resultPage(site,"SELECT r.id,r.message_id,r.created_at,r.status,r.resolution_note,r.reviewed_at,m.text,m.channel,m.hidden_at,COALESCE(p.name,a.display_name,'Removed member') author,COALESCE(reporter.display_name,'Removed member') reporter"+from+where+' ORDER BY r.created_at DESC','SELECT count(*) n FROM reports r'+where,args,url);
+  requirePermission(ctx,'chat.moderate');
+  const status=url.searchParams.get('status')||'open';
+  if(!['open','resolved','dismissed','all'].includes(status))fail(400,'Invalid report filter.');
+  const data=String.raw`SELECT r.id,r.message_id,r.created_at,r.status,r.resolution_note,r.reviewed_at,m.text,m.channel,m.hidden_at,
+  COALESCE(p.name,a.display_name,'Removed member') author,COALESCE(reporter.display_name,'Removed member') reporter
+  FROM reports r
+  LEFT JOIN messages m ON m.id=r.message_id
+  LEFT JOIN accounts a ON a.user_id=m.user_id
+  LEFT JOIN profiles p ON p.user_id=m.user_id
+  LEFT JOIN accounts reporter ON reporter.user_id=r.user_id
+  UNION ALL
+  SELECT 'social:'||s.post_id||':'||s.user_id AS id,s.post_id AS message_id,s.created_at,s.status,s.resolution_note,s.reviewed_at,
+  post.body AS text,'social / '||COALESCE(post.topic,'removed') AS channel,COALESCE(post.hidden_at,0) AS hidden_at,
+  COALESCE(p.name,a.display_name,'Removed member') author,COALESCE(reporter.display_name,'Removed member') reporter
+  FROM social_reports s
+  LEFT JOIN social_posts post ON post.id=s.post_id
+  LEFT JOIN accounts a ON a.user_id=post.user_id
+  LEFT JOIN profiles p ON p.user_id=post.user_id
+  LEFT JOIN accounts reporter ON reporter.user_id=s.user_id`;
+  const where=status==='all'?'':' WHERE status=?',args=status==='all'?[]:[status];
+  const source=' FROM ('+data+')';
+  return resultPage(site,'SELECT *'+source+where+' ORDER BY created_at DESC','SELECT count(*) n'+source+where,args,url);
 }
 export function moderate(site,security,ctx,id,input){
-  requirePermission(ctx,'chat.moderate');if(!['hide','resolve','dismiss','reopen'].includes(input.action))fail(400,'Invalid report action.');const reason=textInput(input.reason,'Decision note',500,5),row=site.prepare('SELECT * FROM reports WHERE id=?').get(id);if(!row)fail(404,'Report not found.');
-  return publicMutation(site,security,ctx,'report.'+input.action,id,{reason,messageId:row.message_id},()=>{if(input.action==='hide'){const changed=site.prepare('UPDATE messages SET hidden_at=?,hidden_reason=? WHERE id=?').run(Date.now(),reason,row.message_id);if(!changed.changes)fail(409,'This message was already deleted. Resolve the report without hiding it.');}
-    const status=input.action==='reopen'?'open':input.action==='dismiss'?'dismissed':'resolved';site.prepare('UPDATE reports SET status=?,reviewed_at=?,reviewed_by=?,resolution_note=? WHERE id=?').run(status,Date.now(),ctx.id,reason,id);return {ok:true};});
+  requirePermission(ctx,'chat.moderate');
+  if(!['hide','resolve','dismiss','reopen'].includes(input.action))fail(400,'Invalid report action.');
+  const reason=textInput(input.reason,'Decision note',500,5);
+  if(id.startsWith('social:')){
+    const match=/^social:([a-zA-Z0-9_-]{1,100}):([a-zA-Z0-9_-]{1,100})$/.exec(id);
+    if(!match)fail(400,'Invalid social report reference.');
+    const [,postId,reporterId]=match;
+    const report=site.prepare('SELECT post_id,user_id FROM social_reports WHERE post_id=? AND user_id=?').get(postId,reporterId);
+    if(!report)fail(404,'Report not found.');
+    return publicMutation(site,security,ctx,'social.report.'+input.action,id,{reason,postId},()=>{
+      if(input.action==='hide'){
+        const now=Date.now();
+        const changed=site.prepare('UPDATE social_posts SET hidden_at=?,hidden_reason=? WHERE id=? AND hidden_at=0').run(now,reason,postId);
+        if(!changed.changes)fail(409,'This social post is already hidden or removed. Resolve the report without hiding it.');
+        site.prepare('UPDATE social_posts SET hidden_at=?,hidden_reason=? WHERE reply_to=? AND hidden_at=0').run(now,'Parent post moderated',postId);
+      }
+      const status=input.action==='reopen'?'open':input.action==='dismiss'?'dismissed':'resolved';
+      site.prepare('UPDATE social_reports SET status=?,reviewed_at=?,reviewed_by=?,resolution_note=? WHERE post_id=? AND user_id=?')
+        .run(status,Date.now(),ctx.id,reason,postId,reporterId);
+      return {ok:true};
+    });
+  }
+  const row=site.prepare('SELECT * FROM reports WHERE id=?').get(id);if(!row)fail(404,'Report not found.');
+  return publicMutation(site,security,ctx,'report.'+input.action,id,{reason,messageId:row.message_id},()=>{
+    if(input.action==='hide'){
+      const changed=site.prepare('UPDATE messages SET hidden_at=?,hidden_reason=? WHERE id=?').run(Date.now(),reason,row.message_id);
+      if(!changed.changes)fail(409,'This message was already deleted. Resolve the report without hiding it.');
+    }
+    const status=input.action==='reopen'?'open':input.action==='dismiss'?'dismissed':'resolved';
+    site.prepare('UPDATE reports SET status=?,reviewed_at=?,reviewed_by=?,resolution_note=? WHERE id=?').run(status,Date.now(),ctx.id,reason,id);
+    return {ok:true};
+  });
 }
 export function messages(site,ctx,url){
   requirePermission(ctx,'chat.moderate');const where=url.searchParams.get('status')==='hidden'?' WHERE m.hidden_at>0':'';
