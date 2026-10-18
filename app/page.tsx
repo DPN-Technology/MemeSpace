@@ -1,21 +1,31 @@
 "use client";
 import {useState,useEffect,useRef} from 'react';
+import dynamic from 'next/dynamic';
 import {ArrowUpRight,ArrowRight,AudioLines,VolumeX,Settings2,Search,Wallet,Command,Brain,MessageSquare,Gamepad2,Images,BookOpen,Orbit,User,Layers,ChevronLeft,RotateCcw,Check,Compass,Users} from 'lucide-react';
 import {Dialog,DialogContent,DialogTitle,DialogDescription} from '@/components/ui/dialog';
 import {Switch} from '@/components/ui/switch';
-import Scene from './scene';
 import {Tooltip,TooltipContent,TooltipTrigger,TooltipProvider} from '@/components/ui/tooltip';
-import {WalletDashboard} from './module-upgrades';
-import {GameHub,Vault,ProfileOverview,UniversalSearch} from './expanded-modules';
 import './community-content.css';
+import './modern.css';
 import {allStories,allCoinStories,allLearning} from './content-catalog';
-import {AdvancedChatRoom} from './chat-upgrade';
-import {EnhancedAcademy,EnhancedArchive} from './information-upgrade';
 import {Tabs,TabsList,TabsTrigger} from '@/components/ui/tabs';
 import {IdentityScope} from './identity-scope';
 import {CommunityUpdates} from './community-updates';
-import {IdentityCenter,IdentityAccount} from './identity-center';
-import {SocialNetwork} from './social-network';
+import type {IdentityAccount} from './identity-center';
+
+// Module workspaces and the canvas scene load on demand so the portal paints fast.
+const panelLoading=()=><div className="panel-loading" role="status" aria-label="Loading"><i/><i/><i/></div>;
+const Scene=dynamic(()=>import('./scene'),{ssr:false});
+const IdentityCenter=dynamic(()=>import('./identity-center').then(m=>m.IdentityCenter),{ssr:false});
+const WalletDashboard=dynamic(()=>import('./module-upgrades').then(m=>m.WalletDashboard),{loading:panelLoading});
+const GameHub=dynamic(()=>import('./expanded-modules').then(m=>m.GameHub),{loading:panelLoading});
+const Vault=dynamic(()=>import('./expanded-modules').then(m=>m.Vault),{loading:panelLoading});
+const ProfileOverview=dynamic(()=>import('./expanded-modules').then(m=>m.ProfileOverview),{loading:panelLoading});
+const UniversalSearch=dynamic(()=>import('./expanded-modules').then(m=>m.UniversalSearch),{loading:panelLoading});
+const AdvancedChatRoom=dynamic(()=>import('./chat-upgrade').then(m=>m.AdvancedChatRoom),{loading:panelLoading});
+const EnhancedAcademy=dynamic(()=>import('./information-upgrade').then(m=>m.EnhancedAcademy),{loading:panelLoading});
+const EnhancedArchive=dynamic(()=>import('./information-upgrade').then(m=>m.EnhancedArchive),{loading:panelLoading});
+const SocialNetwork=dynamic(()=>import('./social-network').then(m=>m.SocialNetwork),{loading:panelLoading});
 
 type Key='social'|'history'|'coins'|'games'|'chat'|'media'|'learn'|'wallet'|'profile'|'search'|'menu'|'about'|'privacy';
 const modules=[
@@ -26,7 +36,7 @@ const modules=[
  {id:'social' as Key,title:'Social Network',tag:'MEMESPACE CONNECT',desc:'Your new social universe: posts, creators, replies, reactions and community discovery.',preview:'The Feed · Discover creators · Follow · Post · Connect.',icon:Users,x:84,y:69},
  {id:'media' as Key,title:'Media Vault',tag:'VISUAL CULTURE',desc:'Browse the concept collection, create a meme and save your own work.',preview:'The collection · Binary portraits and neural worlds.',icon:Images,x:32,y:69},
  {id:'learn' as Key,title:'Crypto Education',tag:'LEARN · VERIFY · UNDERSTAND',desc:'Build practical knowledge of networks, wallet permissions and online communities.',preview:'Wallets, blockchains and the fundamentals. Start with the basics.',icon:Compass,x:68,y:69},
- {id:'wallet' as Key,title:'Wallet',tag:'YOUR WEB3 CONNECTION',desc:'Connect a compatible Solana wallet. Your keys stay in your wallet.',preview:'Connect Phantom to display your public wallet address.',icon:Wallet,x:48,y:26},
+ {id:'wallet' as Key,title:'Wallet',tag:'YOUR WEB3 CONNECTION',desc:'Connect a compatible Solana wallet. Your keys stay in your wallet.',preview:'Connect Phantom to display your public wallet address.',icon:Wallet,x:48,y:35},
  {id:'profile' as Key,title:'Your Profile',tag:'YOUR PLACE IN THE MIND',desc:'Choose how you appear in the MemeSpace community.',preview:'Set your display name and tell the community a little about yourself.',icon:User,x:50,y:75}
 ];
 function SoundBars({on}:{on:boolean}){return <span className={'sound-bars '+(on?'active':'')} aria-hidden="true">{[1,2,3,4,5].map(n=><i key={n}/>)}</span>}
