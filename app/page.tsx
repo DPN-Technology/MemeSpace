@@ -15,7 +15,7 @@ import type {IdentityAccount} from './identity-center';
 
 // Module workspaces and the canvas scene load on demand so the portal paints fast.
 const panelLoading=()=><div className="panel-loading" role="status" aria-label="Loading"><i/><i/><i/></div>;
-const Scene=dynamic(()=>import('./scene'),{ssr:false});
+const Scene=dynamic(()=>import('./scene-gl'),{ssr:false});
 const IdentityCenter=dynamic(()=>import('./identity-center').then(m=>m.IdentityCenter),{ssr:false});
 const WalletDashboard=dynamic(()=>import('./module-upgrades').then(m=>m.WalletDashboard),{loading:panelLoading});
 const GameHub=dynamic(()=>import('./expanded-modules').then(m=>m.GameHub),{loading:panelLoading});
