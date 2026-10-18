@@ -223,7 +223,7 @@ function GL({inside,warp,reduced,quality,onReady,focus,glow=1,paused=false,onFai
    zoom+=(Number(s.warp)-zoom)*Math.min(1,dt*2.5);
    const forming=s.reduced?1:Math.min(1,Math.max(0,t/3.2)),form=1-Math.pow(1-forming,3);
    const rotY=s.reduced?(s.inside?.24:0):yaw,rotX=s.reduced?(s.inside?.55:0):pitch;
-   const scale=Math.min(h*(s.inside?.31:.25),w*(s.inside?.37:.32)),cx=w*.5,cy=h*(s.inside?.5:.39);
+   const scale=Math.min(h*(s.inside?.31:.25),w*(s.inside?.37:.32)),cx=w*.5,cy=h*(s.inside?.55:.39);
    const sel=s.focus?receptors[s.focus]:null;
    const common=(g:Prog)=>{
     gl.useProgram(g.p);
