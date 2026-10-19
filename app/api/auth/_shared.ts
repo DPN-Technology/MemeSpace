@@ -20,7 +20,8 @@ export function authFailure(error:unknown){
   if(code==='ORIGIN')return Response.json({error:'This request is not allowed.'},{status:403,headers:noStore()});
   if(code==='AUTH_REQUIRED')return Response.json({error:'Please sign in to use this feature.'},{status:401,headers:noStore()});
   if(code==='AUTH_INVALID')return Response.json({error:'Invalid email or password.'},{status:401,headers:noStore()});
-  if(code==='DUPLICATE')return Response.json({error:'That identifier is already in use.'},{status:409,headers:noStore()});
+  if(code==='DUPLICATE')return Response.json({error:error instanceof Error&&/wallet/i.test(error.message)?error.message:'That identifier is already in use.'},{status:409,headers:noStore()});
+  if(code==='RATE_LIMIT')return Response.json({error:error instanceof Error?error.message:'Too many requests.'},{status:429,headers:noStore()});
   if(code==='CONFIRMATION')return Response.json({error:error instanceof Error?error.message:'Confirmation required.'},{status:400,headers:noStore()});
   if(code==='AUTH_INPUT'||code==='INPUT')return Response.json({error:error instanceof Error?error.message:'Please check your input and try again.'},{status:400,headers:noStore()});
   console.error('MemeSpace auth operation failed');

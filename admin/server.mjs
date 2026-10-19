@@ -6,10 +6,11 @@ import {openDatabase,importLegacyDatabase} from '../lib/local-database.mjs';
 import {openSecurity,createInvite,beginEnrollment,finishEnrollment,login,readSession,rateLimit,audit,fail,requirePermission,revokeStaff,cookieName,sessionAge} from './security.mjs';
 import * as ops from './operations.mjs';
 
-const assets={'/':['index.html','text/html; charset=utf-8'],'/admin.css':['admin.css','text/css; charset=utf-8'],'/admin.js':['admin.js','text/javascript; charset=utf-8']};
+const assets={'/':['index.html','text/html; charset=utf-8'],'/admin.css':['admin.css','text/css; charset=utf-8'],'/admin.js':['admin.js','text/javascript; charset=utf-8'],'/page-editor.css':['page-editor.css','text/css; charset=utf-8'],'/cms-blocks.css':['cms-blocks.css','text/css; charset=utf-8'],'/page-editor.js':['page-editor.js','text/javascript; charset=utf-8']};
 const headers={'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','X-Frame-Options':'DENY','Cross-Origin-Resource-Policy':'same-origin','Content-Security-Policy':"default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",'Permissions-Policy':'camera=(), microphone=(), geolocation=()'};
 function cookie(token='',age=sessionAge/1000){return `${cookieName}=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${age}`}
-async function body(req){if(!String(req.headers['content-type']||'').startsWith('application/json'))fail(415,'Use a JSON request.');let length=0,chunks=[];for await(const chunk of req){length+=chunk.length;if(length>16384)fail(413,'This request is too large.');chunks.push(chunk)}let data;try{data=JSON.parse(Buffer.concat(chunks).toString())}catch{fail(400,'Invalid JSON.')}if(!data||typeof data!=='object'||Array.isArray(data))fail(400,'A JSON object is required.');return data}
+const pageLimit=262144;
+async function body(req,max=16384){if(!String(req.headers['content-type']||'').startsWith('application/json'))fail(415,'Use a JSON request.');let length=0,chunks=[];for await(const chunk of req){length+=chunk.length;if(length>max)fail(413,'This request is too large.');chunks.push(chunk)}let data;try{data=JSON.parse(Buffer.concat(chunks).toString())}catch{fail(400,'Invalid JSON.')}if(!data||typeof data!=='object'||Array.isArray(data))fail(400,'A JSON object is required.');return data}
 export async function createAdminServer({root=fileURLToPath(new URL('../',import.meta.url)),port=5174,sitePort=5173}={}){
   if(!Number.isInteger(sitePort)||sitePort<1024||sitePort>65535||!Number.isInteger(port)||port<1024||port>65535||port===sitePort)throw Error('The admin port must be a different port from 1024 to 65535.');
   await importLegacyDatabase(root);const site=openDatabase(root),{db:security,key}=openSecurity(root);
@@ -49,6 +50,13 @@ export async function createAdminServer({root=fileURLToPath(new URL('../',import
       else if(method==='GET'&&route==='/api/announcements')data=ops.announcements(site,ctx);
       else if(method==='POST'&&route==='/api/announcements')data=ops.saveAnnouncement(site,security,ctx,await body(req));
       else if(method==='POST'&&(id=route.match(/^\/api\/announcements\/([^/]+)$/)?.[1]))data=ops.saveAnnouncement(site,security,ctx,await body(req),id);
+      else if(method==='GET'&&route==='/api/pages')data=ops.pageList(site,ctx,url);
+      else if(method==='POST'&&route==='/api/pages')data=ops.pageCreate(site,security,ctx,await body(req,pageLimit));
+      else if(method==='GET'&&(id=route.match(/^\/api\/pages\/([0-9a-f-]{36})$/)?.[1]))data=ops.pageGet(site,ctx,id);
+      else if(method==='POST'&&(id=route.match(/^\/api\/pages\/([0-9a-f-]{36})$/)?.[1]))data=ops.pageSave(site,security,ctx,id,await body(req,pageLimit));
+      else if(method==='POST'&&(id=route.match(/^\/api\/pages\/([0-9a-f-]{36})\/action$/)?.[1]))data=ops.pageAction(site,security,ctx,id,await body(req));
+      else if(method==='GET'&&(id=route.match(/^\/api\/pages\/([0-9a-f-]{36})\/revisions$/)?.[1]))data=ops.pageRevisions(site,ctx,id);
+      else if(method==='GET'&&(id=route.match(/^\/api\/pages\/([0-9a-f-]{36})\/revisions\/(\d+)$/)?.slice(1)))data=ops.pageRevisions(site,ctx,id[0],Number(id[1]));
       else if(method==='GET'&&route==='/api/games')data=ops.games(site,ctx);
       else if(method==='POST'&&/^\/api\/games\/[a-z]+$/.test(route))data=ops.changeGame(site,security,ctx,route.split('/')[3],await body(req));
       else if(method==='GET'&&route==='/api/settings'){requirePermission(ctx,'system.manage');data={settings:ops.settings(site)}}
