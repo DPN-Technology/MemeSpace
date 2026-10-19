@@ -5,6 +5,7 @@ import path from 'node:path';
 import {dataDirectory} from '../lib/local-database.mjs';
 import {arcadeCatalog,GAME_CATALOG} from '../lib/arcade-catalog.mjs';
 import {audit,fail,requirePermission,transaction,roles,safeAdmin} from './security.mjs';
+import * as pages from '../lib/site-pages.mjs';
 
 export function textInput(value,label,max=500,min=1){if(typeof value!=='string'||value.trim().length<min||value.length>max||/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(value))fail(400,`${label} must be ${min}–${max} characters.`);return value.trim()}
 function pagination(url){const page=Number(url.searchParams.get('page')||1);return {page:Number.isSafeInteger(page)&&page>0?Math.min(page,100000):1,limit:20}}
@@ -125,6 +126,31 @@ export function saveAnnouncement(site,security,ctx,input,id=null){
   const old=id?site.prepare('SELECT * FROM announcements WHERE id=?').get(id):null;if(id&&!old)fail(404,'Announcement not found.');if(status==='published'||old?.status==='published')requirePermission(ctx,'content.publish');
   id??=randomUUID();const now=Date.now();
   return publicMutation(site,security,ctx,'content.'+status,id,{title},()=>{site.prepare('INSERT INTO announcements(id,title,body,tone,status,created_at,updated_at,published_at) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET title=excluded.title,body=excluded.body,tone=excluded.tone,status=excluded.status,updated_at=excluded.updated_at,published_at=excluded.published_at').run(id,title,body,tone,status,old?.created_at||now,now,status==='published'?now:old?.published_at||0);return {ok:true,id}});
+}
+const pageAuthor=ctx=>String(ctx.name||ctx.id).slice(0,80);
+export function pageList(site,ctx,url){requirePermission(ctx,'content.manage');return pages.listPages(site,{query:url.searchParams.get('q')||'',status:['draft','published','archived'].includes(url.searchParams.get('status'))?url.searchParams.get('status'):''})}
+export function pageGet(site,ctx,id){requirePermission(ctx,'content.manage');return pages.getPage(site,id)}
+export function pageRevisions(site,ctx,id,revisionId=null){requirePermission(ctx,'content.manage');return revisionId?pages.revisionDetail(site,id,revisionId):pages.revisions(site,id)}
+export function pageCreate(site,security,ctx,input){
+  requirePermission(ctx,'content.manage');
+  return publicMutation(site,security,ctx,'page.created',String(input.slug||'').slice(0,60),{title:String(input.title||'').slice(0,100)},()=>pages.createPage(site,input,pageAuthor(ctx)));
+}
+export function pageSave(site,security,ctx,id,input){
+  requirePermission(ctx,'content.manage');
+  return publicMutation(site,security,ctx,input.checkpoint===true?'page.checkpoint':'page.draft',id,{},()=>pages.saveDraft(site,id,input,pageAuthor(ctx)));
+}
+export function pageAction(site,security,ctx,id,input){
+  const action=input.action,live=['publish','unpublish'].includes(action);
+  if(!['publish','unpublish','archive','unarchive','duplicate','restore'].includes(action))fail(400,'Unknown page action.');
+  requirePermission(ctx,live?'content.publish':'content.manage');
+  const author=pageAuthor(ctx);
+  return publicMutation(site,security,ctx,'page.'+action,id,action==='restore'?{revision:Number(input.revisionId)||0}:{},()=>{
+    if(action==='publish')return pages.publishPage(site,id,author);
+    if(action==='unpublish')return pages.unpublishPage(site,id);
+    if(action==='archive'||action==='unarchive')return pages.archivePage(site,id,action==='archive');
+    if(action==='duplicate')return pages.duplicatePage(site,id,author);
+    return pages.restoreRevision(site,id,Number(input.revisionId),author);
+  });
 }
 export function auditEvents(db,ctx,url){
   requirePermission(ctx,'security.view');const q=String(url.searchParams.get('q')||'').slice(0,100),where=' WHERE action LIKE ? OR actor_name LIKE ? OR object_id LIKE ?',like='%'+q.replaceAll('%','').replaceAll('_','')+'%';

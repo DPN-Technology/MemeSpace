@@ -1,0 +1,44 @@
+/* Shared by the Control Center preview (/cms-blocks.css) and the public /p/<slug> pages. */
+.cms{--c-text:#e9edf3;--c-muted:#9aa6b8;--c-line:#ffffff1f;--c-accent:#5cffb0;--c-accent2:#8b7bff;--c-sky:#38d4ff;--c-surface:#ffffff0a;display:grid;gap:22px;max-width:760px;margin:0 auto;color:var(--c-text);font-size:17px;line-height:1.7;font-family:Inter,ui-sans-serif,-apple-system,"Segoe UI",sans-serif}
+.cms>*{margin:0;min-width:0}
+.cms p{margin:0;color:#d4dbe6}
+.cms p+p{margin-top:14px}
+.cms a{color:var(--c-sky);text-decoration:underline;text-underline-offset:3px}
+.cms-hero{padding:56px 30px;border-radius:28px;border:1px solid var(--c-line);text-align:center;background:radial-gradient(60% 90% at 50% 0,#8b7bff38,transparent 70%),radial-gradient(40% 60% at 90% 100%,#5cffb02e,transparent 70%),#0b0e17}
+.cms-hero small{display:block;font-size:11px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--c-accent)}
+.cms-hero h2{margin:10px 0 12px;font-size:clamp(30px,5vw,46px);line-height:1.08;letter-spacing:-.035em;font-weight:720}
+.cms-hero p{max-width:52ch;margin:0 auto 22px;color:var(--c-muted)}
+.cms h2.cms-h,.cms h3.cms-h{letter-spacing:-.025em;line-height:1.2;font-weight:700;margin:10px 0 0}
+.cms h2.cms-h{font-size:clamp(24px,3.4vw,32px)}
+.cms h3.cms-h{font-size:20px;color:#f3f6fb}
+.cms ul,.cms ol{margin:0;padding-left:22px;display:grid;gap:8px;color:#d4dbe6}
+.cms li::marker{color:var(--c-accent)}
+.cms-quote{margin:0;padding:20px 24px;border-left:3px solid var(--c-accent2);border-radius:0 18px 18px 0;background:linear-gradient(90deg,#8b7bff1f,transparent)}
+.cms-quote p{font-size:20px;line-height:1.5;font-style:italic;color:#f3f6fb}
+.cms-quote footer{margin-top:10px;font-size:13px;color:var(--c-muted)}
+.cms-callout{padding:16px 20px;border-radius:18px;border:1px solid var(--c-line);background:var(--c-surface)}
+.cms-callout b{display:block;margin-bottom:4px;font-size:15px}
+.cms-callout.info{border-color:#38d4ff55;background:#38d4ff12}
+.cms-callout.success{border-color:#5cffb055;background:#5cffb012}
+.cms-callout.warning{border-color:#ffc86b66;background:#ffc86b14}
+.cms-figure{margin:0}
+.cms-figure img{display:block;width:100%;height:auto;border-radius:20px;border:1px solid var(--c-line)}
+.cms-figure figcaption{margin-top:8px;font-size:13px;text-align:center;color:var(--c-muted)}
+.cms-img-missing{display:grid;place-items:center;min-height:140px;border-radius:20px;border:1px dashed var(--c-line);color:var(--c-muted);font-size:13px}
+.cms-btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 24px;border-radius:999px;font-weight:650;font-size:15px;text-decoration:none!important;color:#06060d!important;background:linear-gradient(135deg,#5cffb0,#38d4ff 55%,#8b7bff);transition:transform .25s,box-shadow .25s}
+.cms-btn:hover{transform:translateY(-2px);box-shadow:0 12px 30px #5cffb033}
+.cms-btn.ghost{color:var(--c-text)!important;background:transparent;border:1px solid #ffffff38}
+.cms-actions{display:flex;justify-content:center}
+.cms hr{width:100%;border:0;height:1px;background:linear-gradient(90deg,transparent,#ffffff30,transparent)}
+.cms-faq{display:grid;gap:10px}
+.cms-faq details{border:1px solid var(--c-line);border-radius:16px;background:var(--c-surface);padding:0 18px}
+.cms-faq summary{cursor:pointer;padding:14px 0;font-weight:650;list-style:none}
+.cms-faq summary::-webkit-details-marker{display:none}
+.cms-faq summary::after{content:"+";float:right;color:var(--c-accent);font-size:20px;line-height:1}
+.cms-faq details[open] summary::after{content:"–"}
+.cms-faq details p{padding-bottom:16px}
+.cms-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
+.cms-card{display:block;padding:18px;border-radius:20px;border:1px solid var(--c-line);background:var(--c-surface);text-decoration:none!important;color:inherit;transition:transform .25s,border-color .25s}
+a.cms-card:hover{transform:translateY(-3px);border-color:#8b7bffaa}
+.cms-card b{display:block;margin-bottom:6px;font-size:16px;color:#fff}
+.cms-card span{font-size:14px;line-height:1.55;color:var(--c-muted)}
