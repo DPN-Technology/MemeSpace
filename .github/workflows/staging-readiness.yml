@@ -7,6 +7,8 @@ on:
       - "Dockerfile.staging"
       - ".dockerignore"
       - "deploy/staging/**"
+      - "deploy/oracle/**"
+      - "docs/oracle-cloud-deployment.md"
       - "scripts/local.mjs"
       - "scripts/staging-smoke.mjs"
       - "lib/local-session.mjs"
@@ -71,3 +73,53 @@ jobs:
       - name: Tear down test container
         if: always()
         run: docker rm -f memespace-staging-ci 2>/dev/null || true
+
+  oracle-arm64:
+    name: OCI Ampere A1 · ARM64 Container / SQLite Smoke
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 45
+    steps:
+      - name: Checkout (no persisted credentials)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24.20.0"
+          package-manager-cache: false
+
+      - name: Verify native ARM and Oracle operator scripts
+        run: |
+          test "$(uname -m)" = "aarch64"
+          bash -n deploy/oracle/prepare-ubuntu.sh deploy/oracle/check-host.sh
+          node scripts/security-gate.mjs
+          node --test tests/staging-origin.test.mjs
+
+      - name: Build the actual Oracle linux/arm64 container
+        run: |
+          docker build --pull --platform linux/arm64 -f Dockerfile.staging -t memespace:oci-arm64-ci .
+          test "$(docker image inspect memespace:oci-arm64-ci --format '{{.Architecture}}')" = "arm64"
+
+      - name: Run isolated ARM64 SQLite/website smoke
+        run: |
+          set -euo pipefail
+          docker run -d --name memespace-oci-arm64-ci \
+            -e MEMESPACE_PUBLIC_ORIGIN=https://staging.example.org \
+            -p 127.0.0.1:5189:5173 memespace:oci-arm64-ci
+          ready=0
+          for i in $(seq 1 90); do
+            if curl --fail --silent http://127.0.0.1:5189/api/health | grep -q '"ok":true'; then ready=1; break; fi
+            sleep 2
+          done
+          test "$ready" -eq 1
+          node scripts/staging-smoke.mjs http://127.0.0.1:5189
+
+      - name: Show container logs on failure
+        if: failure()
+        run: docker logs --tail=120 memespace-oci-arm64-ci 2>&1 || true
+
+      - name: Delete test container
+        if: always()
+        run: docker rm -f memespace-oci-arm64-ci 2>/dev/null || true
