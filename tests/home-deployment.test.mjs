@@ -22,7 +22,7 @@ test('home tunnel token is excluded from Git and Docker build context',()=>{
 test('Cloudflare tunnel is an opt-in profile, app is not internet port-published',()=>{
   assert.match(compose,/profiles: \["tunnel"\]/);
   assert.match(workflow,/"deploy\/home\/\*\*"/);
-  const cfg=JSON.parse(execFileSync('docker',['compose','-f','deploy/home/compose.yml','config','--format','json'],{
+  const cfg=JSON.parse(execFileSync('docker',['compose','--profile','tunnel','-f','deploy/home/compose.yml','config','--format','json'],{
     cwd:root,encoding:'utf8',env:{...process.env,MEMESPACE_STAGE_HOSTNAME:'staging.example.org'}
   }));
   assert.ok(cfg.services.app,'app service required');
