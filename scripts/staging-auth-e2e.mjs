@@ -2,6 +2,7 @@
 // Exercises real HTTP session cookies on a simulated HTTPS public Host.
 // Never run against a real staging site: this script creates a test account.
 import assert from 'node:assert/strict';
+import http from 'node:http';
 import {randomUUID} from 'node:crypto';
 const base=process.argv[2]||'http://127.0.0.1:5188';
 const host=process.env.MEMESPACE_TEST_PUBLIC_HOST||'staging.example.org';
@@ -10,7 +11,21 @@ const email='ci-'+randomUUID()+'@example.invalid';
 const password='CITest-'+randomUUID()+'-only';
 async function req(route,{method='GET',body,cookie,originHeader=origin}={}){
   const headers={host, ...(cookie?{cookie}:{}),...(body?{'content-type':'application/json',origin:originHeader}:{})};
-  const response=await fetch(base+route,{method,headers,body:body?JSON.stringify(body):undefined,redirect:'manual'});
+  // Node's fetch overwrites custom Host with the TCP destination. A raw HTTP
+  // request is necessary to exercise production's HTTPS Host enforcement on a
+  // loopback-bound CI container, without weakening the application's guard.
+  const response=await new Promise((resolve,reject)=>{
+    const request=http.request(new URL(base+route),{method,headers,timeout:10000},incoming=>{
+      const parts=[];
+      incoming.on('data',part=>parts.push(part));
+      incoming.on('end',()=>resolve(new Response(Buffer.concat(parts),{status:incoming.statusCode,headers:incoming.headers})));
+      incoming.on('error',reject);
+    });
+    request.on('timeout',()=>request.destroy(new Error('HTTP staging request timed out')));
+    request.on('error',reject);
+    if(body)request.write(JSON.stringify(body));
+    request.end();
+  });
   let payload;try{payload=await response.json()}catch{payload={}}
   return {response,payload};
 }
