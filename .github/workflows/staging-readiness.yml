@@ -18,6 +18,8 @@ on:
       - "app/api/auth/_shared.ts"
       - "tests/staging-origin.test.mjs"
       - "scripts/staging-auth-e2e.mjs"
+      - "scripts/staging-durability-e2e.mjs"
+      - "scripts/staging-durability-ci.sh"
       - "lib/local-auth.mjs"
       - ".github/workflows/staging-readiness.yml"
   workflow_dispatch:
@@ -72,6 +74,11 @@ jobs:
           test "$ready" -eq 1
           node scripts/staging-smoke.mjs http://127.0.0.1:5188
           node scripts/staging-auth-e2e.mjs http://127.0.0.1:5188
+
+      - name: Verify Docker named-volume restart and real SQLite backup restore
+        env:
+          CI: "true"
+        run: bash scripts/staging-durability-ci.sh
 
       - name: Inspect logs on failure
         if: failure()
