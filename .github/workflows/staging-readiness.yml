@@ -145,3 +145,17 @@ jobs:
         run: |
           node scripts/security-gate.mjs
           node --test tests/home-deployment.test.mjs
+
+      - name: Parse Windows PowerShell deployment scripts (no execution)
+        shell: pwsh
+        run: |
+          $files = @('deploy/home/verify-host.ps1', 'deploy/home/set-tunnel-token.ps1')
+          foreach ($file in $files) {
+            $tokens = $null
+            $parseErrors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $file).Path, [ref]$tokens, [ref]$parseErrors)
+            if ($parseErrors.Count -gt 0) {
+              foreach ($problem in $parseErrors) { Write-Error $problem.Message }
+              throw "PowerShell syntax invalid: $file"
+            }
+          }
