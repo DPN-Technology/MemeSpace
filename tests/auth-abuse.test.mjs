@@ -53,3 +53,15 @@ test('global admission caps prevent identifier-rotation floods',()=>{
     rateLimitAuth(db,'login','fresh@example.org',160001);
   }finally{db.close()}
 });
+
+test('credential-verifying public login is not held hostage by an identifier quota',async()=>{
+  const db=new DatabaseSync(':memory:');
+  db.exec('CREATE TABLE accounts(user_id TEXT PRIMARY KEY,email TEXT UNIQUE,password_hash TEXT,password_salt TEXT,display_name TEXT,created_at INTEGER,updated_at INTEGER,last_login_at INTEGER,failed_attempts INTEGER DEFAULT 0,locked_until INTEGER DEFAULT 0,deleted_at INTEGER DEFAULT 0,suspended_at INTEGER DEFAULT 0);CREATE TABLE profiles(user_id TEXT PRIMARY KEY,name TEXT,bio TEXT,updated_at INTEGER)');
+  try{
+    const created=await createAccountAsync(db,{identifier:'owner@example.org',displayName:'Owner',password:'long-valid-password-2026'});
+    for(let i=0;i<8;i++)rateLimitAuth(db,'login',created.email,2000000,'identifier');
+    assert.throws(()=>rateLimitAuth(db,'login',created.email,2000001,'identifier'),e=>e.code==='AUTH_LIMIT');
+    rateLimitAuth(db,'login',undefined,2000001,'global');
+    assert.equal((await authenticateAccountAsync(db,created.email,'long-valid-password-2026')).userId,created.userId);
+  }finally{db.close()}
+});
