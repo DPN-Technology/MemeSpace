@@ -19,6 +19,10 @@ export function authFailure(error:unknown){
   }
   if(code==='ORIGIN')return Response.json({error:'This request is not allowed.'},{status:403,headers:noStore()});
   if(code==='AUTH_REQUIRED')return Response.json({error:'Please sign in to use this feature.'},{status:401,headers:noStore()});
+  if(code==='AUTH_LIMIT'||code==='AUTH_BUSY'){
+    const retry=error instanceof Error&&'retryAfter' in error?Number(error.retryAfter):60;
+    return Response.json({error:'Too many requests. Please retry shortly.'},{status:429,headers:{...noStore(),'Retry-After':String(Number.isFinite(retry)?Math.max(1,Math.ceil(retry)):60)}});
+  }
   if(code==='AUTH_INVALID')return Response.json({error:'Invalid email or password.'},{status:401,headers:noStore()});
   if(code==='DUPLICATE')return Response.json({error:'That identifier is already in use.'},{status:409,headers:noStore()});
   if(code==='CONFIRMATION')return Response.json({error:error instanceof Error?error.message:'Confirmation required.'},{status:400,headers:noStore()});

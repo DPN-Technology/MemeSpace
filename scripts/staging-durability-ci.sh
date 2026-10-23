@@ -45,6 +45,7 @@ start_app(){
   docker run -d --name "$name" \
     -e MEMESPACE_PUBLIC_ORIGIN=https://staging.example.org \
     -e MEMESPACE_LAUNCH_SCOPE=beta \
+    -e MEMESPACE_REGISTRATION_GATE=external \
     -v "$volume:/app/data" \
     -p "127.0.0.1:${port}:5173" \
     "$image" >/dev/null

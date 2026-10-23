@@ -14,6 +14,8 @@ services:
       MEMESPACE_PORT: "5173"
       MEMESPACE_BIND_HOST: "0.0.0.0"
       MEMESPACE_PUBLIC_ORIGIN: "https://${STAGING_DOMAIN:?Set STAGING_DOMAIN}"
+      MEMESPACE_LAUNCH_SCOPE: beta
+      MEMESPACE_REGISTRATION_GATE: external
     volumes:
       - memespace_data:/app/data
     expose:

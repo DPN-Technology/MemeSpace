@@ -23,6 +23,8 @@ on:
       - "tests/staging-beta-browser.test.mjs"
       - "app/identity-center.tsx"
       - "lib/local-auth.mjs"
+      - "lib/auth-abuse.mjs"
+      - "tests/auth-abuse.test.mjs"
       - ".github/workflows/staging-readiness.yml"
   workflow_dispatch:
 
@@ -67,6 +69,7 @@ jobs:
           docker run -d --name memespace-staging-ci \
             -e MEMESPACE_PUBLIC_ORIGIN=https://staging.example.org \
             -e MEMESPACE_LAUNCH_SCOPE=beta \
+            -e MEMESPACE_REGISTRATION_GATE=external \
             -p 127.0.0.1:5188:5173 memespace:staging-ci
           ready=0
           for i in $(seq 1 60); do
