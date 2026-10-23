@@ -48,7 +48,9 @@ STAGING_SMOKE_BASIC_USER='stagingviewer' STAGING_SMOKE_BASIC_PASSWORD='REDACTED'
   node scripts/staging-smoke.mjs https://stage.your-domain.example
 ~~~
 
-Do not store the plaintext password in the repository or a CI job with untrusted PR code. `/api/health` must report `ok: true`, `runtime: node`, `storage: sqlite`. Then manually test registration, login, account session persistence, navigation and an **unpaid** skill-game session on desktop/mobile.
+Do not store the plaintext password in the repository or a CI job with untrusted PR code. `/api/health` must report `ok: true`, `runtime: node`, `storage: sqlite`. **Security gate:** Public self-registration is intentionally disabled unless this deployment is explicitly marked `MEMESPACE_LAUNCH_SCOPE=beta` and `MEMESPACE_REGISTRATION_GATE=external`. These flags are **not email verification** and must only be used where the full hostname is protected by Caddy Basic Auth or Cloudflare Access before any request reaches Node. Never set `MEMESPACE_REGISTRATION_GATE=external` on an unprotected public domain. For broad public registration, implement email verification and a trusted-proxy source-IP rate limiter first. Local-only accounts remain available on loopback.
+
+Then manually test protected beta registration, login, session persistence, navigation and an **unpaid** skill-game session on desktop/mobile.
 
 ## Safety boundaries
 

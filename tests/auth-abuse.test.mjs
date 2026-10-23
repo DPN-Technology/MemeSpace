@@ -44,3 +44,12 @@ test('async account password rotation preserves credential verification',async()
     assert.equal((await authenticateAccountAsync(db,created.email,'updated-password-12345')).userId,created.userId);
   }finally{db.close()}
 });
+
+test('global admission caps prevent identifier-rotation floods',()=>{
+  const db=new DatabaseSync(':memory:');
+  try{
+    for(let n=0;n<90;n++)rateLimitAuth(db,'login','rotated'+n+'@example.org',100000);
+    assert.throws(()=>rateLimitAuth(db,'login','next@example.org',100001),e=>e.code==='AUTH_LIMIT'&&e.retryAfter>0);
+    rateLimitAuth(db,'login','fresh@example.org',160001);
+  }finally{db.close()}
+});
