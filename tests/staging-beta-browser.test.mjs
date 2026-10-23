@@ -26,7 +26,7 @@ async function healthCheck(){
   throw new Error('Production beta site never became healthy');
 }
 async function lobby(page){
-  await page.goto(base+'/#games',{waitUntil:'networkidle',timeout:60000});
+  await page.goto(base+'/?launch_qa='+randomUUID()+'#games',{waitUntil:'networkidle',timeout:60000});
   await page.locator('.arcade-lobby').waitFor({state:'visible',timeout:30000});
   await page.locator('.arcade-classic-card').first().waitFor({state:'visible',timeout:15000});
   await page.waitForFunction(()=>[...document.querySelectorAll('.arcade-classic-card')].every(el=>!el.hasAttribute('disabled')),{timeout:30000});
