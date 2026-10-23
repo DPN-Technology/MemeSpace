@@ -20,6 +20,7 @@ on:
       - "scripts/staging-auth-e2e.mjs"
       - "scripts/staging-durability-e2e.mjs"
       - "scripts/staging-durability-ci.sh"
+      - "tests/staging-beta-browser.test.mjs"
       - "lib/local-auth.mjs"
       - ".github/workflows/staging-readiness.yml"
   workflow_dispatch:
@@ -170,3 +171,36 @@ jobs:
               throw "PowerShell syntax invalid: $file"
             }
           }
+
+  beta-browser:
+    name: Beta · Real Chromium Desktop + Mobile Account/Arcade UI
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      CI: "true"
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - name: Checkout without persisted credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Node 24 browser test runtime
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24.20.0"
+          package-manager-cache: false
+      - name: Install pinned pnpm
+        uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # pinned 2026-09-20
+        with:
+          version: "11.25.0"
+          install: "false"
+      - name: Security policy
+        run: node scripts/security-gate.mjs
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile --prod=false
+      - name: Install headless Chromium
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Build production site
+        run: pnpm build
+      - name: Run desktop/mobile account and free-beta arcade browser checks
+        run: node --test tests/staging-beta-browser.test.mjs
