@@ -72,8 +72,8 @@ test('real Chromium free-beta UI: desktop/mobile playable entry + member sign-up
           const card=page.locator('.arcade-classic-card').filter({hasText:title});
           assert.equal(await card.isEnabled(),true);
           await card.click();
-          await page.locator('.arcade-classic-stage h2').waitFor({state:'visible',timeout:20000});
-          assert.match(await page.locator('.arcade-classic-stage h2').innerText(),new RegExp(title));
+          await page.locator('.arcade-classic-stage .cabinet-heading h2').waitFor({state:'visible',timeout:20000});
+          assert.match(await page.locator('.arcade-classic-stage .cabinet-heading h2').innerText(),new RegExp(title));
           await page.locator('.arcade-backbar button').click();
           await page.locator('.arcade-lobby').waitFor({state:'visible'});
         }
