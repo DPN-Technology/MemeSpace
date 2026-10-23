@@ -1,0 +1,73 @@
+name: Staging Packaging Gate
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "Dockerfile.staging"
+      - ".dockerignore"
+      - "deploy/staging/**"
+      - "scripts/local.mjs"
+      - "scripts/staging-smoke.mjs"
+      - "lib/local-session.mjs"
+      - "app/api/auth/_shared.ts"
+      - "tests/staging-origin.test.mjs"
+      - ".github/workflows/staging-readiness.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  staging:
+    name: Container · Origin Gate · Compose
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24.20.0"
+          package-manager-cache: false
+
+      - name: Run security policy
+        run: node scripts/security-gate.mjs
+
+      - name: Validate origin and smoke tests
+        run: node --test tests/staging-origin.test.mjs
+
+      - name: Validate staging Compose config
+        env:
+          STAGING_DOMAIN: staging.example.org
+          STAGING_BASIC_USER: stagingtester
+          STAGING_BASIC_PASSWORD_HASH: "placeholder-for-configuration-validation"
+        run: docker compose -f deploy/staging/compose.yml config --quiet
+
+      - name: Build deployable Node + SQLite image
+        run: docker build --pull -f Dockerfile.staging -t memespace:staging-ci .
+
+      - name: Start isolated application container
+        run: |
+          docker run -d --name memespace-staging-ci \
+            -e MEMESPACE_PUBLIC_ORIGIN=https://staging.example.org \
+            -p 127.0.0.1:5188:5173 memespace:staging-ci
+          ready=0
+          for i in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:5188/api/health | grep -q '"ok":true'; then ready=1; break; fi
+            sleep 2
+          done
+          test "$ready" -eq 1
+          node scripts/staging-smoke.mjs http://127.0.0.1:5188
+
+      - name: Inspect logs on failure
+        if: failure()
+        run: docker logs --tail=150 memespace-staging-ci 2>&1 || true
+
+      - name: Tear down test container
+        if: always()
+        run: docker rm -f memespace-staging-ci 2>/dev/null || true

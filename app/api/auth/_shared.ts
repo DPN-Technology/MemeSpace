@@ -4,7 +4,7 @@ import {authCookie,changePassword,deleteAccount,exportAccount,issueSession,listS
 import {sameOrigin} from '@/lib/local-session.mjs';
 
 export function jsonAccount(account:unknown){return account||null;}
-export function secureCookie(request:Request){return new URL(request.url).protocol==='https:'?'; Secure':'';}
+export function secureCookie(request:Request){return process.env.MEMESPACE_PUBLIC_ORIGIN||new URL(request.url).protocol==='https:'?'; Secure':'';}
 export function setSessionCookie(request:Request,token:string,maxAge=sessionMaxAge){return `${authCookie}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secureCookie(request)}`;}
 export function clearSessionCookie(request:Request){return `${authCookie}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secureCookie(request)}`;}
 export function clearLegacyCookie(){return 'memespace_local_session=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0';}
