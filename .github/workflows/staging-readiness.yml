@@ -21,6 +21,7 @@ on:
       - "scripts/staging-durability-e2e.mjs"
       - "scripts/staging-durability-ci.sh"
       - "tests/staging-beta-browser.test.mjs"
+      - "app/identity-center.tsx"
       - "lib/local-auth.mjs"
       - ".github/workflows/staging-readiness.yml"
   workflow_dispatch:
