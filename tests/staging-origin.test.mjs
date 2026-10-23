@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {sameOrigin,localRequest} from '../lib/local-session.mjs';
+import {sameOrigin,localRequest,trustedSessionHost} from '../lib/local-session.mjs';
 import {validateBase,checkStaging} from '../scripts/staging-smoke.mjs';
 
 function request(host,origin,site='same-origin'){
@@ -18,9 +18,12 @@ test('public HTTPS origin: allow same host, deny others',()=>{
     assert.equal(sameOrigin(request('evil.example.org','https://stage.example.org')),false);
     assert.equal(sameOrigin(request('stage.example.org:443','https://stage.example.org')),false);
     assert.equal(localRequest(request('stage.example.org').headers),false);
+    assert.equal(trustedSessionHost(request('stage.example.org').headers),true);
+    assert.equal(trustedSessionHost(request('other.example.org').headers),false);
     for(const invalid of ['http://stage.example.org','https://stage.example.org/','https://stage.example.org/a','https://evil:secret@stage.example.org']){
       process.env.MEMESPACE_PUBLIC_ORIGIN=invalid;
       assert.equal(sameOrigin(request('stage.example.org','https://stage.example.org')),false);
+      assert.equal(trustedSessionHost(request('stage.example.org').headers),false);
     }
   }finally{
     if(previous===undefined)delete process.env.MEMESPACE_PUBLIC_ORIGIN;
