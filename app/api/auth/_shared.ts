@@ -26,13 +26,17 @@ export function authFailure(error:unknown){
   if(code==='AUTH_INVALID')return Response.json({error:'Invalid email or password.'},{status:401,headers:noStore()});
   if(code==='DUPLICATE')return Response.json({error:'That identifier is already in use.'},{status:409,headers:noStore()});
   if(code==='CONFIRMATION')return Response.json({error:error instanceof Error?error.message:'Confirmation required.'},{status:400,headers:noStore()});
+  if(code==='BODY_TOO_LARGE')return Response.json({error:'Request exceeds 4 KB.'},{status:413,headers:noStore()});
   if(code==='AUTH_INPUT'||code==='INPUT')return Response.json({error:error instanceof Error?error.message:'Please check your input and try again.'},{status:400,headers:noStore()});
   console.error('MemeSpace auth operation failed');
   return Response.json({error:'This identity operation is temporarily unavailable.'},{status:503,headers:noStore()});
 }
 
 export function requireOrigin(request:Request){if(!sameOrigin(request))throw Object.assign(new Error('ORIGIN'),{code:'ORIGIN'});}
-export async function parseBody(request:Request){try{return await body(request)}catch{throw Object.assign(new Error('INPUT'),{code:'INPUT'})}}
+export async function parseBody(request:Request){try{return await body(request)}catch(error){
+  if(error instanceof Error&&error.message==='BODY_TOO_LARGE')throw Object.assign(error,{code:'BODY_TOO_LARGE'});
+  throw Object.assign(new Error('INPUT'),{code:'INPUT'});
+}}
 
 export function authContext(request:Request){
   requireOrigin(request);
