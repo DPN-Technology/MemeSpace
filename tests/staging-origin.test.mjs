@@ -31,6 +31,23 @@ test('public HTTPS origin: allow same host, deny others',()=>{
   }
 });
 
+test('public mutating requests without Origin fail closed',()=>{
+  const previous=process.env.MEMESPACE_PUBLIC_ORIGIN;
+  try{
+    process.env.MEMESPACE_PUBLIC_ORIGIN='https://stage.example.org';
+    const request=(method,headers={})=>({url:'https://stage.example.org/api/auth/login',method,headers:new Headers({host:'stage.example.org',...headers})});
+    assert.equal(sameOrigin(request('POST')),false);
+    assert.equal(sameOrigin(request('POST',{'sec-fetch-site':'cross-site'})),false);
+    assert.equal(sameOrigin(request('POST',{origin:'null'})),false);
+    assert.equal(sameOrigin(request('POST',{origin:'https://evil.example.org'})),false);
+    assert.equal(sameOrigin(request('POST',{origin:'https://stage.example.org'})),true);
+    assert.equal(sameOrigin(request('POST',{'sec-fetch-site':'same-origin'})),true);
+    assert.equal(sameOrigin(request('GET')),true);
+  }finally{
+    if(previous===undefined)delete process.env.MEMESPACE_PUBLIC_ORIGIN;else process.env.MEMESPACE_PUBLIC_ORIGIN=previous;
+  }
+});
+
 test('local mode retains loopback-only origin restriction',()=>{
   const previous=process.env.MEMESPACE_PUBLIC_ORIGIN,local=process.env.MEMESPACE_LOCAL_MODE,port=process.env.MEMESPACE_PORT;
   try{
