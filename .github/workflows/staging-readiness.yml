@@ -8,6 +8,9 @@ on:
       - ".dockerignore"
       - "deploy/staging/**"
       - "deploy/oracle/**"
+      - "deploy/home/**"
+      - "docs/home-cloudflare-deployment.md"
+      - "tests/home-deployment.test.mjs"
       - "docs/oracle-cloud-deployment.md"
       - "scripts/local.mjs"
       - "scripts/staging-smoke.mjs"
@@ -123,3 +126,22 @@ jobs:
       - name: Delete test container
         if: always()
         run: docker rm -f memespace-oci-arm64-ci 2>/dev/null || true
+
+  home-tunnel:
+    name: Windows Home · Private Compose / Tunnel Safeguards
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout (no repository credentials)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Node.js test runtime
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24.20.0"
+          package-manager-cache: false
+      - name: Validate tunnel isolation, ignored secrets and Compose config
+        run: |
+          node scripts/security-gate.mjs
+          node --test tests/home-deployment.test.mjs

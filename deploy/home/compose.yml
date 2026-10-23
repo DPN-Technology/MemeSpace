@@ -1,0 +1,60 @@
+name: memespace-home
+
+services:
+  app:
+    build:
+      context: ../..
+      dockerfile: Dockerfile.staging
+    image: memespace-home:local
+    restart: unless-stopped
+    init: true
+    environment:
+      NODE_ENV: production
+      NEXT_TELEMETRY_DISABLED: "1"
+      MEMESPACE_PORT: "5173"
+      MEMESPACE_BIND_HOST: "0.0.0.0"
+      MEMESPACE_DATA_DIR: /app/data
+      MEMESPACE_PUBLIC_ORIGIN: "https://${MEMESPACE_STAGE_HOSTNAME:?Set the exact Cloudflare Access-protected hostname in deploy/home/.env}"
+    volumes:
+      - memespace_data:/app/data
+    expose:
+      - "5173"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5173/api/health').then(async r=>process.exit(r.ok&&(await r.json()).ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 90s
+      retries: 3
+    networks:
+      - home_private
+
+  # NEVER enable this profile until Cloudflare Access is protecting the exact hostname.
+  # No host-facing ports: only the connector reaches app:5173 over the Compose network.
+  tunnel:
+    profiles: ["tunnel"]
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    command: ["tunnel", "--no-autoupdate", "run", "--token-file", "/run/secrets/tunnel-token"]
+    volumes:
+      - ./.secrets/tunnel-token:/run/secrets/tunnel-token:ro
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - home_private
+
+networks:
+  home_private:
+    internal: false
+
+volumes:
+  memespace_data:

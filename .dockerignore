@@ -16,3 +16,6 @@ backups
 *.tsbuildinfo
 outputs
 work
+
+# Exclude all local tunnel secrets from every Docker build context.
+deploy/home/.secrets/
