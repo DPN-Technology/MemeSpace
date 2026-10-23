@@ -25,6 +25,9 @@ on:
       - "lib/local-auth.mjs"
       - "lib/auth-abuse.mjs"
       - "tests/auth-abuse.test.mjs"
+      - "next.config.ts"
+      - "app/api/auth/password/route.ts"
+      - "app/api/auth/account/route.ts"
       - ".github/workflows/staging-readiness.yml"
   workflow_dispatch:
 

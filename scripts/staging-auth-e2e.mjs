@@ -29,6 +29,9 @@ async function req(route,{method='GET',body,cookie,originHeader=origin}={}){
   let payload;try{payload=await response.json()}catch{payload={}}
   return {response,payload};
 }
+const page=await req('/');
+assert.equal(page.response.status,200);
+assert.match(page.response.headers.get('content-security-policy')||'',/object-src 'none'/,'public Content Security Policy is required');
 const before=await req('/api/auth/session');
 assert.equal(before.response.status,200);
 assert.equal(before.payload.account,null);

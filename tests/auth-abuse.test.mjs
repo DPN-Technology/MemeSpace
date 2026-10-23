@@ -32,3 +32,15 @@ test('async scrypt preserves existing member password format',async()=>{
     await assert.rejects(authenticateAccountAsync(db,'user@example.org','wrong'),e=>e.code==='AUTH_INVALID');
   }finally{db.close()}
 });
+
+test('async account password rotation preserves credential verification',async()=>{
+  const {changePasswordAsync}=await import('../lib/local-auth.mjs');
+  const db=new DatabaseSync(':memory:');
+  db.exec('CREATE TABLE accounts(user_id TEXT PRIMARY KEY,email TEXT UNIQUE,password_hash TEXT,password_salt TEXT,display_name TEXT,created_at INTEGER,updated_at INTEGER,last_login_at INTEGER,failed_attempts INTEGER DEFAULT 0,locked_until INTEGER DEFAULT 0,deleted_at INTEGER DEFAULT 0,suspended_at INTEGER DEFAULT 0);CREATE TABLE profiles(user_id TEXT PRIMARY KEY,name TEXT,bio TEXT,updated_at INTEGER);CREATE TABLE sessions(id TEXT PRIMARY KEY,user_id TEXT,revoked_at INTEGER DEFAULT 0)');
+  try{
+    const created=await createAccountAsync(db,{identifier:'change@example.org',displayName:'Change',password:'old-password-long-1234'});
+    await changePasswordAsync(db,created.userId,'old-password-long-1234','updated-password-12345');
+    await assert.rejects(authenticateAccountAsync(db,created.email,'old-password-long-1234'),e=>e.code==='AUTH_INVALID');
+    assert.equal((await authenticateAccountAsync(db,created.email,'updated-password-12345')).userId,created.userId);
+  }finally{db.close()}
+});
