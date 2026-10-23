@@ -199,7 +199,7 @@ jobs:
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile --prod=false
       - name: Install headless Chromium
-        run: pnpm exec playwright install --with-deps chromium
+        run: pnpm exec playwright install chromium --only-shell
       - name: Build production site
         run: pnpm build
       - name: Run desktop/mobile account and free-beta arcade browser checks
