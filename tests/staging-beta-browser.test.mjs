@@ -87,6 +87,9 @@ test('real Chromium free-beta UI: desktop/mobile playable entry + member sign-up
         const email='browser-'+randomUUID()+'@example.invalid';
         const pass='Beta-browser-'+randomUUID();
         const display=name==='mobile'?'Beta Mobile':'Beta Desktop';
+        // The arcade is a modal. Close it before using global-header identity controls.
+        await page.locator('.workspace-back').click();
+        await page.locator('.workspace-dialog').waitFor({state:'hidden',timeout:15000});
         await page.locator('.identity-trigger').click();
         await page.getByRole('tab',{name:'Create local account'}).click();
         await page.locator('#identity-display').fill(display);
