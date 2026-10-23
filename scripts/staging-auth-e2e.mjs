@@ -32,6 +32,10 @@ async function req(route,{method='GET',body,cookie,originHeader=origin}={}){
 const page=await req('/');
 assert.equal(page.response.status,200);
 assert.match(page.response.headers.get('content-security-policy')||'',/object-src 'none'/,'public Content Security Policy is required');
+const oversized=await req('/api/auth/login',{method:'POST',body:{identifier:'x'.repeat(12000),password:'irrelevant'}});
+assert.equal(oversized.response.status,413,'chunked oversized JSON must fail before full buffering');
+const missingOrigin=await req('/api/auth/login',{method:'POST',originHeader:'',body:{identifier:'someone@example.invalid',password:'irrelevant'}});
+assert.equal(missingOrigin.response.status,403,'unsafe public requests without verified Origin must fail');
 const before=await req('/api/auth/session');
 assert.equal(before.response.status,200);
 assert.equal(before.payload.account,null);
