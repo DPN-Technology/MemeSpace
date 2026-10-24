@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {protectedPaths,validateStageOrigin,isAccessChallenge,verifyAnonymousAccess} from '../scripts/home-access-boundary.mjs';
+import {protectedPaths,validateStageOrigin,validateAccessTeamDomain,isAccessChallenge,verifyAnonymousAccess} from '../scripts/home-access-boundary.mjs';
 
+const teamDomain='team.cloudflareaccess.com';
 const access='https://team.cloudflareaccess.com/cdn-cgi/access/login/stage.example.org?redirect_url=opaque';
 const challenge=()=>new Response(null,{status:302,headers:{location:access}});
 test('the anonymous preflight targets only a bare HTTPS DNS hostname',()=>{
@@ -14,7 +15,7 @@ test('the anonymous preflight targets only a bare HTTPS DNS hostname',()=>{
   ])assert.throws(()=>validateStageOrigin(invalid));
 });
 test('only an authentic Cloudflare Access login redirect qualifies',()=>{
-  assert.equal(isAccessChallenge(challenge()),true);
+  assert.equal(isAccessChallenge(challenge(),teamDomain),true);
   for(const response of [
     new Response('site',{status:200}),
     new Response('denied',{status:403}),
@@ -23,11 +24,11 @@ test('only an authentic Cloudflare Access login redirect qualifies',()=>{
     new Response(null,{status:302,headers:{location:'http://team.cloudflareaccess.com/cdn-cgi/access/login'}}),
     new Response(null,{status:302,headers:{location:'https://team.cloudflareaccess.com/anything-else'}}),
     new Response(null,{status:302,headers:{location:'/cdn-cgi/access/login'}})
-  ])assert.equal(isAccessChallenge(response),false);
+  ])assert.equal(isAccessChallenge(response,teamDomain),false);
 });
 test('all anonymous routes must be protected, with no cookies, credentials or redirect following',async()=>{
   const paths=[];
-  const result=await verifyAnonymousAccess('https://stage.example.org',{fetcher:async(url,options)=>{
+  const result=await verifyAnonymousAccess('https://stage.example.org',{teamDomain,fetcher:async(url,options)=>{
     paths.push(new URL(url).pathname);
     assert.equal(options.method,'GET');
     assert.equal(options.redirect,'manual');
@@ -41,12 +42,20 @@ test('all anonymous routes must be protected, with no cookies, credentials or re
 });
 test('any anonymously accessible route fails closed instead of reporting protected',async()=>{
   const paths=[];
-  await assert.rejects(verifyAnonymousAccess('https://stage.example.org',{fetcher:async url=>{
+  await assert.rejects(verifyAnonymousAccess('https://stage.example.org',{teamDomain,fetcher:async url=>{
     paths.push(new URL(url).pathname);
     return paths.length===3?new Response('private session',{status:200}):challenge();
   }}),/\/api\/auth\/session.*HTTP 200/);
   assert.deepEqual(paths,protectedPaths.slice(0,3));
 });
 test('unreachable host fails preflight instead of enabling the tunnel',async()=>{
-  await assert.rejects(verifyAnonymousAccess('https://stage.example.org',{fetcher:async()=>{throw Error('DNS unavailable')}}),/DNS unavailable/);
+  await assert.rejects(verifyAnonymousAccess('https://stage.example.org',{teamDomain,fetcher:async()=>{throw Error('DNS unavailable')}}),/DNS unavailable/);
+});
+
+test('redirects to another Cloudflare tenant are NOT accepted',()=>{
+  assert.equal(validateAccessTeamDomain('team.cloudflareaccess.com'),teamDomain);
+  for(const domain of ['attacker.cloudflareaccess.com','cloudflareaccess.com','evil.cloudflareaccess.com.evil.test','team.cloudflareaccess.com/evil','TEAM.cloudflareaccess.com',''])
+    if(domain!== 'attacker.cloudflareaccess.com')assert.throws(()=>validateAccessTeamDomain(domain));
+  assert.equal(isAccessChallenge(challenge(),'attacker.cloudflareaccess.com'),false);
+  assert.throws(()=>isAccessChallenge(challenge()),/exact Cloudflare Access team hostname/);
 });
