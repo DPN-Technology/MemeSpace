@@ -109,14 +109,25 @@ docker compose --env-file deploy/home/.env -f deploy/home/compose.yml restart ap
 ~~~
 
 4. Verify updates do not destroy the `memespace_data` volume. **Never run `docker compose down -v`, `docker volume prune`, Docker Desktop Factory Reset, or delete the WSL disk if data matters.** Docker Desktop is not a managed HA database.
-5. For a consistent SQLite snapshot (not a raw live WAL file copy), reuse the audited backup helper bundled in PR #43:
+5. **Export an authenticated, encrypted backup to a different device** before inviting testers. Connect a removable backup drive (for example E:\MemeSpaceBackups) or mount a restricted independent network share (for example \\backup-host\memespace). The destination must exist. A network share hosted on the SAME computer does not qualify as off-PC disaster recovery. The exporter rejects ordinary local fixed-disk destinations. From PowerShell:
 
 ~~~powershell
-docker compose --env-file deploy/home/.env -f deploy/home/compose.yml exec -T app node deploy/oracle/backup-sqlite.mjs
+.\deploy\home\export-encrypted-backup.ps1 -DestinationDirectory 'E:\MemeSpaceBackups'
 ~~~
 
-That script writes a verified snapshot under `/app/data/snapshots/`. It is **still on the same PC**! Use `docker compose ... cp app:/app/data/snapshots/. <local-backup-dir>` to retrieve the snapshot, encrypt it, move a copy to a secure **off-computer** location, and practice a restore on an isolated machine. Backups are mandatory before using real accounts.
-6. In PowerShell, check anonymous responses (do not send credentials):
+The exporter creates a consistent SQLite snapshot in the private Docker volume, copies the snapshot into an access-restricted temporary Windows directory, encrypts it using **AES-256-GCM** with a per-artifact salt and scrypt-derived key, and independently authenticates the ciphertext and verifies SQLite integrity. The passphrase is collected via hidden input, passed over a private child-process stdin pipe (never on the command line or in Git), and must be stored separately in a trusted password manager. The encrypted .msvault file is placed on the selected removable/network destination. The temporary Windows plaintext copy is removed after use.
+
+**Important:** A successful export alone does not prove the artifact is independent of the hosting PC. Disconnect/store removable media separately or use a remote backup server, validate independent recovery, and retain multiple copies.
+
+6. **Practice an isolated restore on a different computer.** Install Node.js 24 and check out this reviewed repository on a separate recovery machine. Select an empty restore directory that is NOT a live Docker volume, then run:
+
+~~~powershell
+.\deploy\home\verify-encrypted-restore.ps1 -EncryptedFile 'E:\MemeSpaceBackups\your-backup.msvault' -RestoreDirectory 'C:\MemeSpace-Recovery-Drill'
+~~~
+
+The restore helper refuses a non-empty destination, requires explicit ISOLATED RESTORE confirmation, authenticates the encryption tag, checks SQLite integrity, and **does not replace the live database**. Record recovery evidence in Issue #44 **without uploading private SQLite backups, personal data or passwords**. The staging CI gate now also exercises encryption and restore using a disposable CI-only test database; CI is not proof of real off-PC recovery.
+
+7. In PowerShell, check anonymous responses (do not send credentials):
 
 ~~~powershell
 curl.exe -I https://stage.your-domain.com/
@@ -144,7 +155,7 @@ The home tunnel is deliberately opt-in. The new `deploy/home/start-protected-tun
 - [ ] Tunnel healthy; no inbound router/Windows ports published for MemeSpace or admin.
 - [ ] Real HTTPS URL verified from outside home network, with denial for non-testers.
 - [ ] Member session, game navigation and account data persist across app restart.
-- [ ] Encrypted snapshot copied **off PC** and restore trial documented.
+- [ ] A real encrypted .msvault artifact stored **off this PC** and an isolated restore on a separate computer documented; disposable CI backup validation alone is insufficient.
 - [ ] Exact Git SHA, security gates and uptime observations recorded.
 - [ ] Merchant/legal/payment approvals and a new authorized production release (not this staging package) before any money is accepted.
 
