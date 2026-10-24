@@ -26,6 +26,12 @@ try {
     if ($hostname -notmatch '^(?=.{4,253}$)[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?)+$') {
         throw 'MEMESPACE_STAGE_HOSTNAME must be a plain DNS hostname (no scheme, port, quotes, slash or spaces).'
     }
+    $teamMatch=@($lines | Where-Object { $_ -match '^\s*MEMESPACE_ACCESS_TEAM_DOMAIN\s*=' })
+    if ($teamMatch.Count -ne 1) { throw 'Set MEMESPACE_ACCESS_TEAM_DOMAIN exactly once in deploy\home\.env.' }
+    $teamDomain=($teamMatch[0] -split '=',2)[1].Trim()
+    if ($teamDomain -cnotmatch '^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.cloudflareaccess\.com$') {
+        throw 'Access team domain must be exactly your-team.cloudflareaccess.com (lowercase, no scheme or port).'
+    }
     & docker compose --env-file deploy/home/.env -f deploy/home/compose.yml config --quiet
     if ($LASTEXITCODE -ne 0) { throw 'Docker Compose configuration failed.' }
     $tokenFile = Join-Path $root 'deploy\home\.secrets\tunnel-token'
