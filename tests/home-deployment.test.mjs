@@ -10,6 +10,9 @@ const compose=readFileSync(path.join(root,'deploy/home/compose.yml'),'utf8');
 const ignore=readFileSync(path.join(root,'.dockerignore'),'utf8');
 const gitignore=readFileSync(path.join(root,'.gitignore'),'utf8');
 const workflow=readFileSync(path.join(root,'.github/workflows/staging-readiness.yml'),'utf8');
+const launcher=readFileSync(path.join(root,'deploy/home/start-protected-tunnel.ps1'),'utf8');
+const docs=readFileSync(path.join(root,'docs/home-cloudflare-deployment.md'),'utf8');
+
 
 test('home tunnel token is excluded from Git and Docker build context',()=>{
   assert.match(ignore,/^deploy\/home\/\.secrets\/$/m);
@@ -34,4 +37,15 @@ test('Cloudflare tunnel is an opt-in profile, app is not internet port-published
   assert.ok(cfg.services.tunnel.volumes.some(v=>v.target==='/run/secrets/tunnel-token'&&v.read_only));
   assert.ok(cfg.services.tunnel.command.includes('--token-file'));
   assert.ok(!JSON.stringify(cfg.services.tunnel).includes('docker.sock'),'Docker socket must not be exposed to tunnel');
+});
+
+test('home tunnel launch uses an explicit Access-policy checkpoint and fail-closed anonymous probe',()=>{
+  assert.match(launcher,/ACCESS POLICY VERIFIED/);
+  assert.match(launcher,/scripts\/home-access-boundary\.mjs/);
+  assert.match(launcher,/--profile tunnel up -d app tunnel/);
+  assert.match(launcher,/--profile tunnel stop tunnel/);
+  assert.match(launcher,/verify-host\.ps1/);
+  assert.match(docs,/start-protected-tunnel\.ps1/);
+  assert.match(workflow,/home-access-boundary\.test\.mjs/);
+  assert.match(workflow,/start-protected-tunnel\.ps1/);
 });
