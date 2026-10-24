@@ -51,6 +51,7 @@ Create an ignored file `deploy/home/.env` containing **only your public staging 
 
 ~~~dotenv
 MEMESPACE_STAGE_HOSTNAME=stage.your-domain.com
+MEMESPACE_ACCESS_TEAM_DOMAIN=yourteam.cloudflareaccess.com
 ~~~
 
 The project ignores `.env*`; **no tunnel token belongs in this file**. No origin certificate is needed inside Docker in this design: browsers connect via Cloudflare HTTPS, and the `cloudflared` connector reaches the app over the private Docker network. The application validates the exact external HTTPS Host/Origin for mutations and marks auth cookies Secure.
@@ -87,12 +88,17 @@ It prompts without displaying the token, writes an ignored `deploy/home/.secrets
 5. After the route is set up and Access policy verified, start the **opt-in** tunnel profile:
 
 ~~~powershell
+.\deploy\home\install-access-watchdog.ps1
 .\deploy\home\start-protected-tunnel.ps1
 docker compose --env-file deploy/home/.env -f deploy/home/compose.yml ps
 docker compose --env-file deploy/home/.env -f deploy/home/compose.yml logs --tail=60 tunnel
 ~~~
 
-The guarded launcher **requires you to type `ACCESS POLICY VERIFIED`**, runs the existing Docker/hostname preflight, then opens the tunnel and checks four public routes without cookies or credentials. It requires each to return an HTTPS redirect to the actual `*.cloudflareaccess.com/cdn-cgi/access/login` endpoint. **If even one is exposed, unreachable, or responds unexpectedly, the launcher stops the tunnel** without deleting the persistent volume. The checks detect anonymous exposure, but **cannot independently prove the email allow-list or detect future Cloudflare policy changes**. After policy changes or restarts, re-run the read-only check: `node scripts/home-access-boundary.mjs https://stage.your-domain.com`. Do not start the tunnel using raw Compose commands; use the guarded launcher each time. If Cloudflare Access is configured to return 401 instead of a login redirect, this strict guard fails closed; review the Access setting rather than disabling the check.
+Before starting the tunnel, the operator explicitly installs a per-user **five-minute Windows Scheduled Task** that rechecks Access and **stops the tunnel if an anonymous route becomes exposed or the check fails**. This task is not guaranteed to run when the Windows owner has logged off, Task Scheduler is disabled, Docker Desktop is stopped, or Windows is offline. It does not automatically restart the tunnel. Use Task Scheduler to confirm that `DPN-MemeSpace-Access-Watchdog` is enabled, has a recent successful run, and is owned by the correct user. Keep your Windows login session and Docker Desktop running during the beta. The installer **does not** enable the tunnel by itself.
+
+Set `MEMESPACE_ACCESS_TEAM_DOMAIN` to the **exact** team hostname from the Cloudflare Access login URL (e.g. `yourteam.cloudflareaccess.com`). A redirect to a *different* Cloudflare Access tenant is not accepted. Use the lowercase hostname onlyâ€”not a URL.
+
+The guarded launcher **requires you to type `ACCESS POLICY VERIFIED`**, runs the existing Docker/hostname preflight, then opens the tunnel and checks four public routes without cookies or credentials. It requires each to return an HTTPS redirect to the actual `*.cloudflareaccess.com/cdn-cgi/access/login` endpoint. **If even one is exposed, unreachable, or responds unexpectedly, the launcher stops the tunnel** without deleting the persistent volume. The checks detect anonymous exposure, but **cannot independently prove the email allow-list or detect future Cloudflare policy changes**. After policy changes or restarts, re-run the read-only check: `node scripts/home-access-boundary.mjs https://stage.your-domain.com yourteam.cloudflareaccess.com`. Do not start the tunnel using raw Compose commands; use the guarded launcher each time. If Cloudflare Access is configured to return 401 instead of a login redirect, this strict guard fails closed; review the Access setting rather than disabling the check.
 
 Cloudflare should show tunnel status **Healthy**. Connections are outbound to Cloudflare (typically TCP/UDP 7844); there is **no router port-forwarding step**. Cloudflare may create the DNS CNAME for the published hostname automatically. Keep your router's RDP/SSH/backend ports closed or separately protected.
 
@@ -138,7 +144,9 @@ Unauthenticated requests should receive an Access challenge/redirect or denialâ€
 
 ### Additional launch protection (Issue #44)
 
-The home tunnel is deliberately opt-in. The new `deploy/home/start-protected-tunnel.ps1` refuses to start without an explicit operator confirmation and live anonymous outside-in checks. Neither a successful redirect nor CI automatically proves the configured identity-provider rules: **manually verify a denied outsider and approved named tester** before inviting participants. Anonymous scans alone also cannot protect against policies that are weakened later; rerun them after configuration changes and stop the tunnel if any route becomes public.
+The home tunnel is deliberately opt-in. The new `deploy/home/start-protected-tunnel.ps1` refuses to start without an explicit operator confirmation and live anonymous outside-in checks. Neither a successful redirect nor CI automatically proves the configured identity-provider rules: **manually verify a denied outsider and approved named tester** before inviting participants. The scheduled watchdog now repeats the anonymous checks every **five minutes**, and makes a fail-closed request to stop the tunnel when the exact Cloudflare Access tenant rejects protection. This reduces the time a *detectable* misconfiguration could persist, but does **not** prove the configured email allow-list is correct, nor guarantee zero exposure between checks. A login page can still be presented under an overly permissive Access policy. **Manually test a disallowed identity and an allowed tester** before inviting users and after each policy change. If the watchdog process stops running, stop the tunnel manually.
+
+Anonymous scans alone also cannot protect against policies that are weakened later; rerun them after configuration changes and stop the tunnel if any route becomes public.
 
 ## Daily use, updates and rollback
 
@@ -154,6 +162,7 @@ The home tunnel is deliberately opt-in. The new `deploy/home/start-protected-tun
 - [ ] Cloudflare-owned hostname plus **specific-email Access policy** tested.
 - [ ] Tunnel healthy; no inbound router/Windows ports published for MemeSpace or admin.
 - [ ] Real HTTPS URL verified from outside home network, with denial for non-testers.
+- [ ] Exact Cloudflare Access team domain confirmed, five-minute Windows watchdog installed and inspected in Task Scheduler, and periodic denial observed (actual Windows host evidence).
 - [ ] Member session, game navigation and account data persist across app restart.
 - [ ] A real encrypted .msvault artifact stored **off this PC** and an isolated restore on a separate computer documented; disposable CI backup validation alone is insufficient.
 - [ ] Exact Git SHA, security gates and uptime observations recorded.
