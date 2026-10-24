@@ -19,3 +19,6 @@ work
 
 # Exclude all local tunnel secrets from every Docker build context.
 deploy/home/.secrets/
+
+# Encrypted disaster-recovery artifacts belong off-repository and out of images.
+*.msvault
