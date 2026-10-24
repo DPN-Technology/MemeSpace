@@ -1,0 +1,219 @@
+name: Staging Packaging Gate
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "Dockerfile.staging"
+      - ".dockerignore"
+      - "deploy/staging/**"
+      - "deploy/oracle/**"
+      - "deploy/home/**"
+      - "docs/home-cloudflare-deployment.md"
+      - "tests/home-deployment.test.mjs"
+      - "tests/backup-vault.test.mjs"
+      - "scripts/backup-vault.mjs"
+      - "tests/home-access-boundary.test.mjs"
+      - "tests/home-access-watchdog.test.mjs"
+      - "scripts/home-access-watchdog.mjs"
+      - "scripts/home-access-boundary.mjs"
+      - "docs/oracle-cloud-deployment.md"
+      - "scripts/local.mjs"
+      - "scripts/staging-smoke.mjs"
+      - "lib/local-session.mjs"
+      - "app/api/auth/_shared.ts"
+      - "tests/staging-origin.test.mjs"
+      - "scripts/staging-auth-e2e.mjs"
+      - "scripts/staging-durability-e2e.mjs"
+      - "scripts/staging-durability-ci.sh"
+      - "tests/staging-beta-browser.test.mjs"
+      - "app/identity-center.tsx"
+      - "lib/local-auth.mjs"
+      - "lib/auth-abuse.mjs"
+      - "tests/auth-abuse.test.mjs"
+      - "next.config.ts"
+      - "app/api/auth/password/route.ts"
+      - "app/api/auth/account/route.ts"
+      - ".github/workflows/staging-readiness.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  staging:
+    name: Container · Origin Gate · Compose
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24.20.0"
+          package-manager-cache: false
+
+      - name: Run security policy
+        run: node scripts/security-gate.mjs
+
+      - name: Validate origin and smoke tests
+        run: node --test tests/staging-origin.test.mjs
+
+      - name: Validate staging Compose config
+        env:
+          STAGING_DOMAIN: staging.example.org
+          STAGING_BASIC_USER: stagingtester
+          STAGING_BASIC_PASSWORD_HASH: "placeholder-for-configuration-validation"
+        run: docker compose -f deploy/staging/compose.yml config --quiet
+
+      - name: Build deployable Node + SQLite image
+        run: docker build --pull -f Dockerfile.staging -t memespace:staging-ci .
+
+      - name: Start isolated application container
+        run: |
+          docker run -d --name memespace-staging-ci \
+            -e MEMESPACE_PUBLIC_ORIGIN=https://staging.example.org \
+            -e MEMESPACE_LAUNCH_SCOPE=beta \
+            -e MEMESPACE_REGISTRATION_GATE=external \
+            -p 127.0.0.1:5188:5173 memespace:staging-ci
+          ready=0
+          for i in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:5188/api/health | grep -q '"ok":true'; then ready=1; break; fi
+            sleep 2
+          done
+          test "$ready" -eq 1
+          node scripts/staging-smoke.mjs http://127.0.0.1:5188
+          node scripts/staging-auth-e2e.mjs http://127.0.0.1:5188
+
+      - name: Verify Docker named-volume restart and real SQLite backup restore
+        env:
+          CI: "true"
+        run: bash scripts/staging-durability-ci.sh
+
+      - name: Inspect logs on failure
+        if: failure()
+        run: docker logs --tail=150 memespace-staging-ci 2>&1 || true
+
+      - name: Tear down test container
+        if: always()
+        run: docker rm -f memespace-staging-ci 2>/dev/null || true
+
+  oracle-arm64:
+    name: OCI Ampere A1 · ARM64 Container / SQLite Smoke
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 45
+    steps:
+      - name: Checkout (no persisted credentials)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24.20.0"
+          package-manager-cache: false
+
+      - name: Verify native ARM and Oracle operator scripts
+        run: |
+          test "$(uname -m)" = "aarch64"
+          bash -n deploy/oracle/prepare-ubuntu.sh deploy/oracle/check-host.sh
+          node scripts/security-gate.mjs
+          node --test tests/staging-origin.test.mjs
+
+      - name: Build the actual Oracle linux/arm64 container
+        run: |
+          docker build --pull --platform linux/arm64 -f Dockerfile.staging -t memespace:oci-arm64-ci .
+          test "$(docker image inspect memespace:oci-arm64-ci --format '{{.Architecture}}')" = "arm64"
+
+      - name: Run isolated ARM64 SQLite/website smoke
+        run: |
+          set -euo pipefail
+          docker run -d --name memespace-oci-arm64-ci \
+            -e MEMESPACE_PUBLIC_ORIGIN=https://staging.example.org \
+            -p 127.0.0.1:5189:5173 memespace:oci-arm64-ci
+          ready=0
+          for i in $(seq 1 90); do
+            if curl --fail --silent http://127.0.0.1:5189/api/health | grep -q '"ok":true'; then ready=1; break; fi
+            sleep 2
+          done
+          test "$ready" -eq 1
+          node scripts/staging-smoke.mjs http://127.0.0.1:5189
+
+      - name: Show container logs on failure
+        if: failure()
+        run: docker logs --tail=120 memespace-oci-arm64-ci 2>&1 || true
+
+      - name: Delete test container
+        if: always()
+        run: docker rm -f memespace-oci-arm64-ci 2>/dev/null || true
+
+  home-tunnel:
+    name: Windows Home · Private Compose / Tunnel Safeguards
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout (no repository credentials)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Node.js test runtime
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24.20.0"
+          package-manager-cache: false
+      - name: Validate tunnel isolation, ignored secrets and Compose config
+        run: |
+          node scripts/security-gate.mjs
+          node --test tests/home-deployment.test.mjs tests/home-access-boundary.test.mjs tests/home-access-watchdog.test.mjs tests/backup-vault.test.mjs
+
+      - name: Parse Windows PowerShell deployment scripts (no execution)
+        shell: pwsh
+        run: |
+          $files = @('deploy/home/verify-host.ps1', 'deploy/home/set-tunnel-token.ps1', 'deploy/home/start-protected-tunnel.ps1', 'deploy/home/export-encrypted-backup.ps1', 'deploy/home/verify-encrypted-restore.ps1', 'deploy/home/install-access-watchdog.ps1')
+          foreach ($file in $files) {
+            $tokens = $null
+            $parseErrors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $file).Path, [ref]$tokens, [ref]$parseErrors)
+            if ($parseErrors.Count -gt 0) {
+              foreach ($problem in $parseErrors) { Write-Error $problem.Message }
+              throw "PowerShell syntax invalid: $file"
+            }
+          }
+
+  beta-browser:
+    name: Beta · Real Chromium Desktop + Mobile Account/Arcade UI
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      CI: "true"
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - name: Checkout without persisted credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Node 24 browser test runtime
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24.20.0"
+          package-manager-cache: false
+      - name: Install pinned pnpm
+        uses: pnpm/setup@fbda4c85fc2e1e08721cd8763afea8f48d60f024 # pinned 2026-09-20
+        with:
+          version: "11.25.0"
+          install: "false"
+      - name: Security policy
+        run: node scripts/security-gate.mjs
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile --prod=false
+      - name: Install headless Chromium
+        run: pnpm exec playwright install chromium --only-shell
+      - name: Build production site
+        run: pnpm build
+      - name: Run desktop/mobile account and free-beta arcade browser checks
+        run: node --test tests/staging-beta-browser.test.mjs

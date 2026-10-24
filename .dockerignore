@@ -1,0 +1,24 @@
+.git
+.github
+.node_modules
+node_modules
+.next
+.vinext
+dist
+coverage
+data
+backups
+.wrangler
+.sites-runtime
+.vercel
+.env*
+*.log
+*.tsbuildinfo
+outputs
+work
+
+# Exclude all local tunnel secrets from every Docker build context.
+deploy/home/.secrets/
+
+# Encrypted disaster-recovery artifacts belong off-repository and out of images.
+*.msvault

@@ -8,6 +8,17 @@ import {openDatabase,importLegacyDatabase,dataDirectory} from '../lib/local-data
 
 const root=fileURLToPath(new URL('../',import.meta.url));process.chdir(root);
 const command=process.argv[2]||'start',port=Number(process.env.MEMESPACE_PORT||5173);
+const bindHost=process.env.MEMESPACE_BIND_HOST||'127.0.0.1';
+if(!['127.0.0.1','0.0.0.0'].includes(bindHost))throw Error('MEMESPACE_BIND_HOST must be 127.0.0.1 or 0.0.0.0.');
+if(bindHost==='0.0.0.0'){
+  const value=process.env.MEMESPACE_PUBLIC_ORIGIN;
+  let valid=false;
+  try{
+    const origin=new URL(value);
+    valid=origin.protocol==='https:'&&origin.origin===value&&origin.pathname==='/'&&!origin.username&&!origin.password&&!origin.search&&!origin.hash;
+  }catch{}
+  if(!valid)throw Error('Public bind requires MEMESPACE_PUBLIC_ORIGIN to be one exact HTTPS origin without a trailing slash.');
+}
 if(Number(process.versions.node.split('.')[0])<24)throw Error('Install Node.js 24 or newer, then open a new terminal.');
 if(!Number.isInteger(port)||port<1024||port>65535)throw Error('MEMESPACE_PORT must be from 1024 to 65535.');
 process.env.MEMESPACE_PORT=String(port);process.env.NEXT_TELEMETRY_DISABLED='1';process.env.MEMESPACE_LOCAL_MODE='1';
@@ -27,7 +38,7 @@ async function migrate(){
 async function serve(production=false){
   await installed();await migrate();
   console.log('Starting MemeSpace on Node.js. Waiting for the server and database check...');
-  const args=['node_modules/next/dist/bin/next',production?'start':'dev',...(!production?['--webpack']:[]),'--hostname','127.0.0.1','--port',String(port)];
+  const args=['node_modules/next/dist/bin/next',production?'start':'dev',...(!production?['--webpack']:[]),'--hostname',bindHost,'--port',String(port)];
   const child=spawn(process.execPath,args,{cwd:root,stdio:'inherit'});currentChild=child;let stopped=false;
   const done=new Promise((resolve,reject)=>{child.once('error',reject);child.once('exit',code=>{stopped=true;resolve(code)})});
   void (async()=>{
@@ -60,6 +71,6 @@ try{
     const destination=path.join(folder,'memespace-'+new Date().toISOString().replace(/[:.]/g,'-')+'.sqlite'),db=openDatabase(root);
     try{await backup(db,destination)}finally{db.close()}
     console.log('Database backup saved: '+destination);
-  }else if(command==='test')await run(process.execPath,['--test','--test-concurrency=1','tests/local-database.test.mjs','tests/local-auth.test.mjs','tests/identity-ui.test.mjs','tests/admin.test.mjs','tests/arcade.test.mjs','tests/arcade-extra.test.mjs','tests/local-startup.test.mjs','tests/chat-history.test.mjs'],{env:{...process.env,MEMESPACE_DATA_DIR:''}});
+  }else if(command==='test')await run(process.execPath,['--test','--test-concurrency=1','tests/local-database.test.mjs','tests/local-auth.test.mjs','tests/auth-abuse.test.mjs','tests/backup-vault.test.mjs','tests/home-access-boundary.test.mjs','tests/home-access-watchdog.test.mjs','tests/identity-ui.test.mjs','tests/admin.test.mjs','tests/arcade.test.mjs','tests/arcade-extra.test.mjs','tests/local-startup.test.mjs','tests/chat-history.test.mjs'],{env:{...process.env,MEMESPACE_DATA_DIR:''}});
   else throw Error('Use setup, start, build, serve, migrate, backup, or test.');
 }catch(error){console.error('\n'+error.message);process.exitCode=1;}
