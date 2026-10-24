@@ -70,7 +70,23 @@ docker rm -f "$container" >/dev/null
 start_app "$container" "$data_volume" 5190
 node scripts/staging-durability-e2e.mjs verify http://127.0.0.1:5190 "$workdir/fixture.json"
 
-echo "Restoring the copied online SQLite snapshot into a FRESH named volume..."
+echo "Encrypting the copied snapshot and verifying independent recovery..."
+mapfile -t available_snapshots < <(find "$workdir/snapshots" -maxdepth 1 -type f -name '*.sqlite')
+if (( ${#available_snapshots[@]} != 1 )); then
+  echo "Expected exactly one isolated CI SQLite snapshot" >&2
+  exit 1
+fi
+# This CI-only credential never protects customer data. The temporary runner
+# and both volumes are deleted by cleanup; no workflow artifacts are uploaded.
+vault_secret="CI-only-recovery-secret-${GITHUB_RUN_ID:-test}-${GITHUB_RUN_ATTEMPT:-1}"
+vault_file="$workdir/isolated-recovery.msvault"
+printf '%s\n' "$vault_secret" | node scripts/backup-vault.mjs encrypt "${available_snapshots[0]}" "$vault_file"
+printf '%s\n' "$vault_secret" | node scripts/backup-vault.mjs verify "$vault_file"
+rm -rf -- "$workdir/snapshots"
+mkdir -p "$workdir/snapshots"
+printf '%s\n' "$vault_secret" | node scripts/backup-vault.mjs restore "$vault_file" "$workdir/snapshots/recovered.sqlite"
+
+echo "Restoring the DECRYPTED AND VERIFIED snapshot into a FRESH named volume..."
 docker volume create "$restore_volume" >/dev/null
 docker run --rm --user 0 \
   -v "$restore_volume:/app/data" \
@@ -78,4 +94,4 @@ docker run --rm --user 0 \
   --entrypoint sh "$image" -ec 'set -- /snapshots/*.sqlite; test "$#" -eq 1; cp "$1" /app/data/memespace.sqlite; chown node:node /app/data/memespace.sqlite'
 start_app "$restored" "$restore_volume" 5191
 node scripts/staging-durability-e2e.mjs verify http://127.0.0.1:5191 "$workdir/fixture.json"
-echo "PASS: named Docker volume restart and independent SQLite online-backup restore both verified"
+echo "PASS: named volume restart + encrypted authenticated offline snapshot restore verified"
