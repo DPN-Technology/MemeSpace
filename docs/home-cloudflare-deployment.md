@@ -87,10 +87,12 @@ It prompts without displaying the token, writes an ignored `deploy/home/.secrets
 5. After the route is set up and Access policy verified, start the **opt-in** tunnel profile:
 
 ~~~powershell
-docker compose --env-file deploy/home/.env -f deploy/home/compose.yml --profile tunnel up -d
+.\deploy\home\start-protected-tunnel.ps1
 docker compose --env-file deploy/home/.env -f deploy/home/compose.yml ps
 docker compose --env-file deploy/home/.env -f deploy/home/compose.yml logs --tail=60 tunnel
 ~~~
+
+The guarded launcher **requires you to type `ACCESS POLICY VERIFIED`**, runs the existing Docker/hostname preflight, then opens the tunnel and checks four public routes without cookies or credentials. It requires each to return an HTTPS redirect to the actual `*.cloudflareaccess.com/cdn-cgi/access/login` endpoint. **If even one is exposed, unreachable, or responds unexpectedly, the launcher stops the tunnel** without deleting the persistent volume. The checks detect anonymous exposure, but **cannot independently prove the email allow-list or detect future Cloudflare policy changes**. After policy changes or restarts, re-run the read-only check: `node scripts/home-access-boundary.mjs https://stage.your-domain.com`. Do not start the tunnel using raw Compose commands; use the guarded launcher each time. If Cloudflare Access is configured to return 401 instead of a login redirect, this strict guard fails closed; review the Access setting rather than disabling the check.
 
 Cloudflare should show tunnel status **Healthy**. Connections are outbound to Cloudflare (typically TCP/UDP 7844); there is **no router port-forwarding step**. Cloudflare may create the DNS CNAME for the published hostname automatically. Keep your router's RDP/SSH/backend ports closed or separately protected.
 
@@ -121,6 +123,11 @@ curl.exe -I https://stage.your-domain.com/
 ~~~
 
 Unauthenticated requests should receive an Access challenge/redirect or denial—not the MemeSpace page or health JSON. If it is accessible anonymously, immediately stop the tunnel with `docker compose --env-file deploy/home/.env -f deploy/home/compose.yml stop tunnel`, then correct the Access policy. Cloudflare Access protections are external and cannot be proven merely by passing GitHub CI.
+
+
+### Additional launch protection (Issue #44)
+
+The home tunnel is deliberately opt-in. The new `deploy/home/start-protected-tunnel.ps1` refuses to start without an explicit operator confirmation and live anonymous outside-in checks. Neither a successful redirect nor CI automatically proves the configured identity-provider rules: **manually verify a denied outsider and approved named tester** before inviting participants. Anonymous scans alone also cannot protect against policies that are weakened later; rerun them after configuration changes and stop the tunnel if any route becomes public.
 
 ## Daily use, updates and rollback
 
