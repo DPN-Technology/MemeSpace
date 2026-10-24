@@ -11,6 +11,8 @@ on:
       - "deploy/home/**"
       - "docs/home-cloudflare-deployment.md"
       - "tests/home-deployment.test.mjs"
+      - "tests/home-access-boundary.test.mjs"
+      - "scripts/home-access-boundary.mjs"
       - "docs/oracle-cloud-deployment.md"
       - "scripts/local.mjs"
       - "scripts/staging-smoke.mjs"
@@ -163,12 +165,12 @@ jobs:
       - name: Validate tunnel isolation, ignored secrets and Compose config
         run: |
           node scripts/security-gate.mjs
-          node --test tests/home-deployment.test.mjs
+          node --test tests/home-deployment.test.mjs tests/home-access-boundary.test.mjs
 
       - name: Parse Windows PowerShell deployment scripts (no execution)
         shell: pwsh
         run: |
-          $files = @('deploy/home/verify-host.ps1', 'deploy/home/set-tunnel-token.ps1')
+          $files = @('deploy/home/verify-host.ps1', 'deploy/home/set-tunnel-token.ps1', 'deploy/home/start-protected-tunnel.ps1')
           foreach ($file in $files) {
             $tokens = $null
             $parseErrors = $null
