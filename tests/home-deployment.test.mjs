@@ -14,6 +14,28 @@ const launcher=readFileSync(path.join(root,'deploy/home/start-protected-tunnel.p
 const docs=readFileSync(path.join(root,'docs/home-cloudflare-deployment.md'),'utf8');
 
 
+test('encrypted off-host backup and isolated recovery are part of the deployment contract',()=>{
+  const exporter=readFileSync(path.join(root,'deploy/home/export-encrypted-backup.ps1'),'utf8');
+  const recovery=readFileSync(path.join(root,'deploy/home/verify-encrypted-restore.ps1'),'utf8');
+  const durability=readFileSync(path.join(root,'scripts/staging-durability-ci.sh'),'utf8');
+  assert.match(ignore,/^\*\.msvault$/m);
+  assert.match(gitignore,/^\*\.msvault$/m);
+  assert.match(exporter,/OFF HOST VERIFIED/);
+  assert.match(exporter,/backup-vault\.mjs/);
+  assert.match(exporter,/verify-host|backup-sqlite\.mjs/);
+  assert.match(exporter,/Remove-Item -LiteralPath \$temporary/);
+  assert.match(exporter,/Read-Host.*-AsSecureString/);
+  assert.match(recovery,/ISOLATED RESTORE/);
+  assert.match(recovery,/backup-vault\.mjs/);
+  assert.match(recovery,/Get-ChildItem -LiteralPath \$targetDir/);
+  assert.match(durability,/backup-vault\.mjs encrypt/);
+  assert.match(durability,/backup-vault\.mjs restore/);
+  assert.match(workflow,/tests\/backup-vault\.test\.mjs/);
+  assert.match(workflow,/verify-encrypted-restore\.ps1/);
+  assert.match(docs,/export-encrypted-backup\.ps1/);
+  assert.match(docs,/verify-encrypted-restore\.ps1/);
+});
+
 test('home tunnel token is excluded from Git and Docker build context',()=>{
   assert.match(ignore,/^deploy\/home\/\.secrets\/$/m);
   assert.match(gitignore,/^\/deploy\/home\/\.secrets\/$/m);
