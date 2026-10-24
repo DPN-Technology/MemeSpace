@@ -61,6 +61,28 @@ test('Cloudflare tunnel is an opt-in profile, app is not internet port-published
   assert.ok(!JSON.stringify(cfg.services.tunnel).includes('docker.sock'),'Docker socket must not be exposed to tunnel');
 });
 
+test('Windows staging requires pinned tenant and installed periodic fail-closed watchdog',()=>{
+  const preflight=readFileSync(path.join(root,'deploy/home/verify-host.ps1'),'utf8');
+  const installer=readFileSync(path.join(root,'deploy/home/install-access-watchdog.ps1'),'utf8');
+  const watchdog=readFileSync(path.join(root,'scripts/home-access-watchdog.mjs'),'utf8');
+  assert.match(preflight,/MEMESPACE_ACCESS_TEAM_DOMAIN/);
+  assert.match(launcher,/MEMESPACE_ACCESS_TEAM_DOMAIN/);
+  assert.match(launcher,/Get-ScheduledTask -TaskName/);
+  assert.match(launcher,/home-access-watchdog\.mjs/);
+  assert.match(installer,/INSTALL ACCESS WATCHDOG/);
+  assert.match(installer,/New-ScheduledTaskTrigger -Once/);
+  assert.match(installer,/New-TimeSpan -Minutes 5/);
+  assert.match(installer,/LogonType Interactive/);
+  assert.match(installer,/Register-ScheduledTask/);
+  assert.match(watchdog,/execFileSync\('docker'/);
+  assert.match(watchdog,/--profile','tunnel','stop','tunnel/);
+  assert.match(watchdog,/validateAccessTeamDomain/);
+  assert.match(workflow,/tests\/home-access-watchdog\.test\.mjs/);
+  assert.match(workflow,/install-access-watchdog\.ps1/);
+  assert.match(docs,/MEMESPACE_ACCESS_TEAM_DOMAIN/);
+  assert.match(docs,/install-access-watchdog\.ps1/);
+});
+
 test('home tunnel launch uses an explicit Access-policy checkpoint and fail-closed anonymous probe',()=>{
   assert.match(launcher,/ACCESS POLICY VERIFIED/);
   assert.match(launcher,/scripts\/home-access-boundary\.mjs/);
