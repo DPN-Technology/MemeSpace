@@ -1,0 +1,12 @@
+{
+  "cSpell.import": ["${workspaceFolder}/cspell.json"],
+  "cSpell.useGitignore": true,
+  "files.exclude": {
+    "**/.social-project-*": true,
+    "**/.social-api-*": true
+  },
+  "files.watcherExclude": {
+    "**/.social-project-*/**": true,
+    "**/.social-api-*/**": true
+  }
+}
