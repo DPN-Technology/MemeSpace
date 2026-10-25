@@ -12,6 +12,8 @@
 
 # testing
 /coverage
+/.social-project-*/
+/.social-api-*/
 
 # next.js
 /.next/

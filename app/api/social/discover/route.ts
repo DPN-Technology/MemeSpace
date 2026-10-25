@@ -23,15 +23,15 @@ export async function GET(request:Request){
    "AND (p.community_id IS NULL OR EXISTS(SELECT 1 FROM social_communities c WHERE c.id=p.community_id AND c.visibility='public'))";
   const prefix="WITH public_posts AS ("+publicPosts+"), stats AS ("+
    "SELECT user_id,COUNT(*) AS posts,MAX(created_at) AS last_posted_at FROM public_posts GROUP BY user_id), "+
-   "creators AS (SELECT a.user_id AS userId,COALESCE(pr.name,a.display_name) AS name,COALESCE(pr.bio,'') AS bio,"+
-   "COALESCE(h.handle,'') AS handle,COALESCE(cp.headline,'') AS headline,COALESCE(cp.interests,'') AS interests,"+
-   "COALESCE(cp.location,'') AS location,COALESCE(cp.accent,'mint') AS accent,"+
-   "CASE WHEN cp.avatar_mime IS NULL THEN 0 ELSE 1 END AS hasAvatar,"+
-   "COALESCE(stats.posts,0) AS posts,COALESCE(stats.last_posted_at,0) AS lastPostedAt,"+
-   "a.created_at AS joinedAt,"+
-   "(SELECT COUNT(*) FROM social_follows f WHERE f.following_id=a.user_id) AS followers,"+
-   "EXISTS(SELECT 1 FROM social_follows f WHERE f.following_id=a.user_id AND f.follower_id=?) AS following,"+
-   "(SELECT COUNT(*) FROM social_follows f JOIN social_follows mine ON mine.following_id=f.follower_id AND mine.follower_id=? WHERE f.following_id=a.user_id) AS mutuals,"+
+   "creators AS (SELECT a.user_id AS userId,COALESCE(pr.name,a.display_name) AS name,COALESCE(pr.bio,'') AS bio, "+
+   "COALESCE(h.handle,'') AS handle,COALESCE(cp.headline,'') AS headline,COALESCE(cp.interests,'') AS interests, "+
+   "COALESCE(cp.location,'') AS location,COALESCE(cp.accent,'mint') AS accent, "+
+   "CASE WHEN cp.avatar_mime IS NULL THEN 0 ELSE 1 END AS hasAvatar, "+
+   "COALESCE(stats.posts,0) AS posts,COALESCE(stats.last_posted_at,0) AS lastPostedAt, "+
+   "a.created_at AS joinedAt, "+
+   "(SELECT COUNT(*) FROM social_follows f WHERE f.following_id=a.user_id) AS followers, "+
+   "EXISTS(SELECT 1 FROM social_follows f WHERE f.following_id=a.user_id AND f.follower_id=?) AS following, "+
+   "(SELECT COUNT(*) FROM social_follows f JOIN social_follows mine ON mine.following_id=f.follower_id AND mine.follower_id=? WHERE f.following_id=a.user_id) AS mutuals, "+
    "EXISTS(SELECT 1 FROM public_posts pp WHERE pp.user_id=a.user_id AND pp.topic=?) AS topicMatch "+
    "FROM accounts a LEFT JOIN profiles pr ON pr.user_id=a.user_id "+
    "LEFT JOIN social_handles h ON h.user_id=a.user_id "+

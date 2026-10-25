@@ -8,8 +8,8 @@ const idValid=(v:unknown):v is string=>typeof v==='string'&&/^[a-zA-Z0-9_-]{1,10
 const accents=['mint','violet','coral','amber'] as const;
 const blank={headline:'',location:'',website:'',interests:'',accent:'mint',hasAvatar:false,hasBanner:false};
 function record(db:ReturnType<typeof rawDatabase>,id:string,viewer:string){
- const row=db.prepare("SELECT a.user_id AS userId,COALESCE(pr.name,a.display_name) AS name,COALESCE(pr.bio,'') AS bio,a.created_at AS joinedAt,"+
-  "COALESCE(h.handle,'') AS handle,COALESCE(cp.headline,'') AS headline,COALESCE(cp.location,'') AS location,COALESCE(cp.website,'') AS website,"+
+ const row=db.prepare("SELECT a.user_id AS userId,COALESCE(pr.name,a.display_name) AS name,COALESCE(pr.bio,'') AS bio,a.created_at AS joinedAt, "+
+  "COALESCE(h.handle,'') AS handle,COALESCE(cp.headline,'') AS headline,COALESCE(cp.location,'') AS location,COALESCE(cp.website,'') AS website, "+
   "COALESCE(cp.interests,'') AS interests,COALESCE(cp.accent,'mint') AS accent,cp.avatar_mime IS NOT NULL AS hasAvatar,cp.banner_mime IS NOT NULL AS hasBanner "+
   "FROM accounts a LEFT JOIN profiles pr ON pr.user_id=a.user_id LEFT JOIN social_handles h ON h.user_id=a.user_id LEFT JOIN social_creator_profiles cp ON cp.user_id=a.user_id "+
   "WHERE a.user_id=? AND a.deleted_at=0 AND a.suspended_at=0 AND NOT EXISTS(SELECT 1 FROM social_relationships sr WHERE sr.actor_id=a.user_id AND sr.target_id=? AND sr.kind='block')").get(id,viewer);
