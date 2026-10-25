@@ -12,6 +12,8 @@
 
 # testing
 /coverage
+/.social-project-*/
+/.social-api-*/
 
 # next.js
 /.next/
@@ -50,3 +52,9 @@ next-env.d.ts
 /backups/
 
 /data/
+
+# Cloudflare Tunnel token is a local credential; never commit it.
+/deploy/home/.secrets/
+
+# Encrypted disaster-recovery artifacts belong off-repository and out of images.
+*.msvault

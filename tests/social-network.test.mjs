@@ -1,0 +1,409 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {fileURLToPath} from 'node:url';
+import {openDatabase} from '../lib/local-database.mjs';
+import {startSocialServer} from './social-project.mjs';
+
+const root=fileURLToPath(new URL('../',import.meta.url));
+test('social posts, discovery, reactions, follows, replies, search and moderation persist safely',{timeout:300000},async t=>{
+ const {data,base,logs}=await startSocialServer(t,root,Number(process.env.MEMESPACE_SOCIAL_TEST_PORT||5404));
+ async function responseJson(response){
+  const text=await response.text();
+  try{return JSON.parse(text)}
+  catch{throw Error(response.url+' returned '+response.status+' instead of JSON: '+text.slice(0,400)+'\n'+logs().slice(-2500))}
+ }
+ async function register(identifier,displayName){
+  const r=await fetch(base+'/api/auth/register',{method:'POST',headers:{Origin:base,'Content-Type':'application/json'},body:JSON.stringify({identifier,displayName,password:'social-testing-password-123'})});
+  const data=await responseJson(r);assert.equal(r.status,201,JSON.stringify(data));
+  return {cookie:r.headers.get('set-cookie')?.split(';')[0],account:data.account};
+ }
+ // A POST without session must not create content.
+ const denied=await fetch(base+'/api/social',{method:'POST',headers:{Origin:base,'Content-Type':'application/json'},body:JSON.stringify({action:'create',text:'Unauthenticated content',topic:'memes'})});
+ assert.equal(denied.status,401);
+ const alice=await register('social-alice@example.test','Alice Builder');
+ const bob=await register('social-bob@example.test','Bob Creator');
+ async function mutate(actor,payload,method='POST'){
+  const r=await fetch(base+'/api/social',{method,headers:{Origin:base,'Content-Type':'application/json',Cookie:actor.cookie},body:JSON.stringify(payload)});
+  const json=await responseJson(r);
+  assert.ok(r.ok,JSON.stringify({status:r.status,result:json}));
+  return json;
+ }
+ async function read(path,actor){
+  const r=await fetch(base+path,{headers:actor?.cookie?{Cookie:actor.cookie}:{}});
+  const data=await responseJson(r);assert.equal(r.status,200,JSON.stringify(data));
+  return data;
+ }
+ const created=await mutate(alice,{action:'create',text:'Our first MemeSpace signal 100%_! What should we build?',topic:'memes'});
+ assert.ok(created.id);
+ const feed=await read('/api/social?mode=feed',bob);
+ assert.equal(feed.posts.length,1);
+ assert.equal(feed.posts[0].body,'Our first MemeSpace signal 100%_! What should we build?');
+ assert.equal(feed.posts[0].mine,false);
+ assert.equal(feed.posts[0].reactions,0);
+ assert.equal((await read('/api/social?mode=feed&q='+encodeURIComponent('100%_'),bob)).posts.length,1,'search uses literal text');
+ assert.equal((await read('/api/social?mode=feed&q=nomatch',bob)).posts.length,0);
+ assert.equal((await read('/api/social?mode=feed&topic=gaming',bob)).posts.length,0);
+ assert.equal((await read('/api/social?mode=people',bob)).people.some(p=>p.userId===alice.account.userId),true);
+ const profile=await read('/api/social?mode=profile&id='+alice.account.userId,bob);
+ assert.equal(profile.profile.name,'Alice Builder');assert.equal(profile.profile.posts,1);
+ assert.equal(profile.profile.followers,0);assert.equal(profile.profile.mine,false);
+ await mutate(bob,{action:'follow',userId:alice.account.userId,enabled:true});
+ assert.equal((await read('/api/social?mode=feed&view=following',bob)).posts.length,1);
+ await mutate(bob,{action:'react',postId:created.id,enabled:true});
+ await mutate(bob,{action:'bookmark',postId:created.id,enabled:true});
+ const saved=await read('/api/social?mode=feed&view=saved',bob);
+ assert.equal(saved.posts.length,1);assert.equal(saved.posts[0].reacted,true);assert.equal(saved.posts[0].saved,true);
+ const reply=await mutate(bob,{action:'create',text:'A dedicated creator space!',topic:'memes',replyTo:created.id});
+ const discussion=await read('/api/social?mode=thread&id='+created.id,alice);
+ assert.equal(discussion.replies.length,1);assert.equal(discussion.replies[0].id,reply.id);
+ const activity=await read('/api/social?mode=activity',alice);
+ assert.ok(activity.activity.some(e=>e.kind==='reaction'));
+ assert.ok(activity.activity.some(e=>e.kind==='reply'));
+ assert.ok(activity.activity.some(e=>e.kind==='follow'));
+ await mutate(bob,{action:'mute',userId:alice.account.userId,enabled:true});
+ assert.equal((await read('/api/social?mode=feed',bob)).posts.length,0);
+ assert.equal((await read('/api/social?mode=profile&id='+alice.account.userId,bob)).profile.muted,true);
+ await mutate(bob,{action:'mute',userId:alice.account.userId,enabled:false});
+ assert.equal((await read('/api/social?mode=feed',bob)).posts.length,1);
+ await mutate(bob,{action:'block',userId:alice.account.userId,enabled:true});
+ assert.equal((await read('/api/social?mode=feed',bob)).posts.length,0);
+ assert.equal((await read('/api/social?mode=feed&view=following',bob)).posts.length,0);
+ assert.equal((await read('/api/social?mode=profile&id='+alice.account.userId,bob)).profile.blocked,true);
+ const deniedFollow=await fetch(base+'/api/social',{method:'POST',headers:{Origin:base,'Content-Type':'application/json',Cookie:bob.cookie},body:JSON.stringify({action:'follow',userId:alice.account.userId,enabled:true})});
+ assert.equal(deniedFollow.status,403);
+ const blockedThread=await fetch(base+'/api/social?mode=thread&id='+created.id,{headers:{Cookie:bob.cookie}});
+ assert.equal(blockedThread.status,404);
+ await mutate(bob,{action:'block',userId:alice.account.userId,enabled:false});
+ assert.equal((await read('/api/social?mode=feed',bob)).posts.length,1);
+ const quoted=await mutate(bob,{action:'create',text:'This is an inspired idea #MemeCreators #memespace',topic:'memes',quotePostId:created.id});
+ const quoteFeed=await read('/api/social?mode=feed&tag=memecreators',alice);
+ assert.equal(quoteFeed.posts.length,1);
+ assert.equal(quoteFeed.posts[0].quotePostId,created.id);
+ assert.equal(quoteFeed.posts[0].quote.body,feed.posts[0].body);
+ assert.ok(quoteFeed.posts[0].tags.includes('memecreators'));
+ const trending=await read('/api/social?mode=trends',alice);
+ assert.ok(trending.trends.some(t=>t.tag==='memecreators'&&t.posts===1));
+ await mutate(bob,{id:quoted.id,text:'Updated creator note #NewSignal'},'PATCH');
+ assert.equal((await read('/api/social?mode=feed&tag=memecreators',alice)).posts.length,0);
+ assert.equal((await read('/api/social?mode=feed&tag=newsignal',alice)).posts.length,1);
+ const invalidTag=await fetch(base+'/api/social?mode=feed&tag=bad%25');
+ assert.equal(invalidTag.status,400);
+ await mutate(bob,{action:'report',postId:created.id,reason:'spam'});
+ let db;const old=process.env.MEMESPACE_DATA_DIR;process.env.MEMESPACE_DATA_DIR=data;
+ try{db=openDatabase(root);assert.equal(db.prepare('SELECT reason FROM social_reports WHERE post_id=?').get(created.id).reason,'spam');}
+ finally{db?.close();if(old===undefined)delete process.env.MEMESPACE_DATA_DIR;else process.env.MEMESPACE_DATA_DIR=old}
+ await mutate(alice,{id:created.id},'DELETE');
+ const remaining=await read('/api/social?mode=feed',bob);
+ assert.equal(remaining.posts.length,1,'independent quote survives source removal');
+ assert.equal(remaining.posts[0].id,quoted.id);
+ assert.equal(remaining.posts[0].quote,null,'hidden source is not disclosed');
+ const hidden=await fetch(base+'/api/social?mode=thread&id='+created.id);assert.equal(hidden.status,404);
+ const invalid=await fetch(base+'/api/social?mode=feed&page=-1');assert.equal(invalid.status,400);
+ // Native media posting is authenticated and the binary is hidden with the post.
+ const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO/+l40AAAAASUVORK5CYII=','base64');
+ function uploadForm(bytes,type){const data=new FormData();data.append('image',new Blob([bytes],{type}),'upload.png');data.append('text','An original MemeSpace image #memeart');data.append('topic','memes');return data;}
+ const forbiddenImage=await fetch(base+'/api/social/media',{method:'POST',body:uploadForm(png,'image/png')});assert.equal(forbiddenImage.status,401);
+ const badImage=await fetch(base+'/api/social/media',{method:'POST',headers:{Origin:base,Cookie:alice.cookie},body:uploadForm(Buffer.from('<svg><script>alert(1)</script></svg>'),'image/svg+xml')});assert.equal(badImage.status,400);
+ const uploaded=await fetch(base+'/api/social/media',{method:'POST',headers:{Origin:base,Cookie:alice.cookie},body:uploadForm(png,'image/png')});
+ const uploadData=await responseJson(uploaded);assert.equal(uploaded.status,201,JSON.stringify(uploadData));
+ const mediaPost=await read('/api/social?mode=feed&tag=memeart',bob);assert.equal(mediaPost.posts[0].mediaUrl,'/api/social/media/'+uploadData.id);
+ const served=await fetch(base+mediaPost.posts[0].mediaUrl);assert.equal(served.status,200);assert.equal(served.headers.get('content-type'),'image/png');assert.deepEqual(Buffer.from(await served.arrayBuffer()),png);
+ await mutate(bob,{action:'block',userId:alice.account.userId,enabled:true});
+ const blockedImage=await fetch(base+mediaPost.posts[0].mediaUrl,{headers:{Cookie:bob.cookie}});assert.equal(blockedImage.status,404);
+ await mutate(bob,{action:'block',userId:alice.account.userId,enabled:false});
+ await mutate(alice,{id:uploadData.id},'DELETE');
+ assert.equal((await fetch(base+mediaPost.posts[0].mediaUrl)).status,404);
+ let mediaDb;const prevDir=process.env.MEMESPACE_DATA_DIR;process.env.MEMESPACE_DATA_DIR=data;
+ try{mediaDb=openDatabase(root);assert.equal(mediaDb.prepare('SELECT COUNT(*) AS n FROM social_media WHERE post_id=?').get(uploadData.id).n,0,'removed image bytes are purged');}
+ finally{mediaDb?.close();if(prevDir===undefined)delete process.env.MEMESPACE_DATA_DIR;else process.env.MEMESPACE_DATA_DIR=prevDir}
+ // Communities are real multi-member spaces: server-side permission gates, role grants and moderation.
+ async function communityCall(actor,payload,method='POST'){
+  const r=await fetch(base+'/api/social/communities',{method,headers:{Origin:base,'Content-Type':'application/json',Cookie:actor.cookie},body:JSON.stringify(payload)});
+  return {status:r.status,data:await responseJson(r)};
+ }
+ const made=await communityCall(alice,{action:'create',slug:'meme-builders',name:'Meme Builders Guild',description:'A creator-powered workshop'});
+ assert.equal(made.status,201,JSON.stringify(made.data));
+ const cid=made.data.id;
+ assert.equal((await read('/api/social/communities?q=builders',bob)).communities.some(c=>c.id===cid),true);
+ assert.equal((await read('/api/social/communities?id='+cid,alice)).community.role,'owner');
+ const anonymousJoin=await fetch(base+'/api/social/communities',{method:'POST',headers:{Origin:base,'Content-Type':'application/json'},body:JSON.stringify({action:'join',communityId:cid})});
+ assert.equal(anonymousJoin.status,401);
+ const unauthorizedPost=await fetch(base+'/api/social',{method:'POST',headers:{Origin:base,'Content-Type':'application/json',Cookie:bob.cookie},body:JSON.stringify({action:'create',text:'Not a member yet',topic:'memes',communityId:cid})});
+ assert.equal(unauthorizedPost.status,403);
+ assert.equal((await communityCall(bob,{action:'join',communityId:cid})).status,200);
+ const shared=await mutate(bob,{action:'create',text:'Welcome to the guild #builders',topic:'memes',communityId:cid});
+ assert.ok((await read('/api/social?mode=feed&community='+cid,alice)).posts.some(p=>p.id===shared.id&&p.communityId===cid));
+ const charlie=await register('social-charlie@example.test','Charlie Member');
+ assert.equal((await communityCall(charlie,{action:'join',communityId:cid})).status,200);
+ const guildImage=new FormData();guildImage.append('image',new Blob([png],{type:'image/png'}),'guild.png');guildImage.append('text','Meme Guild art #guild');guildImage.append('topic','memes');guildImage.append('communityId',cid);
+ const mediaResp=await fetch(base+'/api/social/media',{method:'POST',headers:{Origin:base,Cookie:charlie.cookie},body:guildImage});
+ const groupMedia=await responseJson(mediaResp);assert.equal(mediaResp.status,201,JSON.stringify(groupMedia));
+ const founder=await mutate(alice,{action:'create',text:'Founder announcement',topic:'memes',communityId:cid});
+ assert.equal((await communityCall(bob,{action:'role',communityId:cid,userId:charlie.account.userId,role:'moderator'})).status,403);
+ assert.equal((await communityCall(alice,{action:'role',communityId:cid,userId:bob.account.userId,role:'moderator'})).status,200);
+ assert.equal((await communityCall(bob,{action:'remove_post',communityId:cid,postId:founder.id,reason:'Unfair'})).status,403);
+ assert.equal((await communityCall(bob,{action:'remove_post',communityId:cid,postId:groupMedia.id,reason:'Off-topic media'})).status,200);
+ assert.equal((await fetch(base+'/api/social/media/'+groupMedia.id)).status,404);
+ assert.equal((await read('/api/social?mode=feed&community='+cid,alice)).posts.some(p=>p.id===groupMedia.id),false);
+ assert.equal((await communityCall(alice,{action:'ban',communityId:cid,userId:bob.account.userId,reason:'Repeated violations'})).status,200);
+ assert.equal((await read('/api/social/communities?id='+cid,bob)).community.banned,true);
+ assert.equal((await communityCall(bob,{action:'join',communityId:cid})).status,403);
+ const bannedPost=await fetch(base+'/api/social',{method:'POST',headers:{Origin:base,'Content-Type':'application/json',Cookie:bob.cookie},body:JSON.stringify({action:'create',text:'Banned content',topic:'memes',communityId:cid})});
+ assert.equal(bannedPost.status,403);
+ assert.equal((await communityCall(alice,{action:'unban',communityId:cid,userId:bob.account.userId})).status,200);
+ assert.equal((await communityCall(bob,{action:'join',communityId:cid})).status,200);
+ assert.equal((await communityCall(bob,{action:'leave',communityId:cid})).status,200);
+ assert.equal((await communityCall(alice,{action:'leave',communityId:cid})).status,403);
+ assert.equal((await communityCall(alice,{communityId:cid,name:'The Meme Builders Guild',description:'A refreshed creator space'},'PATCH')).status,200);
+ assert.equal((await read('/api/social/communities?id='+cid,alice)).community.name,'The Meme Builders Guild');
+ // Private creator community: request approvals and full data isolation across every read surface.
+ const privateMade=await communityCall(charlie,{action:'create',slug:'private-makers',name:'Private Meme Makers',description:'Approved creators only',visibility:'private'});
+ assert.equal(privateMade.status,201,JSON.stringify(privateMade.data));
+ const pid=privateMade.data.id;
+ const privateText=await mutate(charlie,{action:'create',text:'Secret creator process #privatetag2026',topic:'memes',communityId:pid});
+ const privateImageForm=new FormData();privateImageForm.append('image',new Blob([png],{type:'image/png'}),'private.png');privateImageForm.append('text','Exclusive artwork');privateImageForm.append('topic','memes');privateImageForm.append('communityId',pid);
+ const privateImageResponse=await fetch(base+'/api/social/media',{method:'POST',headers:{Origin:base,Cookie:charlie.cookie},body:privateImageForm});
+ const privateImage=await responseJson(privateImageResponse);assert.equal(privateImageResponse.status,201,JSON.stringify(privateImage));
+ const privateUrl='/api/social/media/'+privateImage.id;
+ assert.equal((await read('/api/social?mode=feed&community='+pid,alice)).posts.length,0);
+ assert.equal((await read('/api/social?mode=feed',alice)).posts.some(p=>p.id===privateText.id),false);
+ assert.equal((await read('/api/social?mode=trends',alice)).trends.some(x=>x.tag==='privatetag2026'),false);
+ assert.equal((await read('/api/social?mode=feed&view=profile&user='+charlie.account.userId,alice)).posts.some(p=>p.id===privateText.id),false);
+ assert.equal((await read('/api/social?mode=feed&community='+pid,charlie)).posts.length,2);
+ assert.equal((await fetch(base+'/api/social?mode=thread&id='+privateText.id,{headers:{Cookie:alice.cookie}})).status,404);
+ assert.equal((await fetch(base+privateUrl,{headers:{Cookie:alice.cookie}})).status,404);
+ assert.equal((await fetch(base+privateUrl)).status,404);
+ assert.equal((await fetch(base+privateUrl,{headers:{Cookie:charlie.cookie}})).status,200);
+ const outsiders=await read('/api/social/communities?id='+pid,alice);
+ assert.equal(outsiders.community.visibility,'private');
+ assert.equal(outsiders.community.posts,null);
+ assert.equal(outsiders.members.length,0);
+ assert.equal(outsiders.requests.length,0);
+ assert.equal((await read('/api/social/communities?q=private',alice)).communities.find(c=>c.id===pid).posts,null);
+ const asked=await communityCall(bob,{action:'join',communityId:pid});assert.equal(asked.status,200);
+ assert.equal(asked.data.requested,true);
+ assert.equal((await read('/api/social/communities?id='+pid,bob)).community.role,null);
+ assert.equal((await read('/api/social/communities?id='+pid,bob)).community.requested,true);
+ assert.equal((await read('/api/social/communities?id='+pid,charlie)).requests.length,1);
+ assert.equal((await communityCall(bob,{action:'approve',communityId:pid,userId:bob.account.userId})).status,403);
+ assert.equal((await communityCall(bob,{action:'cancel_request',communityId:pid})).status,200);
+ assert.equal((await read('/api/social/communities?id='+pid,charlie)).requests.length,0);
+ assert.equal((await communityCall(bob,{action:'join',communityId:pid})).status,200);
+ assert.equal((await communityCall(charlie,{action:'deny',communityId:pid,userId:bob.account.userId})).status,200);
+ assert.equal((await read('/api/social/communities?id='+pid,bob)).community.role,null);
+ assert.equal((await communityCall(bob,{action:'join',communityId:pid})).status,200);
+ assert.equal((await communityCall(charlie,{action:'approve',communityId:pid,userId:bob.account.userId})).status,200);
+ assert.equal((await read('/api/social/communities?id='+pid,bob)).community.role,'member');
+ assert.equal((await read('/api/social?mode=feed&community='+pid,bob)).posts.length,2);
+ assert.equal((await fetch(base+privateUrl,{headers:{Cookie:bob.cookie}})).status,200);
+ assert.equal((await communityCall(bob,{action:'leave',communityId:pid})).status,200);
+ assert.equal((await fetch(base+privateUrl,{headers:{Cookie:bob.cookie}})).status,404);
+ assert.equal((await communityCall(alice,{action:'join',communityId:pid})).status,200);
+ assert.equal((await communityCall(charlie,{action:'approve',communityId:pid,userId:alice.account.userId})).status,200);
+ assert.equal((await communityCall(bob,{action:'transfer',communityId:pid,userId:bob.account.userId,confirm:'TRANSFER OWNERSHIP'})).status,403);
+ assert.equal((await communityCall(charlie,{action:'transfer',communityId:pid,userId:alice.account.userId,confirm:'wrong'})).status,403);
+ assert.equal((await communityCall(charlie,{action:'transfer',communityId:pid,userId:alice.account.userId,confirm:'TRANSFER OWNERSHIP'})).status,200);
+ const transferred=await read('/api/social/communities?id='+pid,alice);
+ assert.equal(transferred.community.ownerId,alice.account.userId);
+ assert.equal(transferred.community.role,'owner');
+ assert.equal((await read('/api/social/communities?id='+pid,charlie)).community.role,'moderator');
+ assert.equal((await communityCall(charlie,{communityId:pid,name:'Not permitted change',description:'No longer owner',visibility:'public'},'PATCH')).status,403);
+ assert.equal((await communityCall(alice,{communityId:pid,name:'Private Makers HQ',description:'Approved creator work',visibility:'private'},'PATCH')).status,200);
+ // Trust Center: moderators can review reported posts, reverse community decisions and review appeals.
+ async function modRead(actor,id,mode='dashboard'){
+  const result=await fetch(base+'/api/social/communities/moderation?communityId='+id+'&mode='+mode,{headers:actor?.cookie?{Cookie:actor.cookie}:{}});
+  return {status:result.status,data:await responseJson(result)};
+ }
+ async function modAction(actor,payload){
+  const result=await fetch(base+'/api/social/communities/moderation',{method:'POST',headers:{Origin:base,'Content-Type':'application/json',Cookie:actor.cookie},body:JSON.stringify({communityId:cid,...payload})});
+  return {status:result.status,data:await responseJson(result)};
+ }
+ assert.equal((await modRead(null,cid)).status,401);
+ assert.equal((await modRead(charlie,cid)).status,403,'members cannot view the moderator case queue');
+ assert.equal((await modRead(alice,cid)).status,200);
+ const authorCases=await modRead(charlie,cid,'mine');
+ assert.equal(authorCases.status,200);
+ assert.ok(authorCases.data.removed.some(p=>p.postId===groupMedia.id),'removed content visible to its author for appeal');
+ await mutate(charlie,{action:'report',postId:shared.id,reason:'spam'});
+ const reportQueue=await modRead(alice,cid);
+ assert.ok(reportQueue.data.reports.some(x=>x.postId===shared.id&&x.reason==='spam'));
+ assert.equal((await modAction(charlie,{action:'review_report',postId:shared.id,reporterId:charlie.account.userId,decision:'remove',note:'Spam'})).status,403);
+ assert.equal((await modAction(alice,{action:'review_report',postId:shared.id,reporterId:charlie.account.userId,decision:'remove',note:'Community spam'})).status,200);
+ assert.equal((await read('/api/social?mode=feed&community='+cid,charlie)).posts.some(p=>p.id===shared.id),false);
+ assert.equal((await modAction(alice,{action:'restore_post',postId:shared.id,note:'Removed in error'})).status,200);
+ assert.ok((await read('/api/social?mode=feed&community='+cid,charlie)).posts.some(p=>p.id===shared.id));
+ assert.equal((await modAction(alice,{action:'restore_post',postId:shared.id,note:'Duplicate restoration'})).status,404);
+ const postAppeal=await modAction(charlie,{action:'appeal',targetKind:'post',targetId:groupMedia.id,reason:'The community image followed all of our rules.'});
+ assert.equal(postAppeal.status,201,JSON.stringify(postAppeal.data));
+ assert.equal((await modAction(charlie,{action:'appeal',targetKind:'post',targetId:groupMedia.id,reason:'Please reconsider this removal.'})).status,409);
+ assert.ok((await modRead(alice,cid)).data.appeals.some(a=>a.id===postAppeal.data.id&&a.status==='open'));
+ assert.equal((await modAction(charlie,{action:'resolve_appeal',appealId:postAppeal.data.id,decision:'approve',note:'Reviewed'})).status,403);
+ assert.equal((await modAction(alice,{action:'resolve_appeal',appealId:postAppeal.data.id,decision:'approve',note:'The image was within the guidelines.'})).status,200);
+ assert.equal((await fetch(base+'/api/social/media/'+groupMedia.id)).status,200,'approved appeal restores protected image');
+ assert.equal((await modAction(alice,{action:'resolve_appeal',appealId:postAppeal.data.id,decision:'deny',note:'Again'})).status,404);
+ assert.ok((await modRead(charlie,cid,'mine')).data.appeals.some(a=>a.id===postAppeal.data.id&&a.status==='approved'));
+ assert.equal((await communityCall(alice,{action:'ban',communityId:cid,userId:charlie.account.userId,reason:'Temporary misconduct'})).status,200);
+ const banAppeal=await modAction(charlie,{action:'appeal',targetKind:'ban',targetId:'self',reason:'I would like to request a review of my community ban.'});
+ assert.equal(banAppeal.status,201,JSON.stringify(banAppeal.data));
+ assert.equal((await modRead(charlie,cid,'mine')).data.banned,true);
+ assert.equal((await modAction(alice,{action:'resolve_appeal',appealId:banAppeal.data.id,decision:'deny',note:'Not sufficient'})).status,200);
+ assert.equal((await modRead(charlie,cid,'mine')).data.banned,true,'denied appeal does not lift ban');
+ const banAppeal2=await modAction(charlie,{action:'appeal',targetKind:'ban',reason:'I have addressed the behavior and request reinstatement.'});
+ assert.equal(banAppeal2.status,201,JSON.stringify(banAppeal2.data));
+ assert.equal((await modAction(alice,{action:'resolve_appeal',appealId:banAppeal2.data.id,decision:'approve',note:'Reinstatement approved'})).status,200);
+ assert.equal((await modRead(charlie,cid,'mine')).data.banned,false);
+ assert.equal((await read('/api/social/communities?id='+cid,charlie)).community.role,null,'ban reversal does not silently restore membership');
+ const auditHistory=(await modRead(alice,cid)).data.history;
+ assert.ok(auditHistory.some(x=>x.action==='post_removed'));
+ assert.ok(auditHistory.some(x=>x.action==='post_restored'));
+ assert.ok(auditHistory.some(x=>x.action==='appeal_submitted'));
+ assert.ok(auditHistory.some(x=>x.action==='appeal_approved'));
+ assert.ok(auditHistory.some(x=>x.action==='appeal_denied'));
+ assert.ok(auditHistory.some(x=>x.action==='report_resolved'));
+ assert.equal((await modRead(charlie,pid)).status,200,'old owner retains moderator role after transfer');
+ // Native Signal Inbox: unique handles, mentions, preferences, unread state and private content boundaries.
+ async function inbox(actor,params='mode=list'){
+  return read('/api/social/notifications?'+params,actor);
+ }
+ async function noticeChange(actor,payload){
+  const result=await fetch(base+'/api/social/notifications',{method:'PATCH',headers:{Origin:base,'Content-Type':'application/json',Cookie:actor.cookie},body:JSON.stringify(payload)});
+  return {status:result.status,data:await responseJson(result)};
+ }
+ const dave=await register('social-dave@example.test','Dave Artist');
+ const eve=await register('social-eve@example.test','Eve Studio');
+ assert.equal((await fetch(base+'/api/social/notifications?mode=count')).status,401);
+ assert.equal((await noticeChange(dave,{action:'handle',handle:'dave_creator'})).status,200);
+ assert.equal((await noticeChange(eve,{action:'handle',handle:'eve_studio'})).status,200);
+ assert.equal((await noticeChange(dave,{action:'handle',handle:'eve_studio'})).status,429,'handle changes are rate-limited');
+ assert.equal((await noticeChange(eve,{action:'handle',handle:'dave_creator'})).status,429);
+ assert.equal((await read('/api/social/notifications?mode=resolve&handle=eve_studio',dave)).member.userId,eve.account.userId);
+ const mentioned=await mutate(dave,{action:'create',text:'Creator shoutout to @eve_studio for great designs #makers',topic:'memes'});
+ let eveInbox=await inbox(eve);
+ assert.ok(eveInbox.notifications.some(n=>n.kind==='mention'&&n.postId===mentioned.id));
+ const mentionNotice=eveInbox.notifications.find(n=>n.kind==='mention'&&n.postId===mentioned.id);
+ assert.ok(eveInbox.unread>0);
+ assert.equal((await noticeChange(dave,{action:'read',id:mentionNotice.id})).status,200);
+ assert.ok((await inbox(eve)).notifications.find(n=>n.id===mentionNotice.id).readAt===0,'cannot mark another member inbox');
+ assert.equal((await noticeChange(eve,{action:'read',id:mentionNotice.id})).status,200);
+ assert.ok((await inbox(eve)).notifications.find(n=>n.id===mentionNotice.id).readAt>0);
+ await mutate(eve,{action:'follow',userId:dave.account.userId,enabled:true});
+ await mutate(eve,{action:'react',postId:mentioned.id,enabled:true});
+ let daveInbox=await inbox(dave);
+ assert.ok(daveInbox.notifications.some(n=>n.kind==='follow'));
+ assert.ok(daveInbox.notifications.some(n=>n.kind==='reaction'&&n.postId===mentioned.id));
+ assert.equal((await noticeChange(dave,{action:'read_all'})).status,200);
+ assert.equal((await inbox(dave,'mode=count')).unread,0);
+ const prefs=await noticeChange(eve,{action:'preferences',preferences:{mentions:false}});
+ assert.equal(prefs.status,200);assert.equal(prefs.data.preferences.mentions,0);
+ const ignoredMention=await mutate(dave,{action:'create',text:'Second signal @eve_studio will be filtered by preferences',topic:'memes'});
+ assert.equal((await inbox(eve)).notifications.some(n=>n.postId===ignoredMention.id&&n.kind==='mention'),false);
+ assert.equal((await noticeChange(eve,{action:'preferences',preferences:{mentions:true}})).status,200);
+ assert.equal((await noticeChange(eve,{action:'preferences',preferences:{not_real:true}})).status,400);
+ // Private community mentions are not delivered to users without permission.
+ const privateShout=await mutate(charlie,{action:'create',text:'Private shoutout @dave_creator from inside a restricted circle',topic:'memes',communityId:pid});
+ assert.ok(privateShout.id);
+ assert.equal((await inbox(dave)).notifications.some(n=>n.postId===privateShout.id),false);
+ assert.equal((await communityCall(dave,{action:'join',communityId:pid})).status,200);
+ assert.equal((await communityCall(alice,{action:'approve',communityId:pid,userId:dave.account.userId})).status,200);
+ const privateShout2=await mutate(charlie,{action:'create',text:'Approved mention @dave_creator for the private studio',topic:'memes',communityId:pid});
+ assert.ok((await inbox(dave)).notifications.some(n=>n.kind==='mention'&&n.postId===privateShout2.id));
+ assert.equal((await communityCall(dave,{action:'leave',communityId:pid})).status,200);
+ assert.equal((await inbox(dave)).notifications.some(n=>n.postId===privateShout2.id),false,'private notice hidden after membership revoked');
+ assert.equal((await fetch(base+'/api/social/notifications?mode=resolve&handle=unknown_creator_99')).status,404);
+ const unreadOnly=await inbox(eve,'mode=list&filter=unread');
+ assert.ok(unreadOnly.notifications.every(n=>n.readAt===0));
+ const invalidPage=await fetch(base+'/api/social/notifications?mode=list&page=-2',{headers:{Cookie:eve.cookie}});
+ assert.equal(invalidPage.status,400);
+ // Creator identity: editable profile details, real images, owner-only changes and image revocation.
+ const privateDraft=await read('/api/social/creator?id='+dave.account.userId,eve);
+ assert.equal(privateDraft.profile.name,'Dave Artist');
+ assert.equal(privateDraft.profile.hasAvatar,false);
+ assert.equal(privateDraft.profile.handle,'dave_creator');
+ const profileUpdate={name:'Dave Creative',bio:'Full-time meme illustrator',headline:'Memes meet imagination',location:'Michigan',website:'https://example.com/portfolio',interests:'Memes, gaming and digital art',accent:'violet'};
+ async function editCreator(actor,body){
+  const response=await fetch(base+'/api/social/creator',{method:'PATCH',headers:{Origin:base,'Content-Type':'application/json',...(actor?.cookie?{Cookie:actor.cookie}:{})},body:JSON.stringify(body)});
+  return {status:response.status,data:await responseJson(response)};
+ }
+ assert.equal((await editCreator(null,profileUpdate)).status,401);
+ assert.equal((await editCreator(dave,{...profileUpdate,website:'javascript:alert(1)'})).status,400);
+ assert.equal((await editCreator(dave,{...profileUpdate,accent:'not-an-accent'})).status,400);
+ const updated=await editCreator(dave,profileUpdate);
+ assert.equal(updated.status,200,JSON.stringify(updated.data));
+ const daveCard=await read('/api/social/creator?id='+dave.account.userId,eve);
+ assert.equal(daveCard.profile.headline,'Memes meet imagination');
+ assert.equal(daveCard.profile.accent,'violet');
+ assert.equal(daveCard.profile.website,'https://example.com/portfolio');
+ assert.equal((await read('/api/social?mode=profile&id='+dave.account.userId,eve)).profile.name,'Dave Creative');
+ async function uploadCreator(actor,kind,bytes=png,mime='image/png'){
+  const form=new FormData();form.append('kind',kind);form.append('image',new Blob([bytes],{type:mime}),'creator.png');
+  const response=await fetch(base+'/api/social/creator/media',{method:'POST',headers:{Origin:base,...(actor?.cookie?{Cookie:actor.cookie}:{})},body:form});
+  return {status:response.status,data:await responseJson(response)};
+ }
+ assert.equal((await uploadCreator(null,'avatar')).status,401);
+ assert.equal((await uploadCreator(dave,'avatar',Buffer.alloc(32,0),'image/png')).status,400);
+ assert.equal((await uploadCreator(dave,'avatar')).status,201);
+ assert.equal((await uploadCreator(dave,'banner')).status,201);
+ assert.equal((await read('/api/social/creator?id='+dave.account.userId,eve)).profile.hasBanner,true);
+ const avatarUrl='/api/social/creator/media/'+dave.account.userId+'?kind=avatar';
+ const bannerUrl='/api/social/creator/media/'+dave.account.userId+'?kind=banner';
+ const imageResponse=await fetch(base+avatarUrl,{headers:{Cookie:eve.cookie}});
+ assert.equal(imageResponse.status,200);
+ assert.equal(imageResponse.headers.get('content-type'),'image/png');
+ assert.equal(imageResponse.headers.get('x-content-type-options'),'nosniff');
+ assert.equal(imageResponse.headers.get('cache-control'),'private, no-store');
+ assert.deepEqual(Buffer.from(await imageResponse.arrayBuffer()),png);
+ assert.equal((await fetch(base+bannerUrl)).status,200,'Public creator banners are visible to guests');
+ assert.equal((await fetch(base+'/api/social/creator/media/not-an-account?kind=avatar')).status,404);
+ const removedBanner=await fetch(base+'/api/social/creator/media',{method:'DELETE',headers:{Origin:base,'Content-Type':'application/json',Cookie:dave.cookie},body:JSON.stringify({kind:'banner'})});
+ assert.equal(removedBanner.status,200);
+ assert.equal((await fetch(base+bannerUrl)).status,404);
+ await mutate(dave,{action:'block',userId:eve.account.userId,enabled:true});
+ assert.equal((await fetch(base+avatarUrl,{headers:{Cookie:eve.cookie}})).status,404,'Block prevents direct avatar delivery');
+ await mutate(dave,{action:'block',userId:eve.account.userId,enabled:false});
+ assert.equal((await fetch(base+avatarUrl,{headers:{Cookie:eve.cookie}})).status,200);
+ // Creator discovery v2: server-side niche filters, @handles, mutual networks and safety.
+ async function discover(actor,params=''){
+  return read('/api/social/discover'+(params?'?'+params:''),actor);
+ }
+ const guestCreators=await discover(null);
+ assert.ok(guestCreators.creators.some(x=>x.userId===dave.account.userId),'guests can browse public creator profiles');
+ const daveDiscovery=guestCreators.creators.find(x=>x.userId===dave.account.userId);
+ assert.equal(daveDiscovery.hasAvatar,true);
+ assert.equal(daveDiscovery.handle,'dave_creator');
+ const charlieDiscover=(await discover(null,'q=Charlie')).creators.find(x=>x.userId===charlie.account.userId);
+ const charliePublic=(await read('/api/social?mode=feed&view=profile&user='+charlie.account.userId)).posts;
+ assert.equal(charlieDiscover.posts,charliePublic.length,'discovery does not count private community posts');
+ assert.equal(typeof daveDiscovery.followers,'number');
+ assert.equal(typeof daveDiscovery.posts,'number');
+ assert.equal((await discover(eve,'q=%40dave_creator')).creators[0].userId,dave.account.userId);
+ assert.equal((await discover(eve,'q=imagination')).creators.some(x=>x.userId===dave.account.userId),true);
+ assert.equal((await discover(eve,'q=illustrator')).creators.some(x=>x.userId===dave.account.userId),true);
+ assert.equal((await discover(eve,'q=Michigan')).creators.some(x=>x.userId===dave.account.userId),false,'optional location is not a searchable field');
+ assert.equal((await discover(eve,'topic=memes')).creators.some(x=>x.userId===dave.account.userId),true);
+ assert.equal((await discover(eve,'topic=gaming')).creators.some(x=>x.userId===dave.account.userId),false,'creator niche requires a public top-level post');
+ assert.equal((await discover(eve,'filter=avatars')).creators.some(x=>x.userId===dave.account.userId),true);
+ // A previous block deliberately removed mutual follows; unblocking does not re-follow automatically.
+ await mutate(eve,{action:'follow',userId:dave.account.userId,enabled:true});
+ assert.equal((await discover(eve,'filter=following')).creators.some(x=>x.userId===dave.account.userId),true);
+ assert.equal((await discover(eve,'sort=popular')).creators.length>0,true);
+ assert.equal((await discover(eve,'sort=active')).creators.length>0,true);
+ assert.equal((await discover(eve,'sort=new')).creators.length>0,true);
+ assert.equal((await discover(eve,'page=1')).creators.length,0,'discovery pagination is bounded');
+ await mutate(alice,{action:'follow',userId:eve.account.userId,enabled:true});
+ assert.ok((await discover(alice,'filter=mutuals')).creators.some(x=>x.userId===dave.account.userId&&x.mutuals>=1),
+  'a member followed by people I follow should have mutual recommendations');
+ const oldName=await discover(eve,'q=%25%25');
+ assert.equal(oldName.creators.length,0,'search treats percent characters literally');
+ await mutate(dave,{action:'block',userId:eve.account.userId,enabled:true});
+ assert.equal((await discover(eve)).creators.some(x=>x.userId===dave.account.userId),false,'reverse blocks exclude creator from directory');
+ assert.equal((await discover(dave)).creators.some(x=>x.userId===eve.account.userId),false,'outgoing blocks exclude creator from directory');
+ await mutate(dave,{action:'block',userId:eve.account.userId,enabled:false});
+ assert.equal((await discover(eve)).creators.some(x=>x.userId===dave.account.userId),true);
+ await mutate(eve,{action:'mute',userId:dave.account.userId,enabled:true});
+ assert.equal((await discover(eve)).creators.some(x=>x.userId===dave.account.userId),false,'muted creators stay out of recommendations');
+ await mutate(eve,{action:'mute',userId:dave.account.userId,enabled:false});
+ for(const params of ['topic=made-up','sort=malicious','filter=internal','page=-1','page=101']){
+  const response=await fetch(base+'/api/social/discover?'+params,{headers:{Cookie:eve.cookie}});
+  assert.equal(response.status,400,'invalid discover query '+params);
+ }
+});

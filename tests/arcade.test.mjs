@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {circleCollision,capsuleCollision,finiteBody} from '../app/arcade/engines/physics.ts';
-import {createPinball,launchPinball,stepPinball,nudgePinball,pinballHit,drainPinball,pinballFeatureHit} from '../app/arcade/engines/pinball.ts';
+import {createPinball,launchPinball,stepPinball,nudgePinball,pinballHit,drainPinball,pinballFeatureHit,pinballCanLaunch} from '../app/arcade/engines/pinball.ts';
 import {sweptFeatureTrigger} from '../app/arcade/engines/pinball-layout.ts';
 import {createPool,strike,stepPool,finishShot,placeCue,canPlaceCue,cpuShot,cpuPlace,aimTrace,legalTargets} from '../app/arcade/engines/pool.ts';
 import {SYMBOLS,PAYLINES,sampleSymbol,evaluateSlots,spinSlots,freshWallet,readWallet,randomIndex,theoreticalReturn} from '../app/arcade/engines/slots.ts';
@@ -181,4 +181,38 @@ test('slot wallet migrates legacy history and prevents duplicate settlement IDs'
   const bonus=spinSlots(freshWallet(),1,()=>19,'reload-bonus',1002).wallet,reloaded=readWallet(JSON.stringify(bonus));assert.equal(reloaded.freeSpins,5);assert.equal(reloaded.history[0].id,'reload-bonus');assert.ok(reloaded.settlementIds.includes('reload-bonus'));
   assert.deepEqual(readWallet('{broken'),freshWallet());assert.deepEqual(readWallet(JSON.stringify({...first.wallet,credits:-1})),freshWallet());
 });
-
+test('pinball plunger relaunches a ball that settles in the launcher during multiball (#17)',()=>{
+  const s=createPinball();launchPinball(s);
+  for(let i=0;i<3;i++){s.time+=.2;pinballHit(s,i,true)}assert.equal(s.balls.length,3);
+  for(let cycle=0;cycle<4;cycle++){
+    const lane=s.balls[cycle%s.balls.length];Object.assign(lane,{x:512,y:771,vx:0,vy:0});
+    for(const other of s.balls)if(other!==lane)Object.assign(other,{x:150+other.id*60,y:420,vx:0,vy:-300});
+    stepPinball(s,1/240,{left:false,right:false});
+    assert.equal(s.phase,'playing');assert.equal(s.balls.length,3,'a resting lane ball is never lost or duplicated');
+    assert.ok(pinballCanLaunch(s),`cycle ${cycle}: the plunger is armed while a ball waits in the launcher`);
+    assert.equal(launchPinball(s,.8),true);assert.ok(lane.vy<-1000,'the waiting ball is launched up the lane');
+    assert.equal(pinballCanLaunch(s),false,'the plunger re-arms only when another ball settles');assert.equal(launchPinball(s,.8),false);
+    for(let f=0;f<10;f++)stepPinball(s,1/240,{left:false,right:false});assert.ok(lane.y<771);
+  }
+});
+test('pinball drains a launcher ball during a tilted multiball instead of trapping it',()=>{
+  const s=createPinball();launchPinball(s);for(let i=0;i<3;i++){s.time+=.2;pinballHit(s,i,true)}
+  s.tilted=true;Object.assign(s.balls[0],{x:512,y:771,vx:0,vy:0});stepPinball(s,1/240,{left:false,right:false});
+  assert.equal(s.balls.length,2);assert.equal(pinballCanLaunch(s),false);
+});
+test('pool CPU shoots from the resting cue position after normal shots (#18)',()=>{
+  const s=createPool('cpu');s.shots=1;s.groups=['solids','stripes'];
+  Object.assign(s.balls[0],{x:333,y:222});shot(s,{contact:1,potted:[],rail:true});
+  assert.equal(s.turn,1);assert.equal(s.phase,'aim');assert.equal(s.inHand,false);assert.equal(cpuPlace(s),false);assert.equal(placeCue(s,600,300),false);
+  assert.deepEqual([s.balls[0].x,s.balls[0].y],[333,222],'the cue ball stays where it stopped');
+  const pot=createPool('cpu');pot.shots=1;pot.groups=['solids','stripes'];Object.assign(pot.balls[0],{x:400,y:250});
+  shot(pot,{contact:2,potted:[2],rail:true});assert.equal(pot.turn,0,'a legal pocket keeps the player at the table');assert.equal(pot.phase,'aim');assert.equal(pot.inHand,false);
+  assert.deepEqual([pot.balls[0].x,pot.balls[0].y],[400,250]);
+});
+test('pool CPU only takes ball in hand after a verified foul and keeps a legal resting spot',()=>{
+  const foul=createPool('cpu');foul.shots=1;foul.groups=['solids','stripes'];Object.assign(foul.balls[0],{x:333,y:222});
+  shot(foul,{contact:9,potted:[],rail:true});assert.equal(foul.phase,'placement');assert.equal(foul.turn,1);assert.equal(foul.inHand,true);assert.equal(foul.balls[0].pocketed,false);
+  assert.equal(cpuPlace(foul),true);assert.deepEqual([foul.balls[0].x,foul.balls[0].y],[333,222]);assert.equal(foul.inHand,false);assert.equal(foul.phase,'aim');assert.equal(cpuPlace(foul),false);
+  const scratch=createPool('cpu');scratch.shots=1;scratch.groups=['solids','stripes'];shot(scratch,{contact:1,potted:[0],rail:true});
+  assert.equal(scratch.phase,'placement');assert.equal(scratch.inHand,true);assert.equal(cpuPlace(scratch),true);assert.equal(scratch.balls[0].pocketed,false);assert.equal(scratch.phase,'aim');
+});

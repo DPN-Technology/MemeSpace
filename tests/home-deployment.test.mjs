@@ -1,0 +1,95 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {execFileSync} from 'node:child_process';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+
+const root=fileURLToPath(new URL('../',import.meta.url));
+const compose=readFileSync(path.join(root,'deploy/home/compose.yml'),'utf8');
+const ignore=readFileSync(path.join(root,'.dockerignore'),'utf8');
+const gitignore=readFileSync(path.join(root,'.gitignore'),'utf8');
+const workflow=readFileSync(path.join(root,'.github/workflows/staging-readiness.yml'),'utf8');
+const launcher=readFileSync(path.join(root,'deploy/home/start-protected-tunnel.ps1'),'utf8');
+const docs=readFileSync(path.join(root,'docs/home-cloudflare-deployment.md'),'utf8');
+
+
+test('encrypted off-host backup and isolated recovery are part of the deployment contract',()=>{
+  const exporter=readFileSync(path.join(root,'deploy/home/export-encrypted-backup.ps1'),'utf8');
+  const recovery=readFileSync(path.join(root,'deploy/home/verify-encrypted-restore.ps1'),'utf8');
+  const durability=readFileSync(path.join(root,'scripts/staging-durability-ci.sh'),'utf8');
+  assert.match(ignore,/^\*\.msvault$/m);
+  assert.match(gitignore,/^\*\.msvault$/m);
+  assert.match(exporter,/OFF HOST VERIFIED/);
+  assert.match(exporter,/backup-vault\.mjs/);
+  assert.match(exporter,/verify-host|backup-sqlite\.mjs/);
+  assert.match(exporter,/Remove-Item -LiteralPath \$temporary/);
+  assert.match(exporter,/Read-Host.*-AsSecureString/);
+  assert.match(recovery,/ISOLATED RESTORE/);
+  assert.match(recovery,/backup-vault\.mjs/);
+  assert.match(recovery,/Get-ChildItem -LiteralPath \$targetDir/);
+  assert.match(durability,/backup-vault\.mjs encrypt/);
+  assert.match(durability,/backup-vault\.mjs restore/);
+  assert.match(workflow,/tests\/backup-vault\.test\.mjs/);
+  assert.match(workflow,/verify-encrypted-restore\.ps1/);
+  assert.match(docs,/export-encrypted-backup\.ps1/);
+  assert.match(docs,/verify-encrypted-restore\.ps1/);
+});
+
+test('home tunnel token is excluded from Git and Docker build context',()=>{
+  assert.match(ignore,/^deploy\/home\/\.secrets\/$/m);
+  assert.match(gitignore,/^\/deploy\/home\/\.secrets\/$/m);
+  assert.match(ignore,/^\.env\*$/m);
+  assert.match(gitignore,/^\.env\*$/m);
+  assert.doesNotMatch(compose,/\$\{(?:TUNNEL_TOKEN|CLOUDFLARE_TUNNEL_TOKEN)/);
+  assert.match(compose,/--token-file/);
+});
+test('Cloudflare tunnel is an opt-in profile, app is not internet port-published',()=>{
+  assert.match(compose,/profiles: \["tunnel"\]/);
+  assert.match(workflow,/"deploy\/home\/\*\*"/);
+  const cfg=JSON.parse(execFileSync('docker',['compose','--profile','tunnel','-f','deploy/home/compose.yml','config','--format','json'],{
+    cwd:root,encoding:'utf8',env:{...process.env,MEMESPACE_STAGE_HOSTNAME:'staging.example.org'}
+  }));
+  assert.ok(cfg.services.app,'app service required');
+  assert.equal(cfg.services.app.ports,undefined,'app must never bind a host port');
+  assert.equal(cfg.services.tunnel.ports,undefined,'cloudflared must not bind a host port');
+  assert.deepEqual(cfg.services.tunnel.profiles,['tunnel']);
+  assert.equal(cfg.services.app.environment.MEMESPACE_PUBLIC_ORIGIN,'https://staging.example.org');
+  assert.ok(cfg.services.app.volumes.some(v=>v.target==='/app/data'&&v.type==='volume'));
+  assert.ok(cfg.services.tunnel.volumes.some(v=>v.target==='/run/secrets/tunnel-token'&&v.read_only));
+  assert.ok(cfg.services.tunnel.command.includes('--token-file'));
+  assert.ok(!JSON.stringify(cfg.services.tunnel).includes('docker.sock'),'Docker socket must not be exposed to tunnel');
+});
+
+test('Windows staging requires pinned tenant and installed periodic fail-closed watchdog',()=>{
+  const preflight=readFileSync(path.join(root,'deploy/home/verify-host.ps1'),'utf8');
+  const installer=readFileSync(path.join(root,'deploy/home/install-access-watchdog.ps1'),'utf8');
+  const watchdog=readFileSync(path.join(root,'scripts/home-access-watchdog.mjs'),'utf8');
+  assert.match(preflight,/MEMESPACE_ACCESS_TEAM_DOMAIN/);
+  assert.match(launcher,/MEMESPACE_ACCESS_TEAM_DOMAIN/);
+  assert.match(launcher,/Get-ScheduledTask -TaskName/);
+  assert.match(launcher,/home-access-watchdog\.mjs/);
+  assert.match(installer,/INSTALL ACCESS WATCHDOG/);
+  assert.match(installer,/New-ScheduledTaskTrigger -Once/);
+  assert.match(installer,/New-TimeSpan -Minutes 5/);
+  assert.match(installer,/LogonType Interactive/);
+  assert.match(installer,/Register-ScheduledTask/);
+  assert.match(watchdog,/execFileSync\('docker'/);
+  assert.match(watchdog,/--profile','tunnel','stop','tunnel/);
+  assert.match(watchdog,/validateAccessTeamDomain/);
+  assert.match(workflow,/tests\/home-access-watchdog\.test\.mjs/);
+  assert.match(workflow,/install-access-watchdog\.ps1/);
+  assert.match(docs,/MEMESPACE_ACCESS_TEAM_DOMAIN/);
+  assert.match(docs,/install-access-watchdog\.ps1/);
+});
+
+test('home tunnel launch uses an explicit Access-policy checkpoint and fail-closed anonymous probe',()=>{
+  assert.match(launcher,/ACCESS POLICY VERIFIED/);
+  assert.match(launcher,/scripts\/home-access-boundary\.mjs/);
+  assert.match(launcher,/--profile tunnel up -d app tunnel/);
+  assert.match(launcher,/--profile tunnel stop tunnel/);
+  assert.match(launcher,/verify-host\.ps1/);
+  assert.match(docs,/start-protected-tunnel\.ps1/);
+  assert.match(workflow,/home-access-boundary\.test\.mjs/);
+  assert.match(workflow,/start-protected-tunnel\.ps1/);
+});

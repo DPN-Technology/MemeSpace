@@ -24,6 +24,12 @@ Use GitHub private vulnerability reporting / Security Advisory when available. O
 - security headers on the public Next.js application
 - separate public-member and Control Center authentication/session models
 
+## October 23, 2026 remediation (issue #44 / PR #43)
+
+Public-origin self-registration fails closed by default: an externally gated beta is the only temporary unverified-email mode. Full public onboarding needs email verification and trusted-edge IP throttling. Public password crypto is asynchronous and capped at four concurrent jobs; persistent SQLite admission controls bound global and per-identifier requests. Public CSP is enabled with Next hydration-compatible inline allowances that warrant a future nonce-based hardening pass. Payments remain off and PR #43 does not authorize production deployment.
+
+GitHub withdrew the development-only braces advisory GHSA-vfj7-8cjw-p6xm on October 23, 2026. The exception was removed, restoring a fully blocking high/critical audit for all dependencies.
+
 ## Local-runtime boundary
 
 MemeSpace v2.5 is intentionally local-first. The public site and the separate Control Center bind to loopback by default and share the local operating-system trust boundary. The Control Center adds password authentication, authenticator MFA, CSRF/origin enforcement, role permissions, lockouts, audit events, and a separate security database, but this is **not** a production internet-facing deployment model.

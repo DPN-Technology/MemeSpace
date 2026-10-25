@@ -18,7 +18,10 @@ function passwordHint(value:string){if(!value)return 'Use 12–128 characters. A
 
 export function IdentityCenter({open,onOpenChange,account,onAccountChange,initialMode='signin'}:Props){
   const [mode,setMode]=useState<'signin'|'register'|'account'>(account?'account':initialMode),[identifier,setIdentifier]=useState(''),[displayName,setDisplayName]=useState(''),[password,setPassword]=useState(''),[confirm,setConfirm]=useState(''),[currentPassword,setCurrentPassword]=useState(''),[newPassword,setNewPassword]=useState(''),[newConfirm,setNewConfirm]=useState(''),[deletion,setDeletion]=useState(''),[legacyDeletion,setLegacyDeletion]=useState(''),[deletePassword,setDeletePassword]=useState(''),[showPassword,setShowPassword]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[status,setStatus]=useState(''),[sessions,setSessions]=useState<IdentitySession[]>([]);
-  useEffect(()=>{setMode(account?'account':initialMode);setError('');setStatus('');setPassword('');setConfirm('');setCurrentPassword('');setNewPassword('');setNewConfirm('');setDeletion('');setLegacyDeletion('');setDeletePassword('');},[account,initialMode,open]);
+  useEffect(()=>{setMode(account?'account':initialMode);setError('');setPassword('');setConfirm('');setCurrentPassword('');setNewPassword('');setNewConfirm('');setDeletion('');setLegacyDeletion('');setDeletePassword('');},[account,initialMode,open]);
+  // Keep action feedback visible when the account changes after registration
+  // or sign-in; reset it only when opening a fresh dialog session.
+  useEffect(()=>{if(open)setStatus('');},[open]);
   useEffect(()=>{if(!open||!account||account.needsPasswordSetup)return;authRequest('sessions').then(d=>setSessions(d.sessions||[])).catch(()=>setSessions([]));},[open,account]);
   function fail(error:unknown){setError(error instanceof Error?error.message:'The identity request could not be completed.');setStatus('');}
   async function submit(event:FormEvent){event.preventDefault();setBusy(true);setError('');setStatus('');try{

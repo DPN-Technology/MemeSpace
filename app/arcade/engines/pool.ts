@@ -8,7 +8,7 @@ export type CpuDifficulty='easy'|'standard'|'hard';
 export type Group='solids'|'stripes';
 export type PoolBall=Body&{id:number;pocketed:boolean;rotation:number};
 export type Shot={firstContact:number|null;potted:number[];pockets:Record<number,number>;rail:boolean;calledPocket:number|null;breakShot:boolean;remaining:number};
-export type PoolState={balls:PoolBall[];mode:PoolMode;layout:PoolLayoutId;phase:'aim'|'rolling'|'placement'|'over';turn:number;groups:(Group|null)[];winner:number|null;shots:number;fouls:number[];shot:Shot|null;note:string;time:number;settle:number;spin:number;events:number;lastPocket:number;lastShot:string;started:boolean};
+export type PoolState={balls:PoolBall[];mode:PoolMode;layout:PoolLayoutId;phase:'aim'|'rolling'|'placement'|'over';turn:number;groups:(Group|null)[];winner:number|null;shots:number;fouls:number[];shot:Shot|null;note:string;time:number;settle:number;spin:number;events:number;lastPocket:number;lastShot:string;started:boolean;inHand:boolean};
 export const groupOf=(id:number):Group|null=>id>0&&id<8?'solids':id>8?'stripes':null;
 export function remaining(s:PoolState,player=s.turn){const group=s.groups[player];return s.balls.filter(b=>!b.pocketed&&groupOf(b.id)===group&&group!==null).length}
 export function legalTargets(s:PoolState){if(s.mode==='solo')return s.balls.filter(b=>b.id&&!b.pocketed);const group=s.groups[s.turn];return s.balls.filter(b=>!b.pocketed&&b.id>0&&(group?(remaining(s)?groupOf(b.id)===group:b.id===8):b.id!==8))}
@@ -25,7 +25,7 @@ export function createPool(mode:PoolMode='solo',layout:PoolLayoutId='standard'):
   for(const b of balls.slice(1)){const pos=positions[b.id];if(pos)Object.assign(b,{x:pos[0],y:pos[1],pocketed:false});else b.pocketed=true}
  }
  const note=layout==='standard'?(mode==='solo'?'Clear all 15 balls. Aim, set your power, and shoot.':'Player 1 breaks. The first legal pocket assigns groups.'):`${layout==='line-drill'?'Line drill':'Bank shot'} practice. Clear the balls on the table.`;
- return {balls,mode,layout,phase:'aim',turn:0,groups:[null,null],winner:null,shots:0,fouls:[0,0],shot:null,note,time:0,settle:0,spin:0,events:0,lastPocket:-1,lastShot:'',started:false};
+ return {balls,mode,layout,phase:'aim',turn:0,groups:[null,null],winner:null,shots:0,fouls:[0,0],shot:null,note,time:0,settle:0,spin:0,events:0,lastPocket:-1,lastShot:'',started:false,inHand:false};
 }
 export function strike(s:PoolState,angle:number,power:number,calledPocket:number|null=null,spin=0){
  if(s.phase!=='aim'||!Number.isFinite(angle)||!Number.isFinite(power))return false;
@@ -34,14 +34,14 @@ export function strike(s:PoolState,angle:number,power:number,calledPocket:number
  s.shot={firstContact:null,potted:[],pockets:{},rail:false,calledPocket,breakShot:s.shots===0,remaining:remaining(s)};s.shots++;s.phase='rolling';s.settle=0;s.spin=clamp(spin,-1,1);s.started=true;s.note='Shot in motion…';return true;
 }
 export function canPlaceCue(s:PoolState,x:number,y:number){return Number.isFinite(x)&&Number.isFinite(y)&&x>=TABLE.left+13&&x<=TABLE.right-13&&y>=TABLE.top+13&&y<=TABLE.bottom-13&&!s.balls.some(b=>b.id&&!b.pocketed&&Math.hypot(b.x-x,b.y-y)<25)&&!POCKETS.some(p=>Math.hypot(p.x-x,p.y-y)<32)}
-export function placeCue(s:PoolState,x:number,y:number){if(s.phase!=='placement'||!canPlaceCue(s,x,y))return false;Object.assign(s.balls[0],{x,y,vx:0,vy:0,pocketed:false});s.phase='aim';s.note=s.mode==='solo'?'Cue ball placed. Keep clearing the table.':`Player ${s.turn+1}: cue placed. Aim your next shot.`;return true}
+export function placeCue(s:PoolState,x:number,y:number){if(s.phase!=='placement'||!s.inHand||!canPlaceCue(s,x,y))return false;Object.assign(s.balls[0],{x,y,vx:0,vy:0,pocketed:false});s.inHand=false;s.phase='aim';s.note=s.mode==='solo'?'Cue ball placed. Keep clearing the table.':`Player ${s.turn+1}: cue placed. Aim your next shot.`;return true}
 function respotEight(s:PoolState){const ball=s.balls.find(b=>b.id===8)!;for(let x=690;x>=TABLE.left+20;x-=26)if(!s.balls.some(b=>b!==ball&&!b.pocketed&&Math.hypot(b.x-x,b.y-270)<25)){Object.assign(ball,{x,y:270,vx:0,vy:0,pocketed:false});return}for(let y=90;y<460;y+=26)for(let x=90;x<920;x+=26)if(!s.balls.some(b=>b!==ball&&!b.pocketed&&Math.hypot(b.x-x,b.y-y)<25)){Object.assign(ball,{x,y,vx:0,vy:0,pocketed:false});return}}
 export function finishShot(s:PoolState){
- const shot=s.shot;if(!shot||s.phase!=='rolling')return;
+ const shot=s.shot;if(!shot||s.phase!=='rolling')return;s.inHand=false;
  const scratch=shot.potted.includes(0),objects=shot.potted.filter(id=>id>0),eight=objects.includes(8),group=s.groups[s.turn];let foul='';
  if(s.mode==='solo'){
   if(s.balls.slice(1).every(b=>b.pocketed)){s.phase='over';s.winner=0;s.note=`Table cleared in ${s.shots} shots.`}
-  else if(scratch){s.phase='placement';s.fouls[0]++;s.note='Scratch. Place the cue ball anywhere clear on the cloth.'}
+  else if(scratch){s.phase='placement';s.inHand=true;s.fouls[0]++;s.note='Scratch. Place the cue ball anywhere clear on the cloth.'}
   else{s.phase='aim';s.note=objects.length?`${objects.length} pocketed. ${15-s.balls.slice(1).filter(b=>b.pocketed).length} to go.`:'Aim your next shot.'}
   s.lastShot=s.note;return;
  }
@@ -51,7 +51,7 @@ export function finishShot(s:PoolState){
  else if(!objects.length&&!shot.rail)foul='No ball reached a cushion after contact';
  if(eight&&shot.breakShot)respotEight(s);
  else if(eight){const legal=!foul&&group!==null&&shot.remaining===0&&shot.calledPocket===shot.pockets[8];s.winner=legal?s.turn:1-s.turn;s.phase='over';s.note=legal?`Player ${s.turn+1} wins. Eight ball in the called pocket.`:`Player ${2-s.turn} wins. ${foul||'Eight ball pocketed early or in an uncalled pocket'}.`;s.lastShot=s.note;return}
- if(foul){s.fouls[s.turn]++;s.turn=1-s.turn;s.phase='placement';s.balls[0].pocketed=true;s.note=`${foul}. Player ${s.turn+1} has ball in hand.`}
+ if(foul){s.fouls[s.turn]++;s.turn=1-s.turn;s.phase='placement';s.inHand=true;s.note=`${foul}. Player ${s.turn+1} has ball in hand.`}
  else{
   const first=objects.find(id=>groupOf(id));if(!group&&first){s.groups[s.turn]=groupOf(first);s.groups[1-s.turn]=s.groups[s.turn]==='solids'?'stripes':'solids'}
   const keep=objects.some(id=>groupOf(id)===s.groups[s.turn])||(shot.breakShot&&eight);if(!keep)s.turn=1-s.turn;
@@ -91,4 +91,5 @@ export function cpuShot(s:PoolState,difficulty:CpuDifficulty='standard'){
  if(options.length)return options[difficulty==='easy'?Math.min(1,options.length-1):0];
  const target=targets[0];return {angle:target?Math.atan2(target.y-cue.y,target.x-cue.x):0,power:s.shots===0?.92:.48,pocket:0,score:0,targetId:target?.id??null};
 }
-export function cpuPlace(s:PoolState){for(let x=260;x<900;x+=45)for(let y=120;y<440;y+=40)if(placeCue(s,x,y))return true;return false}
+// The CPU may only move the cue with a foul-granted ball in hand, and it keeps the resting spot whenever that spot is legal.
+export function cpuPlace(s:PoolState){if(s.phase!=='placement'||!s.inHand)return false;const cue=s.balls[0];if(!cue.pocketed&&canPlaceCue(s,cue.x,cue.y))return placeCue(s,cue.x,cue.y);for(let x=260;x<900;x+=45)for(let y=120;y<440;y+=40)if(placeCue(s,x,y))return true;return false}

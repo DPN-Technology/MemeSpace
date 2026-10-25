@@ -1,0 +1,17 @@
+{$STAGING_DOMAIN} {
+    encode zstd gzip
+
+    basic_auth {
+        {$STAGING_BASIC_USER} {$STAGING_BASIC_PASSWORD_HASH}
+    }
+
+    header {
+        X-Content-Type-Options nosniff
+        Referrer-Policy no-referrer
+        X-Frame-Options DENY
+        Cache-Control "no-store"
+        -Server
+    }
+
+    reverse_proxy app:5173
+}

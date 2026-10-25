@@ -6,12 +6,18 @@ export {RAILS} from './pinball-layout.ts';
 export const PIN={width:560,height:820};
 export const BUMPERS=[{x:184,y:185,r:30},{x:360,y:185,r:30},{x:272,y:292,r:34}];
 export const TARGETS=[{x:104,y:340,r:13},{x:442,y:342,r:13},{x:272,y:92,r:14}];
-export type PinBall=Body&{id:number;trail:Vec[]};
+export type PinBall=Body&{id:number;trail:Vec[];inLane?:boolean};
 export type PinState={balls:PinBall[];phase:'ready'|'playing'|'over';score:number;ballNumber:number;multiplier:number;targets:boolean[];dropTargets:boolean[];featureHits:Record<PinballFeatureId,number>;spinnerCharge:number;missionStep:number;missionAt:number;missionsCompleted:number;hits:number[];targetHits:number[];time:number;ballTime:number;saverUsed:boolean;returned:boolean;multiball:boolean;roundMultiball:boolean;left:number;right:number;nudgeCount:number;tilted:boolean;lastNudge:number;events:number;note:string;bestCombo:number;combo:number;lastBumper:number;cooldowns:Record<string,number>;id:number};
 function makeBall(x:number,y:number,vx=0,vy=0,id=0):PinBall{return {x,y,vx,vy,r:9,id,trail:[]}}
 const freshTargets=()=>[false,false,false];
 export function createPinball():PinState{const targets=freshTargets();return {balls:[makeBall(512,749)],phase:'ready',score:0,ballNumber:1,multiplier:1,targets,dropTargets:targets,featureHits:{'left-orbit':0,spinner:0,'right-orbit':0,'left-lane':0,'center-lane':0,'right-lane':0,'drop-bank':0},spinnerCharge:0,missionStep:0,missionAt:-10,missionsCompleted:0,hits:[-10,-10,-10],targetHits:[-10,-10,-10],time:0,ballTime:0,saverUsed:false,returned:false,multiball:false,roundMultiball:false,left:.34,right:Math.PI-.34,nudgeCount:0,tilted:false,lastNudge:-10,events:0,note:'Launch the ball. Route Left Orbit → Spinner → Right Orbit within six seconds to complete a mission.',bestCombo:0,combo:0,lastBumper:-10,cooldowns:{},id:1}}
-export function launchPinball(s:PinState,power=.8){if(s.phase!=='ready')return false;s.balls=[makeBall(512,749,-30,-(1000+clamp(power,0,1)*260),s.id++)];s.phase='playing';if(!s.returned)s.ballTime=0;s.returned=false;s.note=s.saverUsed?'Ball saved. Back into the reactor.':'Reactor online. Flippers ready.';s.events++;return true}
+const restingInLane=(ball:PinBall)=>ball.x>500&&ball.y>744&&Math.hypot(ball.vx,ball.vy)<25;
+// During multiball a ball can come to rest in the shooter lane while others are still live; it must stay launchable.
+export function pinballLaneBall(s:PinState){if(s.phase!=='playing'||s.balls.length<2)return undefined;let best:PinBall|undefined;for(const ball of s.balls)if(restingInLane(ball)&&(!best||ball.y>best.y))best=ball;return best}
+export function pinballCanLaunch(s:PinState){return s.phase==='ready'||(!s.tilted&&!!pinballLaneBall(s))}
+export function launchPinball(s:PinState,power=.8){
+ if(s.phase==='playing'){const ball=s.tilted?undefined:pinballLaneBall(s);if(!ball)return false;ball.x=512;ball.vx=-30;ball.vy=-(1000+clamp(power,0,1)*260);ball.inLane=false;ball.trail=[];s.note='Multiball relaunch. Keep them all alive.';s.events++;return true}
+ if(s.phase!=='ready')return false;s.balls=[makeBall(512,749,-30,-(1000+clamp(power,0,1)*260),s.id++)];s.phase='playing';if(!s.returned)s.ballTime=0;s.returned=false;s.note=s.saverUsed?'Ball saved. Back into the reactor.':'Reactor online. Flippers ready.';s.events++;return true}
 export function nudgePinball(s:PinState,direction=1){if(s.phase!=='playing'||s.time-s.lastNudge<.7||s.tilted)return false;s.lastNudge=s.time;s.nudgeCount++;if(s.nudgeCount>3){s.tilted=true;s.note='TILT — flippers disabled until this ball drains.';s.events++;return true}for(const ball of s.balls){ball.vx+=direction*110;ball.vy-=170}s.note=`Nudge ${s.nudgeCount}/3. One more after three will tilt.`;s.events++;return true}
 function expireMission(s:PinState){if(s.missionStep>0&&s.time-s.missionAt>6){s.missionStep=0;s.missionAt=-10;s.events++}}
 export function pinballFeatureHit(s:PinState,feature:PinballFeatureId,ballId=0){
@@ -54,9 +60,13 @@ export function stepPinball(s:PinState,dt:number,input:{left:boolean;right:boole
    for(const [i,x,y,dir] of [[0,120,461,1],[1,408,461,-1]])if(Math.hypot(ball.x-x,ball.y-y)<32&&s.time-(s.cooldowns['sling'+i]??-10)>.2){ball.vx+=dir*210;ball.vy-=240;s.cooldowns['sling'+i]=s.time;if(!s.tilted)s.score+=30*s.multiplier;s.events++}
    flipper(ball,{x:168,y:683},s.left,(s.left-oldL)/h);flipper(ball,{x:392,y:683},s.right,(s.right-oldR)/h);
    const speed=Math.hypot(ball.vx,ball.vy);
-   if(s.balls.length===1&&ball.x>500&&ball.y>744&&speed<25){
+   if(s.balls.length===1&&restingInLane(ball)){
     if(s.tilted){s.balls=[];drainPinball(s)}else{s.returned=true;s.phase='ready';s.balls=[makeBall(512,749,0,0,s.id++)];s.note='Ball returned to the plunger. Adjust your power and launch again.';s.events++}return;
    }
+   if(s.balls.length>1&&restingInLane(ball)){
+    if(s.tilted){s.balls=s.balls.filter(b=>b!==ball);continue}
+    if(!ball.inLane){ball.inLane=true;s.note='Ball in the launcher — pull the plunger to relaunch.';s.events++}
+   }else if(speed>=25)ball.inLane=false;
    if(speed>1550){ball.vx*=1550/speed;ball.vy*=1550/speed}
    if(ball.y>812||ball.x<-30||ball.x>590||!Number.isFinite(ball.x+ball.y+ball.vx+ball.vy))s.balls=s.balls.filter(b=>b!==ball);
   }

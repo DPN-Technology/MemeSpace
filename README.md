@@ -84,6 +84,7 @@ Setup runs the pinned pnpm version through npm. You need npm registry access for
 | --- | --- |
 | **The Meme Mind** | Enter through the animated binary head, navigate the brain, and open modules for meme history, memecoin history and crypto education. |
 | **Community & identity** | Join four rooms, search stored conversations, browse older messages and focused replies, react, edit, report and keep a separate draft in each room. Manage your local account and read operator-published announcements. |
+| **Social Network** | Open Connect from the shared brain-map menu or `/social`: persistent feeds, replies, images, creator profiles, discovery, follows, notifications and public/private communities. [Social guide](docs/social-network.md). |
 | **Reading room** | Explore 12 culture stories and 7 memecoin field guides with outlines, practical examples, source links, full-text search and a saved reading list. |
 | **Media & learning** | Create and save meme edits. Follow 9 lessons with practical exercises, explanatory knowledge checks, saved progress and personal notes. |
 | **Neon Arcade** | Play six cabinets, chase personal records, and complete local daily challenges and lifetime milestones. |
