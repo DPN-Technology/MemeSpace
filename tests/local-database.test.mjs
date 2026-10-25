@@ -15,7 +15,7 @@ test('migrations preserve saved data after close and reopen',async()=>{
   await q.prepare('INSERT INTO profiles(user_id,name,bio,updated_at) VALUES(?,?,?,?)').bind('local_seedy','Diesel','Saved locally',1).run();
   db.close();db=openDatabase(root);q=adapter(db);
   assert.equal((await q.prepare('SELECT name FROM profiles WHERE user_id=?').bind('local_seedy').first()).name,'Diesel');
-  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM _memespace_migrations').get().n,5);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM _memespace_migrations').get().n,JSON.parse(readFileSync(path.join(source,'drizzle/meta/_journal.json'),'utf8')).entries.length);
   assert.equal((await q.prepare('SELECT name FROM profiles WHERE user_id=?').bind('missing').first()),null);
  }finally{db?.close();rmSync(root,{recursive:true,force:true})}
 });

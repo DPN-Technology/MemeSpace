@@ -24,6 +24,9 @@
     "test:arcade": "node --test tests/arcade.test.mjs tests/arcade-extra.test.mjs",
     "test:arcade-ui": "node --test tests/arcade-ui.test.mjs",
     "test:community-ui": "node --test tests/community-ui.test.mjs",
+    "test:social-api": "node --test tests/social-network.test.mjs",
+    "test:social": "node --test tests/social-regressions.test.mjs",
+    "test:mind-nav": "node --test tests/mind-nav.test.mjs",
     "typecheck": "tsc --noEmit",
     "security:gate": "node scripts/security-gate.mjs",
     "ci:verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm security:gate"

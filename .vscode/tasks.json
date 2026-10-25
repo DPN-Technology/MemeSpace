@@ -1,0 +1,38 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "MemeSpace: Start local app",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"scripts/local.mjs",
+				"start"
+			],
+			"isBackground": true,
+			"problemMatcher": []
+		},
+		{
+			"label": "MemeSpace: Restart after CSP fix",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"scripts/local.mjs",
+				"start"
+			],
+			"isBackground": true,
+			"problemMatcher": []
+		},
+		{
+			"label": "MemeSpace: Start with Social Network",
+			"type": "shell",
+			"command": "node",
+			"args": [
+				"scripts/local.mjs",
+				"start"
+			],
+			"isBackground": true,
+			"problemMatcher": []
+		}
+	]
+}

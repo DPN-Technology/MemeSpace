@@ -36,6 +36,16 @@
       "when": 1790000000000,
       "tag": "0004_neon_arcade",
       "breakpoints": true
-    }
+    },
+    {"idx":5,"version":"6","when":1790000000001,"tag":"0005_social_network","breakpoints":true},
+    {"idx":6,"version":"6","when":1790000000002,"tag":"0006_social_moderation","breakpoints":true},
+    {"idx":7,"version":"6","when":1790000000003,"tag":"0007_social_relationships","breakpoints":true},
+    {"idx":8,"version":"6","when":1790000000004,"tag":"0008_social_content","breakpoints":true},
+    {"idx":9,"version":"6","when":1790000000005,"tag":"0009_social_media","breakpoints":true},
+    {"idx":10,"version":"6","when":1790000000006,"tag":"0010_creator_communities","breakpoints":true},
+    {"idx":11,"version":"6","when":1790000000007,"tag":"0011_private_communities","breakpoints":true},
+    {"idx":12,"version":"6","when":1790000000008,"tag":"0012_community_moderation","breakpoints":true},
+    {"idx":13,"version":"6","when":1790000000009,"tag":"0013_social_notifications","breakpoints":true},
+    {"idx":14,"version":"6","when":1790000000010,"tag":"0014_creator_profiles","breakpoints":true}
   ]
 }
